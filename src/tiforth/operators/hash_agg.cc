@@ -597,9 +597,11 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
       group_key_arena_(memory_pool_),
       agg_state_arena_(memory_pool_),
       key_to_group_id_(memory_pool_, &group_key_arena_),
+      pmr_resource_(std::make_unique<ArrowMemoryPoolResource>(memory_pool_)),
       exec_context_(memory_pool_, /*executor=*/nullptr,
-                   engine != nullptr ? engine->function_registry() : nullptr) {
-  pmr_resource_ = std::make_unique<ArrowMemoryPoolResource>(memory_pool_);
+                   engine != nullptr ? engine->function_registry() : nullptr),
+      group_keys_(std::pmr::polymorphic_allocator<OutputKey>(pmr_resource_.get())),
+      group_agg_states_(std::pmr::polymorphic_allocator<uint8_t*>(pmr_resource_.get())) {
 
   aggs_.reserve(aggs.size());
   for (auto& agg : aggs) {

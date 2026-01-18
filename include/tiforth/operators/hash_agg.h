@@ -122,8 +122,8 @@ class HashAggContext final {
   std::unique_ptr<Compiled> compiled_;
   arrow::compute::ExecContext exec_context_;
 
-  std::vector<OutputKey> group_keys_;
-  std::vector<uint8_t*> group_agg_states_;
+  std::pmr::vector<OutputKey> group_keys_;
+  std::pmr::vector<uint8_t*> group_agg_states_;
   int64_t agg_state_row_size_ = 0;
   int64_t agg_state_row_alignment_ = 1;
   bool agg_state_layout_ready_ = false;
