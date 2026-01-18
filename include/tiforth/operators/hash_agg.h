@@ -72,8 +72,7 @@ class HashAggContext final {
     std::array<KeyPart, kMaxKeys> parts;
   };
 
-  arrow::Result<uint32_t> InsertGroup(std::string_view normalized_key_bytes, uint64_t hash,
-                                      OutputKey output_key);
+  arrow::Result<uint32_t> InsertNewGroup(OutputKey output_key);
   arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema() const;
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> FinalizeOutput();
 

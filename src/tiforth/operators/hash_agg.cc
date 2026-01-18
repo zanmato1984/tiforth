@@ -26,6 +26,7 @@
 #include "tiforth/engine.h"
 #include "tiforth/collation.h"
 #include "tiforth/detail/arrow_memory_pool_resource.h"
+#include "tiforth/detail/fixed_key_hash_table.h"
 #include "tiforth/type_metadata.h"
 
 namespace tiforth {
@@ -534,8 +535,31 @@ class AggMinMaxBinary final : public detail::AggregateFunction {
 }  // namespace
 
 struct HashAggContext::Compiled {
+  enum class KeyMode {
+    kUnresolved,
+    kDense,
+    kOneU64,
+    kString,
+    kSerialized,
+  };
+
+  explicit Compiled(arrow::MemoryPool* pool) : one_u64_table(pool) {}
+
   std::vector<CompiledExpr> key_exprs;
   std::vector<std::optional<CompiledExpr>> agg_arg_exprs;
+
+  KeyMode key_mode = KeyMode::kUnresolved;
+  arrow::Type::type one_key_type_id = arrow::Type::NA;
+
+  // One-key methods keep NULLs in a dedicated group id.
+  std::optional<uint32_t> one_key_null_group_id;
+
+  // Dense direct map for small integer keys (bool/i8/u8/i16/u16).
+  std::unique_ptr<arrow::Buffer> dense_to_group_id;
+  int64_t dense_capacity = 0;
+
+  // Open-addressing one-number method (uint64 key after normalization).
+  detail::FixedKeyHashTable<uint64_t, uint32_t> one_u64_table;
 };
 
 HashAggContext::~HashAggContext() {
@@ -614,33 +638,13 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
   }
 }
 
-arrow::Result<uint32_t> HashAggContext::InsertGroup(std::string_view normalized_key_bytes,
-                                                    uint64_t hash, OutputKey output_key) {
-  if (normalized_key_bytes.size() >
-      static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
-    return arrow::Status::Invalid("normalized key too large");
-  }
-  if (group_keys_.size() >
+arrow::Result<uint32_t> HashAggContext::InsertNewGroup(OutputKey output_key) {
+  if (group_keys_.size() >=
       static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
     return arrow::Status::Invalid("too many groups");
   }
 
-  const uint32_t candidate_group_id = static_cast<uint32_t>(group_keys_.size());
-  const auto* key_data =
-      reinterpret_cast<const uint8_t*>(normalized_key_bytes.data());
-  const auto key_size = static_cast<int32_t>(normalized_key_bytes.size());
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto res, key_to_group_id_.FindOrInsert(key_data, key_size, hash, candidate_group_id));
-  const auto group_id = res.first;
-  const bool inserted = res.second;
-  if (!inserted) {
-    return group_id;
-  }
-  if (group_id != candidate_group_id) {
-    return arrow::Status::Invalid("unexpected group id assignment");
-  }
-
+  const uint32_t group_id = static_cast<uint32_t>(group_keys_.size());
   group_keys_.push_back(std::move(output_key));
 
   if (!agg_state_layout_ready_) {
@@ -656,7 +660,7 @@ arrow::Result<uint32_t> HashAggContext::InsertGroup(std::string_view normalized_
     }
     agg.fn->Create(row_state + agg.state_offset);
   }
-  return candidate_group_id;
+  return group_id;
 }
 
 arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
@@ -679,7 +683,7 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
   }
 
   if (compiled_ == nullptr) {
-    auto compiled = std::make_unique<Compiled>();
+    auto compiled = std::make_unique<Compiled>(memory_pool_);
     compiled->key_exprs.reserve(key_count);
     for (std::size_t i = 0; i < key_count; ++i) {
       ARROW_ASSIGN_OR_RAISE(auto compiled_key,
@@ -1078,15 +1082,390 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
     }
   }
 
-  scratch_normalized_key_.Reset();
+  if (compiled_ == nullptr) {
+    return arrow::Status::Invalid("internal error: compiled state must not be null");
+  }
+
+  // Select an aggregation method (TiFlash-shaped) once key types are known. Today we only
+  // specialize single-key patterns; multi-key falls back to serialized normalized bytes.
+  if (key_count != 0) {
+    if (compiled_->key_mode == Compiled::KeyMode::kUnresolved) {
+      compiled_->key_mode = Compiled::KeyMode::kSerialized;
+      compiled_->one_key_type_id = arrow::Type::NA;
+      compiled_->one_key_null_group_id.reset();
+      compiled_->dense_to_group_id.reset();
+      compiled_->dense_capacity = 0;
+
+      if (key_count == 1) {
+        const auto type_id = key_arrays[0]->type_id();
+        compiled_->one_key_type_id = type_id;
+        switch (type_id) {
+          case arrow::Type::BOOL:
+          case arrow::Type::INT8:
+          case arrow::Type::UINT8:
+          case arrow::Type::INT16:
+          case arrow::Type::UINT16: {
+            compiled_->key_mode = Compiled::KeyMode::kDense;
+            int64_t capacity = 0;
+            switch (type_id) {
+              case arrow::Type::BOOL:
+                capacity = 2;
+                break;
+              case arrow::Type::INT8:
+              case arrow::Type::UINT8:
+                capacity = 256;
+                break;
+              case arrow::Type::INT16:
+              case arrow::Type::UINT16:
+                capacity = 65536;
+                break;
+              default:
+                break;
+            }
+            const int64_t bytes = capacity * static_cast<int64_t>(sizeof(uint32_t));
+            ARROW_ASSIGN_OR_RAISE(compiled_->dense_to_group_id,
+                                  arrow::AllocateBuffer(bytes, memory_pool_));
+            std::memset(compiled_->dense_to_group_id->mutable_data(), 0xFF,
+                        static_cast<std::size_t>(bytes));
+            compiled_->dense_capacity = capacity;
+            break;
+          }
+          case arrow::Type::INT32:
+          case arrow::Type::INT64:
+          case arrow::Type::UINT32:
+          case arrow::Type::UINT64:
+          case arrow::Type::FLOAT:
+          case arrow::Type::DOUBLE:
+            compiled_->key_mode = Compiled::KeyMode::kOneU64;
+            break;
+          case arrow::Type::BINARY:
+            compiled_->key_mode = Compiled::KeyMode::kString;
+            break;
+          default:
+            compiled_->key_mode = Compiled::KeyMode::kSerialized;
+            break;
+        }
+      }
+    } else {
+      if (key_count == 1 && compiled_->one_key_type_id != arrow::Type::NA &&
+          compiled_->one_key_type_id != key_arrays[0]->type_id()) {
+        return arrow::Status::Invalid("group key type mismatch across batches");
+      }
+      if (key_count != 1 && compiled_->key_mode != Compiled::KeyMode::kSerialized) {
+        return arrow::Status::Invalid("internal error: non-serialized key mode requires one key");
+      }
+    }
+  }
+
   scratch_sort_key_.Reset();
-  scratch_normalized_key_.reserve(key_count * 16);
-  ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
+  const bool use_serialized_keying =
+      (key_count > 1) ||
+      (key_count == 1 && compiled_->key_mode == Compiled::KeyMode::kSerialized);
+  if (use_serialized_keying) {
+    scratch_normalized_key_.Reset();
+    scratch_normalized_key_.reserve(key_count * 16);
+    ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
+  }
+
+  constexpr uint32_t kDenseEmpty = std::numeric_limits<uint32_t>::max();
+  auto* dense_map = compiled_->dense_to_group_id != nullptr
+                        ? reinterpret_cast<uint32_t*>(compiled_->dense_to_group_id->mutable_data())
+                        : nullptr;
 
   const int64_t rows = input.num_rows();
   for (int64_t row = 0; row < rows; ++row) {
     uint32_t group_id = 0;
-    if (key_count != 0) {
+    bool handled = false;
+
+    if (key_count == 0) {
+      group_id = 0;
+      handled = true;
+    } else if (key_count == 1) {
+      const auto& arr_any = key_arrays[0];
+      if (arr_any == nullptr) {
+        return arrow::Status::Invalid("internal error: missing key array");
+      }
+
+      switch (compiled_->key_mode) {
+        case Compiled::KeyMode::kDense: {
+          if (dense_map == nullptr) {
+            return arrow::Status::Invalid("internal error: missing dense key map");
+          }
+          if (arr_any->IsNull(row)) {
+            if (!compiled_->one_key_null_group_id.has_value()) {
+              const auto candidate = static_cast<uint32_t>(group_keys_.size());
+              compiled_->one_key_null_group_id = candidate;
+              OutputKey out_key;
+              out_key.key_count = 1;
+              out_key.parts[0].is_null = true;
+              ARROW_ASSIGN_OR_RAISE(group_id, InsertNewGroup(std::move(out_key)));
+              if (group_id != candidate) {
+                return arrow::Status::Invalid("unexpected group id assignment");
+              }
+            } else {
+              group_id = *compiled_->one_key_null_group_id;
+            }
+          } else {
+            uint32_t idx = 0;
+            switch (compiled_->one_key_type_id) {
+              case arrow::Type::BOOL: {
+                const auto& arr = static_cast<const arrow::BooleanArray&>(*arr_any);
+                idx = arr.Value(row) ? 1U : 0U;
+                break;
+              }
+              case arrow::Type::INT8: {
+                const auto& arr = static_cast<const arrow::Int8Array&>(*arr_any);
+                idx = static_cast<uint32_t>(static_cast<uint8_t>(
+                    static_cast<int16_t>(arr.Value(row)) + 128));
+                break;
+              }
+              case arrow::Type::UINT8: {
+                const auto& arr = static_cast<const arrow::UInt8Array&>(*arr_any);
+                idx = static_cast<uint32_t>(arr.Value(row));
+                break;
+              }
+              case arrow::Type::INT16: {
+                const auto& arr = static_cast<const arrow::Int16Array&>(*arr_any);
+                idx = static_cast<uint32_t>(static_cast<uint16_t>(
+                    static_cast<int32_t>(arr.Value(row)) + 32768));
+                break;
+              }
+              case arrow::Type::UINT16: {
+                const auto& arr = static_cast<const arrow::UInt16Array&>(*arr_any);
+                idx = static_cast<uint32_t>(arr.Value(row));
+                break;
+              }
+              default:
+                return arrow::Status::Invalid("internal error: unexpected dense key type");
+            }
+
+            group_id = dense_map[idx];
+            if (group_id == kDenseEmpty) {
+              const auto candidate = static_cast<uint32_t>(group_keys_.size());
+              dense_map[idx] = candidate;
+
+              OutputKey out_key;
+              out_key.key_count = 1;
+              out_key.parts[0].is_null = false;
+
+              switch (compiled_->one_key_type_id) {
+                case arrow::Type::BOOL: {
+                  const auto& arr = static_cast<const arrow::BooleanArray&>(*arr_any);
+                  out_key.parts[0].value = static_cast<uint64_t>(arr.Value(row) ? 1 : 0);
+                  break;
+                }
+                case arrow::Type::INT8: {
+                  const auto& arr = static_cast<const arrow::Int8Array&>(*arr_any);
+                  out_key.parts[0].value = static_cast<int64_t>(arr.Value(row));
+                  break;
+                }
+                case arrow::Type::UINT8: {
+                  const auto& arr = static_cast<const arrow::UInt8Array&>(*arr_any);
+                  out_key.parts[0].value = static_cast<uint64_t>(arr.Value(row));
+                  break;
+                }
+                case arrow::Type::INT16: {
+                  const auto& arr = static_cast<const arrow::Int16Array&>(*arr_any);
+                  out_key.parts[0].value = static_cast<int64_t>(arr.Value(row));
+                  break;
+                }
+                case arrow::Type::UINT16: {
+                  const auto& arr = static_cast<const arrow::UInt16Array&>(*arr_any);
+                  out_key.parts[0].value = static_cast<uint64_t>(arr.Value(row));
+                  break;
+                }
+                default:
+                  return arrow::Status::Invalid("internal error: unexpected dense key type");
+              }
+
+              ARROW_ASSIGN_OR_RAISE(group_id, InsertNewGroup(std::move(out_key)));
+              if (group_id != candidate) {
+                return arrow::Status::Invalid("unexpected group id assignment");
+              }
+            }
+          }
+          handled = true;
+          break;
+        }
+        case Compiled::KeyMode::kOneU64: {
+          if (arr_any->IsNull(row)) {
+            if (!compiled_->one_key_null_group_id.has_value()) {
+              const auto candidate = static_cast<uint32_t>(group_keys_.size());
+              compiled_->one_key_null_group_id = candidate;
+              OutputKey out_key;
+              out_key.key_count = 1;
+              out_key.parts[0].is_null = true;
+              ARROW_ASSIGN_OR_RAISE(group_id, InsertNewGroup(std::move(out_key)));
+              if (group_id != candidate) {
+                return arrow::Status::Invalid("unexpected group id assignment");
+              }
+            } else {
+              group_id = *compiled_->one_key_null_group_id;
+            }
+          } else {
+            uint64_t norm_key = 0;
+            bool out_is_signed = false;
+            int64_t out_i64 = 0;
+            uint64_t out_u64 = 0;
+
+            switch (compiled_->one_key_type_id) {
+              case arrow::Type::INT32: {
+                const auto& arr = static_cast<const arrow::Int32Array&>(*arr_any);
+                const int32_t v = arr.Value(row);
+                out_is_signed = true;
+                out_i64 = static_cast<int64_t>(v);
+                norm_key = static_cast<uint64_t>(out_i64);
+                break;
+              }
+              case arrow::Type::INT64: {
+                const auto& arr = static_cast<const arrow::Int64Array&>(*arr_any);
+                const int64_t v = arr.Value(row);
+                out_is_signed = true;
+                out_i64 = v;
+                norm_key = static_cast<uint64_t>(v);
+                break;
+              }
+              case arrow::Type::UINT32: {
+                const auto& arr = static_cast<const arrow::UInt32Array&>(*arr_any);
+                const uint32_t v = arr.Value(row);
+                out_is_signed = false;
+                out_u64 = static_cast<uint64_t>(v);
+                norm_key = out_u64;
+                break;
+              }
+              case arrow::Type::UINT64: {
+                const auto& arr = static_cast<const arrow::UInt64Array&>(*arr_any);
+                const uint64_t v = arr.Value(row);
+                out_is_signed = false;
+                out_u64 = v;
+                norm_key = v;
+                break;
+              }
+              case arrow::Type::FLOAT: {
+                const auto& arr = static_cast<const arrow::FloatArray&>(*arr_any);
+                const float v = arr.Value(row);
+                out_is_signed = false;
+                out_u64 = static_cast<uint64_t>(Float32ToBits(v));
+                norm_key = CanonicalizeFloat32Bits(v);
+                break;
+              }
+              case arrow::Type::DOUBLE: {
+                const auto& arr = static_cast<const arrow::DoubleArray&>(*arr_any);
+                const double v = arr.Value(row);
+                out_is_signed = false;
+                out_u64 = static_cast<uint64_t>(Float64ToBits(v));
+                norm_key = CanonicalizeFloat64Bits(v);
+                break;
+              }
+              default:
+                return arrow::Status::Invalid("internal error: unexpected one-u64 key type");
+            }
+
+            const uint64_t key_hash = detail::HashBytes(
+                reinterpret_cast<const uint8_t*>(&norm_key),
+                static_cast<int32_t>(sizeof(norm_key)));
+            const auto candidate = static_cast<uint32_t>(group_keys_.size());
+            ARROW_ASSIGN_OR_RAISE(
+                auto res,
+                compiled_->one_u64_table.FindOrInsert(norm_key, key_hash, candidate));
+            group_id = res.first;
+            if (res.second) {
+              OutputKey out_key;
+              out_key.key_count = 1;
+              out_key.parts[0].is_null = false;
+              out_key.parts[0].value = out_is_signed ? KeyValue{out_i64} : KeyValue{out_u64};
+
+              ARROW_ASSIGN_OR_RAISE(auto inserted_id, InsertNewGroup(std::move(out_key)));
+              if (group_id != candidate || inserted_id != candidate) {
+                return arrow::Status::Invalid("unexpected group id assignment");
+              }
+            }
+          }
+          handled = true;
+          break;
+        }
+        case Compiled::KeyMode::kString: {
+          if (arr_any->type_id() != arrow::Type::BINARY) {
+            return arrow::Status::Invalid("internal error: string key mode requires binary key");
+          }
+
+          const auto& arr = static_cast<const arrow::BinaryArray&>(*arr_any);
+          if (arr.IsNull(row)) {
+            if (!compiled_->one_key_null_group_id.has_value()) {
+              const auto candidate = static_cast<uint32_t>(group_keys_.size());
+              compiled_->one_key_null_group_id = candidate;
+              OutputKey out_key;
+              out_key.key_count = 1;
+              out_key.parts[0].is_null = true;
+              ARROW_ASSIGN_OR_RAISE(group_id, InsertNewGroup(std::move(out_key)));
+              if (group_id != candidate) {
+                return arrow::Status::Invalid("unexpected group id assignment");
+              }
+            } else {
+              group_id = *compiled_->one_key_null_group_id;
+            }
+          } else {
+            std::string_view raw = arr.GetView(row);
+            std::string_view norm = raw;
+            if (collations[0].kind == CollationKind::kPaddingBinary) {
+              norm = RightTrimAsciiSpace(norm);
+            } else if (collations[0].kind != CollationKind::kBinary) {
+              scratch_sort_key_.Reset();
+              SortKeyStringTo(collations[0], raw, &scratch_sort_key_);
+              ARROW_RETURN_NOT_OK(scratch_sort_key_.status());
+              norm = scratch_sort_key_.view();
+            }
+
+            if (norm.size() >
+                static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+              return arrow::Status::Invalid("normalized key too large");
+            }
+
+            const auto* key_data = reinterpret_cast<const uint8_t*>(norm.data());
+            const auto key_size = static_cast<int32_t>(norm.size());
+            const uint64_t key_hash = detail::HashBytes(key_data, key_size);
+            const auto candidate = static_cast<uint32_t>(group_keys_.size());
+
+            ARROW_ASSIGN_OR_RAISE(auto res, key_to_group_id_.FindOrInsert(key_data, key_size,
+                                                                         key_hash, candidate));
+            group_id = res.first;
+            if (res.second) {
+              if (raw.size() >
+                  static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+                return arrow::Status::Invalid("group key binary too large");
+              }
+              OutputKey out_key;
+              out_key.key_count = 1;
+              out_key.parts[0].is_null = false;
+
+              ARROW_ASSIGN_OR_RAISE(
+                  const auto* stored,
+                  group_key_arena_.Append(reinterpret_cast<const uint8_t*>(raw.data()),
+                                          static_cast<int64_t>(raw.size())));
+              out_key.parts[0].value =
+                  detail::ByteSlice{stored, static_cast<int32_t>(raw.size())};
+
+              ARROW_ASSIGN_OR_RAISE(auto inserted_id, InsertNewGroup(std::move(out_key)));
+              if (group_id != candidate || inserted_id != candidate) {
+                return arrow::Status::Invalid("unexpected group id assignment");
+              }
+            }
+          }
+          handled = true;
+          break;
+        }
+        case Compiled::KeyMode::kSerialized:
+          break;
+        case Compiled::KeyMode::kUnresolved:
+          return arrow::Status::Invalid("internal error: unresolved key mode");
+      }
+    }
+
+    if (!handled) {
+      if (!use_serialized_keying) {
+        return arrow::Status::Invalid("internal error: expected serialized keying");
+      }
+
       scratch_normalized_key_.Reset();
 
       for (std::size_t ki = 0; ki < key_count; ++ki) {
@@ -1173,9 +1552,8 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             if (arr.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
               return arrow::Status::Invalid("unexpected decimal128 byte width");
             }
-            scratch_normalized_key_.append(
-                reinterpret_cast<const char*>(arr.GetValue(row)),
-                Decimal128Bytes{}.size());
+            scratch_normalized_key_.append(reinterpret_cast<const char*>(arr.GetValue(row)),
+                                           Decimal128Bytes{}.size());
             break;
           }
           case arrow::Type::DECIMAL256: {
@@ -1183,24 +1561,30 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             if (arr.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
               return arrow::Status::Invalid("unexpected decimal256 byte width");
             }
-            scratch_normalized_key_.append(
-                reinterpret_cast<const char*>(arr.GetValue(row)),
-                Decimal256Bytes{}.size());
+            scratch_normalized_key_.append(reinterpret_cast<const char*>(arr.GetValue(row)),
+                                           Decimal256Bytes{}.size());
             break;
           }
           case arrow::Type::BINARY: {
             const auto& arr = static_cast<const arrow::BinaryArray&>(*arr_any);
             std::string_view view = arr.GetView(row);
-            scratch_sort_key_.Reset();
-            SortKeyStringTo(collations[ki], view, &scratch_sort_key_);
-            ARROW_RETURN_NOT_OK(scratch_sort_key_.status());
-            if (scratch_sort_key_.size() >
-                static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
+
+            std::string_view norm = view;
+            if (collations[ki].kind == CollationKind::kPaddingBinary) {
+              norm = RightTrimAsciiSpace(norm);
+            } else if (collations[ki].kind != CollationKind::kBinary) {
+              scratch_sort_key_.Reset();
+              SortKeyStringTo(collations[ki], view, &scratch_sort_key_);
+              ARROW_RETURN_NOT_OK(scratch_sort_key_.status());
+              norm = scratch_sort_key_.view();
+            }
+
+            if (norm.size() >
+                static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
               return arrow::Status::Invalid("normalized string key too large");
             }
-            append_u32_le(scratch_normalized_key_,
-                          static_cast<uint32_t>(scratch_sort_key_.size()));
-            scratch_normalized_key_.append(scratch_sort_key_.view());
+            append_u32_le(scratch_normalized_key_, static_cast<uint32_t>(norm.size()));
+            scratch_normalized_key_.append(norm);
             break;
           }
           default:
@@ -1214,19 +1598,16 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
           static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
         return arrow::Status::Invalid("normalized key too large");
       }
-      const auto* key_data =
-          scratch_normalized_key_.data();
+
+      const auto* key_data = scratch_normalized_key_.data();
       const auto key_size = static_cast<int32_t>(scratch_normalized_key_.size());
       const uint64_t key_hash = detail::HashBytes(key_data, key_size);
+      const auto candidate = static_cast<uint32_t>(group_keys_.size());
 
-      ARROW_ASSIGN_OR_RAISE(auto found, key_to_group_id_.Find(key_data, key_size, key_hash));
-      if (found.has_value()) {
-        group_id = *found;
-      } else {
-        if (pmr_resource_ == nullptr) {
-          return arrow::Status::Invalid("internal error: pmr resource must not be null");
-        }
-
+      ARROW_ASSIGN_OR_RAISE(
+          auto res, key_to_group_id_.FindOrInsert(key_data, key_size, key_hash, candidate));
+      group_id = res.first;
+      if (res.second) {
         OutputKey out_key;
         out_key.key_count = static_cast<uint8_t>(key_count);
         for (std::size_t ki = 0; ki < key_count; ++ki) {
@@ -1327,11 +1708,9 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
               }
               ARROW_ASSIGN_OR_RAISE(
                   const auto* stored,
-                  group_key_arena_.Append(
-                      reinterpret_cast<const uint8_t*>(view.data()),
-                      static_cast<int64_t>(view.size())));
-              out_part.value =
-                  detail::ByteSlice{stored, static_cast<int32_t>(view.size())};
+                  group_key_arena_.Append(reinterpret_cast<const uint8_t*>(view.data()),
+                                          static_cast<int64_t>(view.size())));
+              out_part.value = detail::ByteSlice{stored, static_cast<int32_t>(view.size())};
               break;
             }
             default:
@@ -1340,8 +1719,10 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
           }
         }
 
-        ARROW_ASSIGN_OR_RAISE(group_id, InsertGroup(scratch_normalized_key_.view(), key_hash,
-                                                    std::move(out_key)));
+        ARROW_ASSIGN_OR_RAISE(auto inserted_id, InsertNewGroup(std::move(out_key)));
+        if (group_id != candidate || inserted_id != candidate) {
+          return arrow::Status::Invalid("unexpected group id assignment");
+        }
       }
     }
 
