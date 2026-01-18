@@ -25,6 +25,7 @@
 #include "tiforth/compiled_expr.h"
 #include "tiforth/engine.h"
 #include "tiforth/collation.h"
+#include "tiforth/detail/arrow_memory_pool_resource.h"
 #include "tiforth/type_metadata.h"
 
 namespace tiforth {
@@ -75,35 +76,6 @@ uint64_t CanonicalizeFloat64Bits(double value) noexcept {
   }
   return Float64ToBits(value);
 }
-
-class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
- public:
-  explicit ArrowMemoryPoolResource(arrow::MemoryPool* pool)
-      : pool_(pool != nullptr ? pool : arrow::default_memory_pool()) {}
-
- private:
-  void* do_allocate(std::size_t bytes, std::size_t /*alignment*/) override {
-    uint8_t* out = nullptr;
-    const auto st = pool_->Allocate(static_cast<int64_t>(bytes), &out);
-    if (!st.ok()) {
-      throw std::bad_alloc();
-    }
-    return out;
-  }
-
-  void do_deallocate(void* p, std::size_t bytes, std::size_t /*alignment*/) override {
-    if (p == nullptr) {
-      return;
-    }
-    pool_->Free(reinterpret_cast<uint8_t*>(p), static_cast<int64_t>(bytes));
-  }
-
-  bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
-    return this == &other;
-  }
-
-  arrow::MemoryPool* pool_;
-};
 
 class AggCountAll final : public detail::AggregateFunction {
  public:
@@ -597,7 +569,7 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
       group_key_arena_(memory_pool_),
       agg_state_arena_(memory_pool_),
       key_to_group_id_(memory_pool_, &group_key_arena_),
-      pmr_resource_(std::make_unique<ArrowMemoryPoolResource>(memory_pool_)),
+      pmr_resource_(std::make_unique<detail::ArrowMemoryPoolResource>(memory_pool_)),
       scratch_normalized_key_(memory_pool_),
       scratch_sort_key_(memory_pool_),
       exec_context_(memory_pool_, /*executor=*/nullptr,

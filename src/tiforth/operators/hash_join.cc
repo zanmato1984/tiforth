@@ -27,41 +27,12 @@
 #include "tiforth/engine.h"
 #include "tiforth/collation.h"
 #include "tiforth/detail/arrow_compute.h"
+#include "tiforth/detail/arrow_memory_pool_resource.h"
 #include "tiforth/type_metadata.h"
 
 namespace tiforth {
 
 namespace {
-
-class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
- public:
-  explicit ArrowMemoryPoolResource(arrow::MemoryPool* pool)
-      : pool_(pool != nullptr ? pool : arrow::default_memory_pool()) {}
-
- private:
-  void* do_allocate(std::size_t bytes, std::size_t /*alignment*/) override {
-    uint8_t* out = nullptr;
-    const auto st = pool_->Allocate(static_cast<int64_t>(bytes), &out);
-    if (!st.ok()) {
-      throw std::bad_alloc();
-    }
-    return out;
-  }
-
-  void do_deallocate(void* p, std::size_t bytes, std::size_t /*alignment*/) override {
-    if (p == nullptr) {
-      return;
-    }
-    pool_->Free(reinterpret_cast<uint8_t*>(p), static_cast<int64_t>(bytes));
-  }
-
-  bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
-    return this == &other;
-  }
-
-  arrow::MemoryPool* pool_;
-};
-
 }  // namespace
 
 HashJoinTransformOp::HashJoinTransformOp(
@@ -76,7 +47,7 @@ HashJoinTransformOp::HashJoinTransformOp(
       key_to_key_id_(memory_pool_, &key_arena_),
       scratch_normalized_key_(memory_pool_),
       scratch_sort_key_(memory_pool_),
-      pmr_resource_(std::make_unique<ArrowMemoryPoolResource>(memory_pool_)),
+      pmr_resource_(std::make_unique<detail::ArrowMemoryPoolResource>(memory_pool_)),
       key_rows_(std::pmr::polymorphic_allocator<BuildRowList>(pmr_resource_.get())),
       row_nodes_(std::pmr::polymorphic_allocator<BuildRowNode>(pmr_resource_.get())),
       exec_context_(memory_pool_, /*executor=*/nullptr,

@@ -19,42 +19,10 @@
 #include "tiforth/engine.h"
 #include "tiforth/collation.h"
 #include "tiforth/detail/arrow_compute.h"
+#include "tiforth/detail/arrow_memory_pool_resource.h"
 #include "tiforth/type_metadata.h"
 
 namespace tiforth {
-
-namespace {
-
-class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
- public:
-  explicit ArrowMemoryPoolResource(arrow::MemoryPool* pool)
-      : pool_(pool != nullptr ? pool : arrow::default_memory_pool()) {}
-
- private:
-  void* do_allocate(std::size_t bytes, std::size_t /*alignment*/) override {
-    uint8_t* out = nullptr;
-    const auto st = pool_->Allocate(static_cast<int64_t>(bytes), &out);
-    if (!st.ok()) {
-      throw std::bad_alloc();
-    }
-    return out;
-  }
-
-  void do_deallocate(void* p, std::size_t bytes, std::size_t /*alignment*/) override {
-    if (p == nullptr) {
-      return;
-    }
-    pool_->Free(reinterpret_cast<uint8_t*>(p), static_cast<int64_t>(bytes));
-  }
-
-  bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
-    return this == &other;
-  }
-
-  arrow::MemoryPool* pool_;
-};
-
-}  // namespace
 
 SortTransformOp::SortTransformOp(const Engine* engine, std::vector<SortKey> keys,
                                  arrow::MemoryPool* memory_pool)
@@ -148,7 +116,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortTransformOp::SortAll() {
 
         if constexpr (kind == CollationKind::kGeneralCi || kind == CollationKind::kUnicodeCi0400 ||
                       kind == CollationKind::kUnicodeCi0900) {
-          ArrowMemoryPoolResource key_resource(exec_context_.memory_pool());
+          detail::ArrowMemoryPoolResource key_resource(exec_context_.memory_pool());
           std::pmr::vector<std::pmr::string> key_strings(&key_resource);
           key_strings.resize(row_count, std::pmr::string(&key_resource));
           for (std::size_t i = 0; i < row_count; ++i) {
