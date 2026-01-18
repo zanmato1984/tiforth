@@ -5,6 +5,8 @@
 #include <arrow/status.h>
 #include <arrow/type.h>
 
+#include "tiforth/plan.h"
+
 namespace tiforth {
 
 arrow::Result<std::unique_ptr<Task>> Task::Create() {
@@ -90,7 +92,93 @@ arrow::Status Task::Init(TransformOps transforms) {
   }
   builder.SetSinkOp(std::make_unique<OutputSinkOp>(this));
 
-  ARROW_ASSIGN_OR_RAISE(exec_, builder.Build());
+  execs_.clear();
+  current_exec_index_ = 0;
+
+  ARROW_ASSIGN_OR_RAISE(auto exec, builder.Build());
+  execs_.push_back(std::move(exec));
+  return arrow::Status::OK();
+}
+
+arrow::Status Task::InitPlan(const Plan& plan) {
+  if (plan.engine_ == nullptr) {
+    return arrow::Status::Invalid("plan engine must not be null");
+  }
+  plan_task_context_ = std::make_unique<PlanTaskContext>();
+
+  plan_task_context_->breaker_states_.clear();
+  plan_task_context_->breaker_states_.reserve(plan.breaker_state_factories_.size());
+  for (const auto& factory : plan.breaker_state_factories_) {
+    if (!factory) {
+      return arrow::Status::Invalid("breaker state factory must not be empty");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto state, factory());
+    if (state == nullptr) {
+      return arrow::Status::Invalid("breaker state factory returned null");
+    }
+    plan_task_context_->breaker_states_.push_back(std::move(state));
+  }
+
+  execs_.clear();
+  execs_.reserve(plan.stage_order_.size());
+  current_exec_index_ = 0;
+
+  for (const auto stage_id : plan.stage_order_) {
+    if (stage_id >= plan.stages_.size()) {
+      return arrow::Status::Invalid("plan stage id out of range");
+    }
+    const auto& stage = plan.stages_[stage_id];
+
+    PipelineExecBuilder builder;
+    switch (stage.source_kind) {
+      case PlanStageSourceKind::kTaskInput:
+        builder.SetSourceOp(std::make_unique<InputSourceOp>(this));
+        break;
+      case PlanStageSourceKind::kCustom: {
+        if (!stage.source_factory) {
+          return arrow::Status::Invalid("custom stage source factory must not be empty");
+        }
+        ARROW_ASSIGN_OR_RAISE(auto source, stage.source_factory(plan_task_context_.get()));
+        if (source == nullptr) {
+          return arrow::Status::Invalid("custom stage source factory returned null");
+        }
+        builder.SetSourceOp(std::move(source));
+        break;
+      }
+    }
+
+    for (const auto& transform_factory : stage.transform_factories) {
+      if (!transform_factory) {
+        return arrow::Status::Invalid("transform factory must not be empty");
+      }
+      ARROW_ASSIGN_OR_RAISE(auto transform, transform_factory(plan_task_context_.get()));
+      if (transform == nullptr) {
+        return arrow::Status::Invalid("transform factory returned null");
+      }
+      builder.AppendTransformOp(std::move(transform));
+    }
+
+    switch (stage.sink_kind) {
+      case PlanStageSinkKind::kTaskOutput:
+        builder.SetSinkOp(std::make_unique<OutputSinkOp>(this));
+        break;
+      case PlanStageSinkKind::kCustom: {
+        if (!stage.sink_factory) {
+          return arrow::Status::Invalid("custom stage sink factory must not be empty");
+        }
+        ARROW_ASSIGN_OR_RAISE(auto sink, stage.sink_factory(plan_task_context_.get()));
+        if (sink == nullptr) {
+          return arrow::Status::Invalid("custom stage sink factory returned null");
+        }
+        builder.SetSinkOp(std::move(sink));
+        break;
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto exec, builder.Build());
+    execs_.push_back(std::move(exec));
+  }
+
   return arrow::Status::OK();
 }
 
@@ -137,7 +225,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> Task::PullOutput() {
     output_queue_.pop_front();
     return batch;
   }
-  if (input_closed_ && input_queue_.empty()) {
+  if (current_exec_index_ >= execs_.size()) {
     return std::shared_ptr<arrow::RecordBatch>();
   }
   return arrow::Status::Invalid("no output is available");
@@ -166,12 +254,63 @@ arrow::Result<TaskState> Task::Step() {
     return TaskState::kHasOutput;
   }
 
-  if (exec_ == nullptr) {
+  if (current_exec_index_ >= execs_.size()) {
+    return TaskState::kFinished;
+  }
+  if (execs_.empty()) {
     return arrow::Status::Invalid("task is not initialized");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto op_status, exec_->Execute());
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(const auto op_status, execs_[current_exec_index_]->Execute());
 
+    if (!output_queue_.empty()) {
+      return TaskState::kHasOutput;
+    }
+
+    if (op_status == OperatorStatus::kFinished) {
+      if (current_exec_index_ + 1 < execs_.size()) {
+        ++current_exec_index_;
+        continue;
+      }
+      current_exec_index_ = execs_.size();
+      return TaskState::kFinished;
+    }
+
+    switch (op_status) {
+      case OperatorStatus::kNeedInput:
+        return TaskState::kNeedInput;
+      case OperatorStatus::kFinished:
+        return TaskState::kFinished;
+      case OperatorStatus::kCancelled:
+        return TaskState::kCancelled;
+      case OperatorStatus::kWaiting:
+        return TaskState::kWaiting;
+      case OperatorStatus::kWaitForNotify:
+        return TaskState::kWaitForNotify;
+      case OperatorStatus::kIOIn:
+        return TaskState::kIOIn;
+      case OperatorStatus::kIOOut:
+        return TaskState::kIOOut;
+      case OperatorStatus::kHasOutput:
+        return arrow::Status::Invalid("unexpected operator status kHasOutput without task output");
+    }
+    return arrow::Status::Invalid("unknown operator status");
+  }
+}
+
+arrow::Result<TaskState> Task::ExecuteIO() {
+  if (!output_queue_.empty()) {
+    return TaskState::kHasOutput;
+  }
+  if (current_exec_index_ >= execs_.size()) {
+    return TaskState::kFinished;
+  }
+  if (execs_.empty()) {
+    return arrow::Status::Invalid("task is not initialized");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(const auto op_status, execs_[current_exec_index_]->ExecuteIO());
   if (!output_queue_.empty()) {
     return TaskState::kHasOutput;
   }
@@ -181,10 +320,67 @@ arrow::Result<TaskState> Task::Step() {
       return TaskState::kNeedInput;
     case OperatorStatus::kFinished:
       return TaskState::kFinished;
+    case OperatorStatus::kCancelled:
+      return TaskState::kCancelled;
+    case OperatorStatus::kWaiting:
+      return TaskState::kWaiting;
+    case OperatorStatus::kWaitForNotify:
+      return TaskState::kWaitForNotify;
+    case OperatorStatus::kIOIn:
+      return TaskState::kIOIn;
+    case OperatorStatus::kIOOut:
+      return TaskState::kIOOut;
     case OperatorStatus::kHasOutput:
-      return arrow::Status::Invalid("unexpected operator status kHasOutput without output");
+      return arrow::Status::Invalid("unexpected operator status kHasOutput without task output");
   }
   return arrow::Status::Invalid("unknown operator status");
+}
+
+arrow::Result<TaskState> Task::Await() {
+  if (!output_queue_.empty()) {
+    return TaskState::kHasOutput;
+  }
+  if (current_exec_index_ >= execs_.size()) {
+    return TaskState::kFinished;
+  }
+  if (execs_.empty()) {
+    return arrow::Status::Invalid("task is not initialized");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(const auto op_status, execs_[current_exec_index_]->Await());
+  if (!output_queue_.empty()) {
+    return TaskState::kHasOutput;
+  }
+
+  switch (op_status) {
+    case OperatorStatus::kNeedInput:
+      return TaskState::kNeedInput;
+    case OperatorStatus::kFinished:
+      return TaskState::kFinished;
+    case OperatorStatus::kCancelled:
+      return TaskState::kCancelled;
+    case OperatorStatus::kWaiting:
+      return TaskState::kWaiting;
+    case OperatorStatus::kWaitForNotify:
+      return TaskState::kWaitForNotify;
+    case OperatorStatus::kIOIn:
+      return TaskState::kIOIn;
+    case OperatorStatus::kIOOut:
+      return TaskState::kIOOut;
+    case OperatorStatus::kHasOutput:
+      return arrow::Status::Invalid("unexpected operator status kHasOutput without task output");
+  }
+  return arrow::Status::Invalid("unknown operator status");
+}
+
+arrow::Status Task::Notify() {
+  if (current_exec_index_ >= execs_.size()) {
+    return arrow::Status::Invalid("task is finished");
+  }
+  if (execs_.empty()) {
+    return arrow::Status::Invalid("task is not initialized");
+  }
+  return execs_[current_exec_index_]->Notify();
 }
 
 }  // namespace tiforth

@@ -21,6 +21,9 @@ class PipelineExec {
   ~PipelineExec();
 
   arrow::Result<OperatorStatus> Execute();
+  arrow::Result<OperatorStatus> ExecuteIO();
+  arrow::Result<OperatorStatus> Await();
+  arrow::Status Notify();
 
  private:
   arrow::Result<OperatorStatus> FetchBatch(std::shared_ptr<arrow::RecordBatch>* batch,
@@ -29,6 +32,10 @@ class PipelineExec {
   SourceOpPtr source_;
   TransformOps transforms_;
   SinkOpPtr sink_;
+
+  Operator* awaitable_ = nullptr;
+  Operator* io_op_ = nullptr;
+  Operator* waiting_for_notify_ = nullptr;
 };
 
 struct PipelineExecBuilder {
@@ -44,4 +51,3 @@ struct PipelineExecBuilder {
 };
 
 }  // namespace tiforth
-

@@ -63,6 +63,11 @@ typedef enum tiforth_task_state_e {
   TIFORTH_TASK_HAS_OUTPUT = 1,
   TIFORTH_TASK_FINISHED = 2,
   TIFORTH_TASK_BLOCKED = 3,
+  TIFORTH_TASK_CANCELLED = 4,
+  TIFORTH_TASK_WAITING = 5,
+  TIFORTH_TASK_WAIT_FOR_NOTIFY = 6,
+  TIFORTH_TASK_IO_IN = 7,
+  TIFORTH_TASK_IO_OUT = 8,
 } tiforth_task_state_t;
 
 // Expression builder (minimal, stable subset).
@@ -114,6 +119,10 @@ TIFORTH_CAPI void tiforth_task_destroy(tiforth_task_t* task);
 
 // Task execution.
 TIFORTH_CAPI tiforth_status_t tiforth_task_step(tiforth_task_t* task, tiforth_task_state_t* out_state);
+TIFORTH_CAPI tiforth_status_t tiforth_task_execute_io(tiforth_task_t* task,
+                                                      tiforth_task_state_t* out_state);
+TIFORTH_CAPI tiforth_status_t tiforth_task_await(tiforth_task_t* task, tiforth_task_state_t* out_state);
+TIFORTH_CAPI tiforth_status_t tiforth_task_notify(tiforth_task_t* task);
 TIFORTH_CAPI tiforth_status_t tiforth_task_close_input(tiforth_task_t* task);
 
 // Data interchange (planned):

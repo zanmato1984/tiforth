@@ -348,11 +348,121 @@ tiforth_status_t tiforth_task_step(tiforth_task_t* task, tiforth_task_state_t* o
     case tiforth::TaskState::kFinished:
       *out_state = TIFORTH_TASK_FINISHED;
       break;
-    case tiforth::TaskState::kBlocked:
-      *out_state = TIFORTH_TASK_BLOCKED;
+    case tiforth::TaskState::kCancelled:
+      *out_state = TIFORTH_TASK_CANCELLED;
+      break;
+    case tiforth::TaskState::kWaiting:
+      *out_state = TIFORTH_TASK_WAITING;
+      break;
+    case tiforth::TaskState::kWaitForNotify:
+      *out_state = TIFORTH_TASK_WAIT_FOR_NOTIFY;
+      break;
+    case tiforth::TaskState::kIOIn:
+      *out_state = TIFORTH_TASK_IO_IN;
+      break;
+    case tiforth::TaskState::kIOOut:
+      *out_state = TIFORTH_TASK_IO_OUT;
       break;
   }
   return MakeOk();
+}
+
+tiforth_status_t tiforth_task_execute_io(tiforth_task_t* task, tiforth_task_state_t* out_state) {
+  if (out_state == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "out_state must not be null");
+  }
+  *out_state = TIFORTH_TASK_BLOCKED;
+  if (task == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "task must not be null");
+  }
+  if (task->task == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "task handle is not initialized");
+  }
+  auto res = task->task->ExecuteIO();
+  if (!res.ok()) {
+    return MakeStatusFromArrow(res.status());
+  }
+  switch (*res) {
+    case tiforth::TaskState::kNeedInput:
+      *out_state = TIFORTH_TASK_NEED_INPUT;
+      break;
+    case tiforth::TaskState::kHasOutput:
+      *out_state = TIFORTH_TASK_HAS_OUTPUT;
+      break;
+    case tiforth::TaskState::kFinished:
+      *out_state = TIFORTH_TASK_FINISHED;
+      break;
+    case tiforth::TaskState::kCancelled:
+      *out_state = TIFORTH_TASK_CANCELLED;
+      break;
+    case tiforth::TaskState::kWaiting:
+      *out_state = TIFORTH_TASK_WAITING;
+      break;
+    case tiforth::TaskState::kWaitForNotify:
+      *out_state = TIFORTH_TASK_WAIT_FOR_NOTIFY;
+      break;
+    case tiforth::TaskState::kIOIn:
+      *out_state = TIFORTH_TASK_IO_IN;
+      break;
+    case tiforth::TaskState::kIOOut:
+      *out_state = TIFORTH_TASK_IO_OUT;
+      break;
+  }
+  return MakeOk();
+}
+
+tiforth_status_t tiforth_task_await(tiforth_task_t* task, tiforth_task_state_t* out_state) {
+  if (out_state == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "out_state must not be null");
+  }
+  *out_state = TIFORTH_TASK_BLOCKED;
+  if (task == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "task must not be null");
+  }
+  if (task->task == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "task handle is not initialized");
+  }
+  auto res = task->task->Await();
+  if (!res.ok()) {
+    return MakeStatusFromArrow(res.status());
+  }
+  switch (*res) {
+    case tiforth::TaskState::kNeedInput:
+      *out_state = TIFORTH_TASK_NEED_INPUT;
+      break;
+    case tiforth::TaskState::kHasOutput:
+      *out_state = TIFORTH_TASK_HAS_OUTPUT;
+      break;
+    case tiforth::TaskState::kFinished:
+      *out_state = TIFORTH_TASK_FINISHED;
+      break;
+    case tiforth::TaskState::kCancelled:
+      *out_state = TIFORTH_TASK_CANCELLED;
+      break;
+    case tiforth::TaskState::kWaiting:
+      *out_state = TIFORTH_TASK_WAITING;
+      break;
+    case tiforth::TaskState::kWaitForNotify:
+      *out_state = TIFORTH_TASK_WAIT_FOR_NOTIFY;
+      break;
+    case tiforth::TaskState::kIOIn:
+      *out_state = TIFORTH_TASK_IO_IN;
+      break;
+    case tiforth::TaskState::kIOOut:
+      *out_state = TIFORTH_TASK_IO_OUT;
+      break;
+  }
+  return MakeOk();
+}
+
+tiforth_status_t tiforth_task_notify(tiforth_task_t* task) {
+  if (task == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "task must not be null");
+  }
+  if (task->task == nullptr) {
+    return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT, "task handle is not initialized");
+  }
+  return MakeStatusFromArrow(task->task->Notify());
 }
 
 tiforth_status_t tiforth_task_close_input(tiforth_task_t* task) {
@@ -473,7 +583,12 @@ tiforth_status_t tiforth_task_export_output_stream(tiforth_task_t* task,
       case tiforth::TaskState::kNeedInput:
         return MakeStatus(TIFORTH_STATUS_INVALID_ARGUMENT,
                           "task needs input; close input or set input stream before exporting output");
-      case tiforth::TaskState::kBlocked:
+      case tiforth::TaskState::kCancelled:
+        return MakeStatus(TIFORTH_STATUS_INTERNAL_ERROR, "task is cancelled");
+      case tiforth::TaskState::kWaiting:
+      case tiforth::TaskState::kWaitForNotify:
+      case tiforth::TaskState::kIOIn:
+      case tiforth::TaskState::kIOOut:
         return MakeStatus(TIFORTH_STATUS_NOT_IMPLEMENTED, "task is blocked");
       case tiforth::TaskState::kFinished:
         goto done;

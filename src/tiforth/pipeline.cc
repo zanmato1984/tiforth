@@ -35,8 +35,13 @@ class TaskRecordBatchReader final : public arrow::RecordBatchReader {
         case TaskState::kNeedInput:
           return arrow::Status::Invalid(
               "unexpected TaskState::kNeedInput when input reader is configured");
-        case TaskState::kBlocked:
-          return arrow::Status::NotImplemented("blocked tasks are not implemented");
+        case TaskState::kCancelled:
+          return arrow::Status::Cancelled("task is cancelled");
+        case TaskState::kWaiting:
+        case TaskState::kWaitForNotify:
+        case TaskState::kIOIn:
+        case TaskState::kIOOut:
+          return arrow::Status::NotImplemented("task is blocked (IO/await/notify is not wired)");
       }
     }
   }

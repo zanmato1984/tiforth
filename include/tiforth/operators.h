@@ -11,6 +11,11 @@ namespace tiforth {
 
 enum class OperatorStatus {
   kFinished,
+  kCancelled,
+  kWaiting,
+  kWaitForNotify,
+  kIOIn,
+  kIOOut,
   kNeedInput,
   kHasOutput,
 };
@@ -18,6 +23,23 @@ enum class OperatorStatus {
 class Operator {
  public:
   virtual ~Operator() = default;
+
+  arrow::Result<OperatorStatus> ExecuteIO() { return ExecuteIOImpl(); }
+  arrow::Result<OperatorStatus> Await() { return AwaitImpl(); }
+  arrow::Status Notify() { return NotifyImpl(); }
+
+ protected:
+  virtual arrow::Result<OperatorStatus> ExecuteIOImpl() {
+    return arrow::Status::NotImplemented("operator ExecuteIO is not implemented");
+  }
+
+  virtual arrow::Result<OperatorStatus> AwaitImpl() {
+    return arrow::Status::NotImplemented("operator Await is not implemented");
+  }
+
+  virtual arrow::Status NotifyImpl() {
+    return arrow::Status::NotImplemented("operator Notify is not implemented");
+  }
 };
 
 class SourceOp : public Operator {

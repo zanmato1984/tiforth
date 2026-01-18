@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <memory>
+#include <vector>
 
 #include <arrow/result.h>
 #include <arrow/record_batch.h>
@@ -11,11 +12,18 @@
 
 namespace tiforth {
 
+class Plan;
+class PlanTaskContext;
+
 enum class TaskState {
   kNeedInput,
   kHasOutput,
   kFinished,
-  kBlocked,
+  kCancelled,
+  kWaiting,
+  kWaitForNotify,
+  kIOIn,
+  kIOOut,
 };
 
 class Task {
@@ -35,6 +43,9 @@ class Task {
   arrow::Status SetInputReader(std::shared_ptr<arrow::RecordBatchReader> reader);
 
   arrow::Result<TaskState> Step();
+  arrow::Result<TaskState> ExecuteIO();
+  arrow::Result<TaskState> Await();
+  arrow::Status Notify();
 
  private:
   Task();
@@ -43,6 +54,7 @@ class Task {
   class OutputSinkOp;
 
   arrow::Status Init(TransformOps transforms);
+  arrow::Status InitPlan(const Plan& plan);
   arrow::Status ValidateOrSetSchema(const std::shared_ptr<arrow::Schema>& schema);
 
   std::shared_ptr<arrow::Schema> schema_;
@@ -51,7 +63,11 @@ class Task {
   std::deque<std::shared_ptr<arrow::RecordBatch>> output_queue_;
   bool input_closed_ = false;
 
-  std::unique_ptr<PipelineExec> exec_;
+  std::unique_ptr<PlanTaskContext> plan_task_context_;
+  std::vector<std::unique_ptr<PipelineExec>> execs_;
+  std::size_t current_exec_index_ = 0;
+
+  friend class Plan;
 };
 
 }  // namespace tiforth
