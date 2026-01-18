@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -36,6 +37,21 @@ arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
   return array;
 }
 
+arrow::Result<std::shared_ptr<arrow::Array>> MakeStringArray(
+    const std::vector<std::optional<std::string>>& values) {
+  arrow::StringBuilder builder;
+  for (const auto& value : values) {
+    if (value.has_value()) {
+      ARROW_RETURN_NOT_OK(builder.Append(*value));
+    } else {
+      ARROW_RETURN_NOT_OK(builder.AppendNull());
+    }
+  }
+  std::shared_ptr<arrow::Array> array;
+  ARROW_RETURN_NOT_OK(builder.Finish(&array));
+  return array;
+}
+
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
     const std::vector<std::optional<int32_t>>& xs, const std::vector<std::optional<int32_t>>& ys) {
   if (xs.size() != ys.size()) {
@@ -47,6 +63,19 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
   ARROW_ASSIGN_OR_RAISE(auto x_array, MakeInt32Array(xs));
   ARROW_ASSIGN_OR_RAISE(auto y_array, MakeInt32Array(ys));
   return arrow::RecordBatch::Make(schema, static_cast<int64_t>(xs.size()), {x_array, y_array});
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeStringBatch(
+    const std::vector<std::optional<std::string>>& ss, const std::vector<std::optional<int32_t>>& ys) {
+  if (ss.size() != ys.size()) {
+    return arrow::Status::Invalid("ss and ys must have the same length");
+  }
+
+  auto schema =
+      arrow::schema({arrow::field("s", arrow::utf8()), arrow::field("y", arrow::int32())});
+  ARROW_ASSIGN_OR_RAISE(auto s_array, MakeStringArray(ss));
+  ARROW_ASSIGN_OR_RAISE(auto y_array, MakeInt32Array(ys));
+  return arrow::RecordBatch::Make(schema, static_cast<int64_t>(ss.size()), {s_array, y_array});
 }
 
 arrow::Status RunFilterGreaterThan() {
@@ -175,6 +204,108 @@ arrow::Status RunFilterDropsNullPredicate() {
   return arrow::Status::OK();
 }
 
+arrow::Status RunFilterTruthyInt32() {
+  ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
+  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
+
+  auto predicate = MakeFieldRef("x");
+  ARROW_RETURN_NOT_OK(builder->AppendTransform(
+      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
+        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+      }));
+
+  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+
+  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
+  if (initial_state != TaskState::kNeedInput) {
+    return arrow::Status::Invalid("expected TaskState::kNeedInput");
+  }
+
+  // x truthiness => keep non-zero, drop 0 and null.
+  ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({0, 1, std::nullopt, -1, 2}, {10, 11, 12, 13, 14}));
+  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
+  ARROW_RETURN_NOT_OK(task->CloseInput());
+
+  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
+  if (state != TaskState::kHasOutput) {
+    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  if (out == nullptr) {
+    return arrow::Status::Invalid("expected non-null output batch");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto expect_x, MakeInt32Array({1, -1, 2}));
+  ARROW_ASSIGN_OR_RAISE(auto expect_y, MakeInt32Array({11, 13, 14}));
+  if (out->num_rows() != 3 || out->num_columns() != 2) {
+    return arrow::Status::Invalid("unexpected filtered output shape");
+  }
+  if (!expect_x->Equals(*out->column(0)) || !expect_y->Equals(*out->column(1))) {
+    return arrow::Status::Invalid("unexpected filtered output values");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
+  if (final_state != TaskState::kFinished) {
+    return arrow::Status::Invalid("expected TaskState::kFinished");
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status RunFilterTruthyString() {
+  ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
+  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
+
+  auto predicate = MakeFieldRef("s");
+  ARROW_RETURN_NOT_OK(builder->AppendTransform(
+      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
+        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+      }));
+
+  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+
+  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
+  if (initial_state != TaskState::kNeedInput) {
+    return arrow::Status::Invalid("expected TaskState::kNeedInput");
+  }
+
+  // "1" and "-1" are truthy; "0", "", "a", and null are falsy.
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch0,
+      MakeStringBatch({std::string(""), std::string("a"), std::string("1"), std::string("0"),
+                       std::string("-1"), std::nullopt},
+                      {10, 11, 12, 13, 14, 15}));
+  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
+  ARROW_RETURN_NOT_OK(task->CloseInput());
+
+  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
+  if (state != TaskState::kHasOutput) {
+    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  if (out == nullptr) {
+    return arrow::Status::Invalid("expected non-null output batch");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto expect_s, MakeStringArray({std::string("1"), std::string("-1")}));
+  ARROW_ASSIGN_OR_RAISE(auto expect_y, MakeInt32Array({12, 14}));
+  if (out->num_rows() != 2 || out->num_columns() != 2) {
+    return arrow::Status::Invalid("unexpected filtered output shape");
+  }
+  if (!expect_s->Equals(*out->column(0)) || !expect_y->Equals(*out->column(1))) {
+    return arrow::Status::Invalid("unexpected filtered output values");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
+  if (final_state != TaskState::kFinished) {
+    return arrow::Status::Invalid("expected TaskState::kFinished");
+  }
+  return arrow::Status::OK();
+}
+
 }  // namespace
 
 TEST(TiForthFilterTest, GreaterThan) {
@@ -184,6 +315,16 @@ TEST(TiForthFilterTest, GreaterThan) {
 
 TEST(TiForthFilterTest, DropsNullPredicate) {
   auto status = RunFilterDropsNullPredicate();
+  ASSERT_TRUE(status.ok()) << status.ToString();
+}
+
+TEST(TiForthFilterTest, TruthyInt32) {
+  auto status = RunFilterTruthyInt32();
+  ASSERT_TRUE(status.ok()) << status.ToString();
+}
+
+TEST(TiForthFilterTest, TruthyString) {
+  auto status = RunFilterTruthyString();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 

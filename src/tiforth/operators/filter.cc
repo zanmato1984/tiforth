@@ -1,8 +1,14 @@
 #include "tiforth/operators/filter.h"
 
+#include <cerrno>
+#include <cstdlib>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
+#include <arrow/array.h>
+#include <arrow/builder.h>
 #include <arrow/compute/api_vector.h>
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
@@ -15,6 +21,147 @@
 namespace tiforth {
 
 namespace {
+
+bool StringTruthy(std::string_view value) {
+  // TiDB/MySQL-style truthiness for WHERE: coerce string to number (double),
+  // then test != 0. Invalid parses produce 0.
+  std::string tmp(value);
+  char* end = nullptr;
+  errno = 0;
+  const double number = std::strtod(tmp.c_str(), &end);
+  if (end == tmp.c_str()) {
+    return false;
+  }
+  return number != 0.0;
+}
+
+template <typename ArrayType, typename ValueType = typename ArrayType::value_type>
+arrow::Result<std::shared_ptr<arrow::Array>> NumericTruthy(const ArrayType& values,
+                                                           arrow::MemoryPool* memory_pool) {
+  arrow::BooleanBuilder builder(memory_pool);
+  ARROW_RETURN_NOT_OK(builder.Reserve(values.length()));
+  for (int64_t row = 0; row < values.length(); ++row) {
+    if (values.IsNull(row)) {
+      ARROW_RETURN_NOT_OK(builder.AppendNull());
+      continue;
+    }
+    const auto v = static_cast<ValueType>(values.Value(row));
+    ARROW_RETURN_NOT_OK(builder.Append(v != static_cast<ValueType>(0)));
+  }
+  std::shared_ptr<arrow::Array> out;
+  ARROW_RETURN_NOT_OK(builder.Finish(&out));
+  return out;
+}
+
+arrow::Result<std::shared_ptr<arrow::Array>> CoercePredicateToBoolean(
+    const std::shared_ptr<arrow::Array>& predicate_array, arrow::compute::ExecContext* exec_context) {
+  if (predicate_array == nullptr) {
+    return arrow::Status::Invalid("filter predicate result must not be null");
+  }
+
+  if (predicate_array->type_id() == arrow::Type::BOOL) {
+    return predicate_array;
+  }
+
+  auto* memory_pool = exec_context != nullptr ? exec_context->memory_pool() : arrow::default_memory_pool();
+
+  switch (predicate_array->type_id()) {
+    case arrow::Type::INT8:
+      return NumericTruthy<arrow::Int8Array>(
+          static_cast<const arrow::Int8Array&>(*predicate_array), memory_pool);
+    case arrow::Type::INT16:
+      return NumericTruthy<arrow::Int16Array>(
+          static_cast<const arrow::Int16Array&>(*predicate_array), memory_pool);
+    case arrow::Type::INT32:
+      return NumericTruthy<arrow::Int32Array>(
+          static_cast<const arrow::Int32Array&>(*predicate_array), memory_pool);
+    case arrow::Type::INT64:
+      return NumericTruthy<arrow::Int64Array>(
+          static_cast<const arrow::Int64Array&>(*predicate_array), memory_pool);
+    case arrow::Type::UINT8:
+      return NumericTruthy<arrow::UInt8Array>(
+          static_cast<const arrow::UInt8Array&>(*predicate_array), memory_pool);
+    case arrow::Type::UINT16:
+      return NumericTruthy<arrow::UInt16Array>(
+          static_cast<const arrow::UInt16Array&>(*predicate_array), memory_pool);
+    case arrow::Type::UINT32:
+      return NumericTruthy<arrow::UInt32Array>(
+          static_cast<const arrow::UInt32Array&>(*predicate_array), memory_pool);
+    case arrow::Type::UINT64:
+      return NumericTruthy<arrow::UInt64Array>(
+          static_cast<const arrow::UInt64Array&>(*predicate_array), memory_pool);
+    case arrow::Type::FLOAT:
+      return NumericTruthy<arrow::FloatArray>(
+          static_cast<const arrow::FloatArray&>(*predicate_array), memory_pool);
+    case arrow::Type::DOUBLE:
+      return NumericTruthy<arrow::DoubleArray>(
+          static_cast<const arrow::DoubleArray&>(*predicate_array), memory_pool);
+    case arrow::Type::STRING: {
+      const auto& values = static_cast<const arrow::StringArray&>(*predicate_array);
+      arrow::BooleanBuilder builder(memory_pool);
+      ARROW_RETURN_NOT_OK(builder.Reserve(values.length()));
+      for (int64_t row = 0; row < values.length(); ++row) {
+        if (values.IsNull(row)) {
+          ARROW_RETURN_NOT_OK(builder.AppendNull());
+          continue;
+        }
+        ARROW_RETURN_NOT_OK(builder.Append(StringTruthy(values.GetView(row))));
+      }
+      std::shared_ptr<arrow::Array> out;
+      ARROW_RETURN_NOT_OK(builder.Finish(&out));
+      return out;
+    }
+    case arrow::Type::LARGE_STRING: {
+      const auto& values = static_cast<const arrow::LargeStringArray&>(*predicate_array);
+      arrow::BooleanBuilder builder(memory_pool);
+      ARROW_RETURN_NOT_OK(builder.Reserve(values.length()));
+      for (int64_t row = 0; row < values.length(); ++row) {
+        if (values.IsNull(row)) {
+          ARROW_RETURN_NOT_OK(builder.AppendNull());
+          continue;
+        }
+        ARROW_RETURN_NOT_OK(builder.Append(StringTruthy(values.GetView(row))));
+      }
+      std::shared_ptr<arrow::Array> out;
+      ARROW_RETURN_NOT_OK(builder.Finish(&out));
+      return out;
+    }
+    case arrow::Type::BINARY: {
+      const auto& values = static_cast<const arrow::BinaryArray&>(*predicate_array);
+      arrow::BooleanBuilder builder(memory_pool);
+      ARROW_RETURN_NOT_OK(builder.Reserve(values.length()));
+      for (int64_t row = 0; row < values.length(); ++row) {
+        if (values.IsNull(row)) {
+          ARROW_RETURN_NOT_OK(builder.AppendNull());
+          continue;
+        }
+        ARROW_RETURN_NOT_OK(builder.Append(StringTruthy(values.GetView(row))));
+      }
+      std::shared_ptr<arrow::Array> out;
+      ARROW_RETURN_NOT_OK(builder.Finish(&out));
+      return out;
+    }
+    case arrow::Type::LARGE_BINARY: {
+      const auto& values = static_cast<const arrow::LargeBinaryArray&>(*predicate_array);
+      arrow::BooleanBuilder builder(memory_pool);
+      ARROW_RETURN_NOT_OK(builder.Reserve(values.length()));
+      for (int64_t row = 0; row < values.length(); ++row) {
+        if (values.IsNull(row)) {
+          ARROW_RETURN_NOT_OK(builder.AppendNull());
+          continue;
+        }
+        ARROW_RETURN_NOT_OK(builder.Append(StringTruthy(values.GetView(row))));
+      }
+      std::shared_ptr<arrow::Array> out;
+      ARROW_RETURN_NOT_OK(builder.Finish(&out));
+      return out;
+    }
+    default:
+      return arrow::Status::Invalid(
+          "filter predicate must evaluate to boolean or a scalar type convertible to boolean (got type: ",
+          predicate_array->type()->ToString(), ")");
+  }
+}
 
 }  // namespace
 
@@ -65,9 +212,7 @@ arrow::Result<OperatorStatus> FilterTransformOp::TransformImpl(
   }
 
   ARROW_ASSIGN_OR_RAISE(auto predicate_array, ExecuteExprAsArray(compiled_->predicate, input, &exec_context_));
-  if (predicate_array == nullptr) {
-    return arrow::Status::Invalid("filter predicate result must not be null");
-  }
+  ARROW_ASSIGN_OR_RAISE(predicate_array, CoercePredicateToBoolean(predicate_array, &exec_context_));
   if (predicate_array->length() != input.num_rows()) {
     return arrow::Status::Invalid("filter predicate length mismatch");
   }

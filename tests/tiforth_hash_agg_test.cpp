@@ -84,7 +84,7 @@ arrow::Status RunHashAggSmoke() {
   std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}};
   std::vector<AggFunc> aggs;
   aggs.push_back({"cnt", "count_all", nullptr});
-  aggs.push_back({"sum_v", "sum_int32", MakeFieldRef("v")});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
@@ -134,8 +134,8 @@ arrow::Status RunHashAggSmoke() {
   if (out->num_columns() != 3 || out->num_rows() != 5) {
     return arrow::Status::Invalid("unexpected output shape");
   }
-  if (out->schema()->field(0)->name() != "k" || out->schema()->field(1)->name() != "cnt" ||
-      out->schema()->field(2)->name() != "sum_v") {
+  if (out->schema()->field(0)->name() != "cnt" || out->schema()->field(1)->name() != "sum_v" ||
+      out->schema()->field(2)->name() != "k") {
     return arrow::Status::Invalid("unexpected output schema");
   }
 
@@ -154,16 +154,13 @@ arrow::Status RunHashAggSmoke() {
   ARROW_RETURN_NOT_OK(cnt_builder.Finish(&expect_cnt));
 
   arrow::Int64Builder sum_builder;
-  ARROW_RETURN_NOT_OK(sum_builder.Append(10));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(21));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(7));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(5));
+  ARROW_RETURN_NOT_OK(sum_builder.AppendValues({10, 21, 7, 5}));
   ARROW_RETURN_NOT_OK(sum_builder.AppendNull());
   std::shared_ptr<arrow::Array> expect_sum;
   ARROW_RETURN_NOT_OK(sum_builder.Finish(&expect_sum));
 
-  if (!expect_k->Equals(*out->column(0)) || !expect_cnt->Equals(*out->column(1)) ||
-      !expect_sum->Equals(*out->column(2))) {
+  if (!expect_cnt->Equals(*out->column(0)) || !expect_sum->Equals(*out->column(1)) ||
+      !expect_k->Equals(*out->column(2))) {
     return arrow::Status::Invalid("unexpected output values");
   }
 
@@ -177,7 +174,7 @@ arrow::Status RunHashAggTwoKeySmoke() {
   std::vector<AggKey> keys = {{"s", MakeFieldRef("s")}, {"k2", MakeFieldRef("k2")}};
   std::vector<AggFunc> aggs;
   aggs.push_back({"cnt", "count_all", nullptr});
-  aggs.push_back({"sum_v", "sum_int32", MakeFieldRef("v")});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
@@ -237,13 +234,13 @@ arrow::Status RunHashAggTwoKeySmoke() {
   if (out->num_columns() != 4 || out->num_rows() != 5) {
     return arrow::Status::Invalid("unexpected output shape");
   }
-  if (out->schema()->field(0)->name() != "s" || out->schema()->field(1)->name() != "k2" ||
-      out->schema()->field(2)->name() != "cnt" || out->schema()->field(3)->name() != "sum_v") {
+  if (out->schema()->field(0)->name() != "cnt" || out->schema()->field(1)->name() != "sum_v" ||
+      out->schema()->field(2)->name() != "s" || out->schema()->field(3)->name() != "k2") {
     return arrow::Status::Invalid("unexpected output schema");
   }
 
   // Validate metadata preservation for the string key.
-  ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*out->schema()->field(0)));
+  ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*out->schema()->field(2)));
   if (logical_type.id != LogicalTypeId::kString || logical_type.collation_id != 46) {
     return arrow::Status::Invalid("unexpected output string key metadata");
   }
@@ -265,16 +262,12 @@ arrow::Status RunHashAggTwoKeySmoke() {
   ARROW_RETURN_NOT_OK(cnt_builder.Finish(&cnt_expect));
 
   arrow::Int64Builder sum_builder;
-  ARROW_RETURN_NOT_OK(sum_builder.Append(30));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(1));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(7));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(8));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(5));
+  ARROW_RETURN_NOT_OK(sum_builder.AppendValues({30, 1, 7, 8, 5}));
   std::shared_ptr<arrow::Array> sum_expect;
   ARROW_RETURN_NOT_OK(sum_builder.Finish(&sum_expect));
 
-  if (!s_expect->Equals(*out->column(0)) || !k2_expect->Equals(*out->column(1)) ||
-      !cnt_expect->Equals(*out->column(2)) || !sum_expect->Equals(*out->column(3))) {
+  if (!cnt_expect->Equals(*out->column(0)) || !sum_expect->Equals(*out->column(1)) ||
+      !s_expect->Equals(*out->column(2)) || !k2_expect->Equals(*out->column(3))) {
     return arrow::Status::Invalid("unexpected output values");
   }
 
@@ -288,7 +281,7 @@ arrow::Status RunHashAggGeneralCiStringKeySmoke() {
   std::vector<AggKey> keys = {{"s", MakeFieldRef("s")}};
   std::vector<AggFunc> aggs;
   aggs.push_back({"cnt", "count_all", nullptr});
-  aggs.push_back({"sum_v", "sum_int32", MakeFieldRef("v")});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
@@ -342,12 +335,12 @@ arrow::Status RunHashAggGeneralCiStringKeySmoke() {
   if (out->num_columns() != 3 || out->num_rows() != 2) {
     return arrow::Status::Invalid("unexpected output shape");
   }
-  if (out->schema()->field(0)->name() != "s" || out->schema()->field(1)->name() != "cnt" ||
-      out->schema()->field(2)->name() != "sum_v") {
+  if (out->schema()->field(0)->name() != "cnt" || out->schema()->field(1)->name() != "sum_v" ||
+      out->schema()->field(2)->name() != "s") {
     return arrow::Status::Invalid("unexpected output schema");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*out->schema()->field(0)));
+  ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*out->schema()->field(2)));
   if (logical_type.id != LogicalTypeId::kString || logical_type.collation_id != 45) {
     return arrow::Status::Invalid("unexpected output string key metadata");
   }
@@ -364,13 +357,12 @@ arrow::Status RunHashAggGeneralCiStringKeySmoke() {
   ARROW_RETURN_NOT_OK(cnt_builder.Finish(&cnt_expect));
 
   arrow::Int64Builder sum_builder;
-  ARROW_RETURN_NOT_OK(sum_builder.Append(31));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(5));
+  ARROW_RETURN_NOT_OK(sum_builder.AppendValues({31, 5}));
   std::shared_ptr<arrow::Array> sum_expect;
   ARROW_RETURN_NOT_OK(sum_builder.Finish(&sum_expect));
 
-  if (!s_expect->Equals(*out->column(0)) || !cnt_expect->Equals(*out->column(1)) ||
-      !sum_expect->Equals(*out->column(2))) {
+  if (!cnt_expect->Equals(*out->column(0)) || !sum_expect->Equals(*out->column(1)) ||
+      !s_expect->Equals(*out->column(2))) {
     return arrow::Status::Invalid("unexpected output values");
   }
   return arrow::Status::OK();
@@ -383,7 +375,7 @@ arrow::Status RunHashAggUnicode0900StringKeySmoke() {
   std::vector<AggKey> keys = {{"s", MakeFieldRef("s")}};
   std::vector<AggFunc> aggs;
   aggs.push_back({"cnt", "count_all", nullptr});
-  aggs.push_back({"sum_v", "sum_int32", MakeFieldRef("v")});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
@@ -438,7 +430,12 @@ arrow::Status RunHashAggUnicode0900StringKeySmoke() {
     return arrow::Status::Invalid("unexpected output shape");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*out->schema()->field(0)));
+  if (out->schema()->field(0)->name() != "cnt" || out->schema()->field(1)->name() != "sum_v" ||
+      out->schema()->field(2)->name() != "s") {
+    return arrow::Status::Invalid("unexpected output schema");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*out->schema()->field(2)));
   if (logical_type.id != LogicalTypeId::kString || logical_type.collation_id != 255) {
     return arrow::Status::Invalid("unexpected output string key metadata");
   }
@@ -455,22 +452,226 @@ arrow::Status RunHashAggUnicode0900StringKeySmoke() {
   ARROW_RETURN_NOT_OK(cnt_builder.Finish(&cnt_expect));
 
   arrow::Int64Builder sum_builder;
-  ARROW_RETURN_NOT_OK(sum_builder.Append(30));
-  ARROW_RETURN_NOT_OK(sum_builder.Append(3));
+  ARROW_RETURN_NOT_OK(sum_builder.AppendValues({30, 3}));
   std::shared_ptr<arrow::Array> sum_expect;
   ARROW_RETURN_NOT_OK(sum_builder.Finish(&sum_expect));
 
-  if (!s_expect->Equals(*out->column(0)) || !cnt_expect->Equals(*out->column(1)) ||
-      !sum_expect->Equals(*out->column(2))) {
+  if (!cnt_expect->Equals(*out->column(0)) || !sum_expect->Equals(*out->column(1)) ||
+      !s_expect->Equals(*out->column(2))) {
     return arrow::Status::Invalid("unexpected output values");
   }
   return arrow::Status::OK();
 }
 
+arrow::Status RunHashAggCountMinMaxSmoke() {
+  ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
+  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
+
+  std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"cnt_v", "count", MakeFieldRef("v")});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
+  aggs.push_back({"min_v", "min", MakeFieldRef("v")});
+  aggs.push_back({"max_v", "max", MakeFieldRef("v")});
+
+  ARROW_RETURN_NOT_OK(builder->AppendTransform(
+      [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
+        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+      }));
+
+  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+
+  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
+  if (initial_state != TaskState::kNeedInput) {
+    return arrow::Status::Invalid("expected TaskState::kNeedInput");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({1, 2, 1, std::nullopt}, {10, 20, std::nullopt, 7}));
+  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
+  ARROW_ASSIGN_OR_RAISE(auto batch1, MakeBatch({2, 3, std::nullopt, 4}, {1, 5, std::nullopt, std::nullopt}));
+  ARROW_RETURN_NOT_OK(task->PushInput(batch1));
+  ARROW_RETURN_NOT_OK(task->CloseInput());
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
+    if (state == TaskState::kFinished) {
+      break;
+    }
+    if (state == TaskState::kNeedInput) {
+      continue;
+    }
+    if (state != TaskState::kHasOutput) {
+      return arrow::Status::Invalid("expected TaskState::kHasOutput/kNeedInput/kFinished");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    outputs.push_back(std::move(out));
+  }
+
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+
+  const auto& out = outputs[0];
+  if (out->num_columns() != 6 || out->num_rows() != 5) {
+    return arrow::Status::Invalid("unexpected output shape");
+  }
+
+  if (out->schema()->field(0)->name() != "cnt_all" || out->schema()->field(1)->name() != "cnt_v" ||
+      out->schema()->field(2)->name() != "sum_v" || out->schema()->field(3)->name() != "min_v" ||
+      out->schema()->field(4)->name() != "max_v" || out->schema()->field(5)->name() != "k") {
+    return arrow::Status::Invalid("unexpected output schema");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto expect_k, MakeInt32Array({1, 2, std::nullopt, 3, 4}));
+
+  arrow::UInt64Builder cnt_all_builder;
+  ARROW_RETURN_NOT_OK(cnt_all_builder.AppendValues({2, 2, 2, 1, 1}));
+  std::shared_ptr<arrow::Array> expect_cnt_all;
+  ARROW_RETURN_NOT_OK(cnt_all_builder.Finish(&expect_cnt_all));
+
+  arrow::UInt64Builder cnt_v_builder;
+  ARROW_RETURN_NOT_OK(cnt_v_builder.AppendValues({1, 2, 1, 1, 0}));
+  std::shared_ptr<arrow::Array> expect_cnt_v;
+  ARROW_RETURN_NOT_OK(cnt_v_builder.Finish(&expect_cnt_v));
+
+  arrow::Int64Builder sum_builder;
+  ARROW_RETURN_NOT_OK(sum_builder.AppendValues({10, 21, 7, 5}));
+  ARROW_RETURN_NOT_OK(sum_builder.AppendNull());
+  std::shared_ptr<arrow::Array> expect_sum;
+  ARROW_RETURN_NOT_OK(sum_builder.Finish(&expect_sum));
+
+  arrow::Int32Builder min_builder;
+  ARROW_RETURN_NOT_OK(min_builder.AppendValues({10, 1, 7, 5}));
+  ARROW_RETURN_NOT_OK(min_builder.AppendNull());
+  std::shared_ptr<arrow::Array> expect_min;
+  ARROW_RETURN_NOT_OK(min_builder.Finish(&expect_min));
+
+  arrow::Int32Builder max_builder;
+  ARROW_RETURN_NOT_OK(max_builder.AppendValues({10, 20, 7, 5}));
+  ARROW_RETURN_NOT_OK(max_builder.AppendNull());
+  std::shared_ptr<arrow::Array> expect_max;
+  ARROW_RETURN_NOT_OK(max_builder.Finish(&expect_max));
+
+  if (!expect_cnt_all->Equals(*out->column(0)) || !expect_cnt_v->Equals(*out->column(1)) ||
+      !expect_sum->Equals(*out->column(2)) || !expect_min->Equals(*out->column(3)) ||
+      !expect_max->Equals(*out->column(4)) || !expect_k->Equals(*out->column(5))) {
+    return arrow::Status::Invalid("unexpected output values");
+  }
+
+  return arrow::Status::OK();
+}
+
+arrow::Status RunHashAggGlobalEmptyInputSmoke() {
+  ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
+  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
+
+  std::vector<AggKey> keys;
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
+  aggs.push_back({"min_v", "min", MakeFieldRef("v")});
+  aggs.push_back({"max_v", "max", MakeFieldRef("v")});
+
+  ARROW_RETURN_NOT_OK(builder->AppendTransform(
+      [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
+        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+      }));
+
+  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+
+  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
+  if (initial_state != TaskState::kNeedInput) {
+    return arrow::Status::Invalid("expected TaskState::kNeedInput");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto empty_input, MakeBatch({}, {}));
+  ARROW_RETURN_NOT_OK(task->PushInput(empty_input));
+  ARROW_RETURN_NOT_OK(task->CloseInput());
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
+    if (state == TaskState::kFinished) {
+      break;
+    }
+    if (state == TaskState::kNeedInput) {
+      continue;
+    }
+    if (state != TaskState::kHasOutput) {
+      return arrow::Status::Invalid("expected TaskState::kHasOutput/kNeedInput/kFinished");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    outputs.push_back(std::move(out));
+  }
+
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+
+  const auto& out = outputs[0];
+  if (out->num_columns() != 4 || out->num_rows() != 1) {
+    return arrow::Status::Invalid("unexpected output shape");
+  }
+
+  if (out->schema()->field(0)->name() != "cnt_all" || out->schema()->field(1)->name() != "sum_v" ||
+      out->schema()->field(2)->name() != "min_v" || out->schema()->field(3)->name() != "max_v") {
+    return arrow::Status::Invalid("unexpected output schema");
+  }
+
+  arrow::UInt64Builder cnt_all_builder;
+  ARROW_RETURN_NOT_OK(cnt_all_builder.Append(0));
+  std::shared_ptr<arrow::Array> expect_cnt_all;
+  ARROW_RETURN_NOT_OK(cnt_all_builder.Finish(&expect_cnt_all));
+
+  arrow::Int64Builder sum_builder;
+  ARROW_RETURN_NOT_OK(sum_builder.AppendNull());
+  std::shared_ptr<arrow::Array> expect_sum;
+  ARROW_RETURN_NOT_OK(sum_builder.Finish(&expect_sum));
+
+  arrow::Int32Builder min_builder;
+  ARROW_RETURN_NOT_OK(min_builder.AppendNull());
+  std::shared_ptr<arrow::Array> expect_min;
+  ARROW_RETURN_NOT_OK(min_builder.Finish(&expect_min));
+
+  arrow::Int32Builder max_builder;
+  ARROW_RETURN_NOT_OK(max_builder.AppendNull());
+  std::shared_ptr<arrow::Array> expect_max;
+  ARROW_RETURN_NOT_OK(max_builder.Finish(&expect_max));
+
+  if (!expect_cnt_all->Equals(*out->column(0)) || !expect_sum->Equals(*out->column(1)) ||
+      !expect_min->Equals(*out->column(2)) || !expect_max->Equals(*out->column(3))) {
+    return arrow::Status::Invalid("unexpected output values");
+  }
+
+  return arrow::Status::OK();
+}
+
 }  // namespace
 
-TEST(TiForthHashAggTest, CountAllSumInt32) {
+TEST(TiForthHashAggTest, CountAllSum) {
   auto status = RunHashAggSmoke();
+  ASSERT_TRUE(status.ok()) << status.ToString();
+}
+
+TEST(TiForthHashAggTest, CountAllCountSumMinMax) {
+  auto status = RunHashAggCountMinMaxSmoke();
+  ASSERT_TRUE(status.ok()) << status.ToString();
+}
+
+TEST(TiForthHashAggTest, GlobalAggEmptyInput) {
+  auto status = RunHashAggGlobalEmptyInputSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
