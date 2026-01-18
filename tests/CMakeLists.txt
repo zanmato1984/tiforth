@@ -17,3 +17,5 @@ add_tiforth_test(tiforth_mytime_temporal_test "${CMAKE_CURRENT_SOURCE_DIR}/tifor
 add_tiforth_test(tiforth_decimal_add_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_decimal_add_test.cpp")
 add_tiforth_test(tiforth_decimal_arithmetic_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_decimal_arithmetic_test.cpp")
 add_tiforth_test(tiforth_numeric_arithmetic_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_numeric_arithmetic_test.cpp")
+add_tiforth_test(tiforth_logical_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_logical_test.cpp")
+add_tiforth_test(tiforth_comparison_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_comparison_test.cpp")

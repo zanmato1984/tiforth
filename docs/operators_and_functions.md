@@ -152,6 +152,9 @@ physical types) and may rewrite calls:
   - when an argument is `tiforth.logical_type=mydate|mydatetime`, TiForth attaches MyTime options
   - for `hour/minute/second` it routes to `tiforth.mytime_hour/_minute/_second` to avoid colliding with Arrow’s
     timestamp extractors
+- TiFlash/ClickHouse comparison aliases:
+  - `equals/notEquals/lessOrEquals/greaterOrEquals` are normalized to Arrow compute
+    `equal/not_equal/less_equal/greater_equal` during compilation (before rewrite decisions)
 
 ### TiForth-defined function names (common path)
 
@@ -183,5 +186,8 @@ Registered by `libs/tiforth/src/tiforth/functions/register.cc`:
   - `tidbDayOfWeek`, `tidbWeekOfYear`, `yearWeek`
   - `tiforth.mytime_hour`, `tiforth.mytime_minute`, `tiforth.mytime_second`
   - `microSecond`
+- Logical (TiFlash/TiDB semantics; Arrow boolean output):
+  - `and`, `or`, `xor` (varargs, min 2; numeric truthiness; 3VL null semantics)
+  - `not`
 
 For the mapping/metadata that drives these rewrites, see `type_mapping_tidb_to_arrow.md`.

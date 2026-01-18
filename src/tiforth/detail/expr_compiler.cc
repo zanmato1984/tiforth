@@ -216,6 +216,17 @@ arrow::Result<TypedExpr> CompileCall(const arrow::Schema& schema, const Call& ca
   std::string function_name = call.function_name;
   std::shared_ptr<arrow::compute::FunctionOptions> options;
 
+  // Normalize common TiFlash/ClickHouse names to Arrow compute names.
+  if (function_name == "equals") {
+    function_name = "equal";
+  } else if (function_name == "notEquals") {
+    function_name = "not_equal";
+  } else if (function_name == "lessOrEquals") {
+    function_name = "less_equal";
+  } else if (function_name == "greaterOrEquals") {
+    function_name = "greater_equal";
+  }
+
   if (enable_tiforth) {
     if (IsDecimalAddCall(function_name, args)) {
       function_name = "tiforth.decimal_add";
