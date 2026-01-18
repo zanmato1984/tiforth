@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <memory_resource>
 #include <new>
@@ -30,33 +31,7 @@
 
 namespace tiforth {
 
-HashJoinTransformOp::HashJoinTransformOp(const Engine* engine,
-                                         std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
-                                         JoinKey key, arrow::MemoryPool* memory_pool)
-    : build_batches_(std::move(build_batches)),
-      key_(std::move(key)),
-      memory_pool_(memory_pool != nullptr
-                       ? memory_pool
-                       : (engine != nullptr ? engine->memory_pool() : arrow::default_memory_pool())),
-      exec_context_(memory_pool_, /*executor=*/nullptr,
-                    engine != nullptr ? engine->function_registry() : nullptr) {}
-
 namespace {
-
-std::size_t HashBytes(const uint8_t* data, std::size_t size) noexcept {
-  // FNV-1a (64-bit); good enough for MS8 common path.
-  uint64_t h = 14695981039346656037ULL;
-  for (std::size_t i = 0; i < size; ++i) {
-    h ^= static_cast<uint64_t>(data[i]);
-    h *= 1099511628211ULL;
-  }
-  return static_cast<std::size_t>(h);
-}
-
-template <std::size_t N>
-std::size_t HashBytes(const std::array<uint8_t, N>& bytes) noexcept {
-  return HashBytes(bytes.data(), bytes.size());
-}
 
 class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
  public:
@@ -89,41 +64,23 @@ class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
 
 }  // namespace
 
-std::size_t HashJoinTransformOp::KeyHash::operator()(
-    const HashJoinTransformOp::CompositeKey& key) const noexcept {
-  uint64_t h = 14695981039346656037ULL;
-  h ^= static_cast<uint64_t>(key.key_count);
-  h *= 1099511628211ULL;
-
-  for (uint8_t i = 0; i < key.key_count && i < key.parts.size(); ++i) {
-    const std::size_t part_hash = std::visit(
-        [&](const auto& v) -> std::size_t {
-          using V = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<V, int32_t>) {
-            return std::hash<int32_t>{}(v);
-          } else if constexpr (std::is_same_v<V, uint64_t>) {
-            return std::hash<uint64_t>{}(v);
-          } else if constexpr (std::is_same_v<V, Decimal128Bytes> ||
-                               std::is_same_v<V, Decimal256Bytes>) {
-            return HashBytes(v);
-          } else if constexpr (std::is_same_v<V, std::pmr::string>) {
-            return HashBytes(reinterpret_cast<const uint8_t*>(v.data()), v.size());
-          } else {
-            return 0;
-          }
-        },
-        key.parts[i]);
-    h ^= static_cast<uint64_t>(part_hash);
-    h *= 1099511628211ULL;
-  }
-
-  return static_cast<std::size_t>(h);
-}
+HashJoinTransformOp::HashJoinTransformOp(
+    const Engine* engine, std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
+    JoinKey key, arrow::MemoryPool* memory_pool)
+    : build_batches_(std::move(build_batches)),
+      key_(std::move(key)),
+      memory_pool_(memory_pool != nullptr
+                       ? memory_pool
+                       : (engine != nullptr ? engine->memory_pool() : arrow::default_memory_pool())),
+      key_arena_(memory_pool_),
+      key_to_key_id_(memory_pool_, &key_arena_),
+      pmr_resource_(std::make_unique<ArrowMemoryPoolResource>(memory_pool_)),
+      key_rows_(std::pmr::polymorphic_allocator<BuildRowList>(pmr_resource_.get())),
+      row_nodes_(std::pmr::polymorphic_allocator<BuildRowNode>(pmr_resource_.get())),
+      exec_context_(memory_pool_, /*executor=*/nullptr,
+                    engine != nullptr ? engine->function_registry() : nullptr) {}
 
 arrow::Status HashJoinTransformOp::BuildIndex() {
-  if (pmr_resource_ == nullptr) {
-    pmr_resource_ = std::make_unique<ArrowMemoryPoolResource>(memory_pool_);
-  }
   if (index_built_) {
     return arrow::Status::OK();
   }
@@ -213,45 +170,28 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
     }
   }
 
-  const auto make_key_part = [&](const arrow::Array& array, int64_t row,
-                                 Collation collation) -> arrow::Result<KeyValue> {
-    switch (array.type_id()) {
-      case arrow::Type::INT32:
-        return static_cast<const arrow::Int32Array&>(array).Value(row);
-      case arrow::Type::UINT64:
-        return static_cast<const arrow::UInt64Array&>(array).Value(row);
-      case arrow::Type::DECIMAL128: {
-        const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
-        if (fixed.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
-          return arrow::Status::Invalid("unexpected decimal128 byte width");
-        }
-        Decimal128Bytes bytes{};
-        std::memcpy(bytes.data(), fixed.GetValue(row), bytes.size());
-        return bytes;
-      }
-      case arrow::Type::DECIMAL256: {
-        const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
-        if (fixed.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
-          return arrow::Status::Invalid("unexpected decimal256 byte width");
-        }
-        Decimal256Bytes bytes{};
-        std::memcpy(bytes.data(), fixed.GetValue(row), bytes.size());
-        return bytes;
-      }
-      case arrow::Type::BINARY: {
-        const auto& bin = static_cast<const arrow::BinaryArray&>(array);
-        std::pmr::string out(pmr_resource_.get());
-        SortKeyStringTo(collation, bin.GetView(row), &out);
-        return out;
-      }
-      default:
-        break;
-    }
-    return arrow::Status::NotImplemented("unsupported join key type: ",
-                                         array.type()->ToString());
+  const auto append_u32_le = [](std::string& out, uint32_t v) {
+    out.push_back(static_cast<char>(v));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 24));
+  };
+  const auto append_u64_le = [](std::string& out, uint64_t v) {
+    out.push_back(static_cast<char>(v));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 24));
+    out.push_back(static_cast<char>(v >> 32));
+    out.push_back(static_cast<char>(v >> 40));
+    out.push_back(static_cast<char>(v >> 48));
+    out.push_back(static_cast<char>(v >> 56));
   };
 
   // Build the hash index on the concatenated build side.
+  std::string normalized_key;
+  normalized_key.reserve(static_cast<std::size_t>(key_count_) * 16);
+  std::string sort_key;
+
   const int64_t rows = build_combined_->num_rows();
   for (int64_t row = 0; row < rows; ++row) {
     bool any_null = false;
@@ -265,12 +205,98 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
       continue;
     }
 
-    CompositeKey key;
-    key.key_count = key_count_;
+    normalized_key.clear();
     for (uint8_t i = 0; i < key_count_; ++i) {
-      ARROW_ASSIGN_OR_RAISE(key.parts[i], make_key_part(*key_arrays[i], row, collations[i]));
+      const auto& array = *key_arrays[i];
+      switch (array.type_id()) {
+        case arrow::Type::INT32: {
+          const auto& arr = static_cast<const arrow::Int32Array&>(array);
+          const int64_t v = static_cast<int64_t>(arr.Value(row));
+          append_u64_le(normalized_key, static_cast<uint64_t>(v));
+          break;
+        }
+        case arrow::Type::UINT64: {
+          const auto& arr = static_cast<const arrow::UInt64Array&>(array);
+          append_u64_le(normalized_key, arr.Value(row));
+          break;
+        }
+        case arrow::Type::DECIMAL128: {
+          const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
+          if (fixed.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
+            return arrow::Status::Invalid("unexpected decimal128 byte width");
+          }
+          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                Decimal128Bytes{}.size());
+          break;
+        }
+        case arrow::Type::DECIMAL256: {
+          const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
+          if (fixed.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
+            return arrow::Status::Invalid("unexpected decimal256 byte width");
+          }
+          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                Decimal256Bytes{}.size());
+          break;
+        }
+        case arrow::Type::BINARY: {
+          const auto& bin = static_cast<const arrow::BinaryArray&>(array);
+          sort_key.clear();
+          SortKeyStringTo(collations[i], bin.GetView(row), &sort_key);
+          if (sort_key.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+            return arrow::Status::Invalid("normalized join key string too large");
+          }
+          append_u32_le(normalized_key, static_cast<uint32_t>(sort_key.size()));
+          normalized_key.append(sort_key.data(), sort_key.size());
+          break;
+        }
+        default:
+          return arrow::Status::NotImplemented("unsupported join key type: ",
+                                               array.type()->ToString());
+      }
     }
-    build_index_[std::move(key)].push_back(row);
+
+    if (normalized_key.size() >
+        static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+      return arrow::Status::Invalid("normalized join key too large");
+    }
+    const auto* key_data = reinterpret_cast<const uint8_t*>(normalized_key.data());
+    const auto key_size = static_cast<int32_t>(normalized_key.size());
+    const uint64_t key_hash = detail::HashBytes(key_data, key_size);
+
+    if (key_rows_.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+      return arrow::Status::Invalid("too many distinct join keys");
+    }
+    const uint32_t candidate_key_id = static_cast<uint32_t>(key_rows_.size());
+    ARROW_ASSIGN_OR_RAISE(
+        auto res, key_to_key_id_.FindOrInsert(key_data, key_size, key_hash, candidate_key_id));
+    const uint32_t key_id = res.first;
+    const bool inserted = res.second;
+    if (inserted) {
+      if (key_id != candidate_key_id) {
+        return arrow::Status::Invalid("unexpected join key id assignment");
+      }
+      key_rows_.push_back(BuildRowList{});
+    }
+    if (key_id >= key_rows_.size()) {
+      return arrow::Status::Invalid("internal error: join key id out of range");
+    }
+
+    if (row_nodes_.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max() - 1)) {
+      return arrow::Status::Invalid("too many build rows in join index");
+    }
+    const uint32_t node_id = static_cast<uint32_t>(row_nodes_.size());
+    row_nodes_.push_back(BuildRowNode{.build_row = static_cast<uint64_t>(row), .next = kInvalidIndex});
+    auto& list = key_rows_[key_id];
+    if (list.head == kInvalidIndex) {
+      list.head = node_id;
+      list.tail = node_id;
+    } else {
+      if (list.tail >= row_nodes_.size()) {
+        return arrow::Status::Invalid("internal error: join list tail out of range");
+      }
+      row_nodes_[list.tail].next = node_id;
+      list.tail = node_id;
+    }
   }
 
   index_built_ = true;
@@ -380,37 +406,26 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
     }
   }
 
-  const auto make_key_part = [&](const arrow::Array& array, int64_t row,
-                                 Collation collation) -> arrow::Result<KeyValue> {
-    switch (array.type_id()) {
-      case arrow::Type::INT32:
-        return static_cast<const arrow::Int32Array&>(array).Value(row);
-      case arrow::Type::UINT64:
-        return static_cast<const arrow::UInt64Array&>(array).Value(row);
-      case arrow::Type::DECIMAL128: {
-        const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
-        Decimal128Bytes bytes{};
-        std::memcpy(bytes.data(), fixed.GetValue(row), bytes.size());
-        return bytes;
-      }
-      case arrow::Type::DECIMAL256: {
-        const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
-        Decimal256Bytes bytes{};
-        std::memcpy(bytes.data(), fixed.GetValue(row), bytes.size());
-        return bytes;
-      }
-      case arrow::Type::BINARY: {
-        const auto& bin = static_cast<const arrow::BinaryArray&>(array);
-        std::pmr::string out(pmr_resource_.get());
-        SortKeyStringTo(collation, bin.GetView(row), &out);
-        return out;
-      }
-      default:
-        break;
-    }
-    return arrow::Status::NotImplemented("unsupported join key type: ",
-                                         array.type()->ToString());
+  const auto append_u32_le = [](std::string& out, uint32_t v) {
+    out.push_back(static_cast<char>(v));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 24));
   };
+  const auto append_u64_le = [](std::string& out, uint64_t v) {
+    out.push_back(static_cast<char>(v));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 24));
+    out.push_back(static_cast<char>(v >> 32));
+    out.push_back(static_cast<char>(v >> 40));
+    out.push_back(static_cast<char>(v >> 48));
+    out.push_back(static_cast<char>(v >> 56));
+  };
+
+  std::string normalized_key;
+  normalized_key.reserve(static_cast<std::size_t>(key_count_) * 16);
+  std::string sort_key;
 
   arrow::UInt64Builder probe_indices(memory_pool_);
   arrow::UInt64Builder build_indices(memory_pool_);
@@ -428,19 +443,81 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
       continue;
     }
 
-    CompositeKey key;
-    key.key_count = key_count_;
+    normalized_key.clear();
     for (uint8_t i = 0; i < key_count_; ++i) {
-      ARROW_ASSIGN_OR_RAISE(key.parts[i],
-                            make_key_part(*probe_key_arrays[i], row, collations[i]));
+      const auto& array = *probe_key_arrays[i];
+      switch (array.type_id()) {
+        case arrow::Type::INT32: {
+          const auto& arr = static_cast<const arrow::Int32Array&>(array);
+          const int64_t v = static_cast<int64_t>(arr.Value(row));
+          append_u64_le(normalized_key, static_cast<uint64_t>(v));
+          break;
+        }
+        case arrow::Type::UINT64: {
+          const auto& arr = static_cast<const arrow::UInt64Array&>(array);
+          append_u64_le(normalized_key, arr.Value(row));
+          break;
+        }
+        case arrow::Type::DECIMAL128: {
+          const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
+          if (fixed.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
+            return arrow::Status::Invalid("unexpected decimal128 byte width");
+          }
+          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                Decimal128Bytes{}.size());
+          break;
+        }
+        case arrow::Type::DECIMAL256: {
+          const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
+          if (fixed.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
+            return arrow::Status::Invalid("unexpected decimal256 byte width");
+          }
+          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                Decimal256Bytes{}.size());
+          break;
+        }
+        case arrow::Type::BINARY: {
+          const auto& bin = static_cast<const arrow::BinaryArray&>(array);
+          sort_key.clear();
+          SortKeyStringTo(collations[i], bin.GetView(row), &sort_key);
+          if (sort_key.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+            return arrow::Status::Invalid("normalized join key string too large");
+          }
+          append_u32_le(normalized_key, static_cast<uint32_t>(sort_key.size()));
+          normalized_key.append(sort_key.data(), sort_key.size());
+          break;
+        }
+        default:
+          return arrow::Status::NotImplemented("unsupported join key type: ",
+                                               array.type()->ToString());
+      }
     }
-    auto it = build_index_.find(key);
-    if (it == build_index_.end()) {
+
+    if (normalized_key.size() >
+        static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+      return arrow::Status::Invalid("normalized join key too large");
+    }
+    const auto* key_data = reinterpret_cast<const uint8_t*>(normalized_key.data());
+    const auto key_size = static_cast<int32_t>(normalized_key.size());
+    const uint64_t key_hash = detail::HashBytes(key_data, key_size);
+    ARROW_ASSIGN_OR_RAISE(auto found, key_to_key_id_.Find(key_data, key_size, key_hash));
+    if (!found.has_value()) {
       continue;
     }
-    for (const auto build_row : it->second) {
+
+    const uint32_t key_id = *found;
+    if (key_id >= key_rows_.size()) {
+      return arrow::Status::Invalid("internal error: join key id out of range");
+    }
+    uint32_t node = key_rows_[key_id].head;
+    while (node != kInvalidIndex) {
+      if (node >= row_nodes_.size()) {
+        return arrow::Status::Invalid("internal error: join node id out of range");
+      }
+      const uint64_t build_row = row_nodes_[node].build_row;
       ARROW_RETURN_NOT_OK(probe_indices.Append(static_cast<uint64_t>(row)));
       ARROW_RETURN_NOT_OK(build_indices.Append(static_cast<uint64_t>(build_row)));
+      node = row_nodes_[node].next;
     }
   }
 

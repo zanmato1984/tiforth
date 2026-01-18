@@ -2,18 +2,19 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <memory_resource>
 #include <string>
-#include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <arrow/compute/exec.h>
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 
+#include "tiforth/detail/arena.h"
+#include "tiforth/detail/key_hash_table.h"
 #include "tiforth/operators.h"
 
 namespace arrow {
@@ -43,28 +44,16 @@ class HashJoinTransformOp final : public TransformOp {
  private:
   using Decimal128Bytes = std::array<uint8_t, 16>;
   using Decimal256Bytes = std::array<uint8_t, 32>;
-  using KeyValue =
-      std::variant<int32_t, uint64_t, Decimal128Bytes, Decimal256Bytes, std::pmr::string>;
+  static constexpr uint32_t kInvalidIndex = std::numeric_limits<uint32_t>::max();
 
-  struct CompositeKey {
-    uint8_t key_count = 0;
-    std::array<KeyValue, 2> parts;
-
-    bool operator==(const CompositeKey& rhs) const noexcept {
-      if (key_count != rhs.key_count) {
-        return false;
-      }
-      for (uint8_t i = 0; i < key_count && i < parts.size(); ++i) {
-        if (parts[i] != rhs.parts[i]) {
-          return false;
-        }
-      }
-      return true;
-    }
+  struct BuildRowNode {
+    uint64_t build_row = 0;
+    uint32_t next = kInvalidIndex;
   };
 
-  struct KeyHash {
-    std::size_t operator()(const CompositeKey& key) const noexcept;
+  struct BuildRowList {
+    uint32_t head = kInvalidIndex;
+    uint32_t tail = kInvalidIndex;
   };
 
   arrow::Status BuildIndex();
@@ -85,11 +74,14 @@ class HashJoinTransformOp final : public TransformOp {
   std::array<int32_t, 2> key_collation_ids_ = {-1, -1};
 
   arrow::MemoryPool* memory_pool_ = nullptr;
-  // Owns the memory_resource used by pmr keys (normalized string keys) so the allocator stays
-  // valid for the lifetime of the hash index.
+  detail::Arena key_arena_;
+  detail::KeyHashTable key_to_key_id_;
+  // Owns the memory_resource used by PMR containers in the join index so the allocator stays
+  // valid for the lifetime of the hash table/state.
   std::unique_ptr<std::pmr::memory_resource> pmr_resource_;
 
-  std::unordered_map<CompositeKey, std::vector<int64_t>, KeyHash> build_index_;
+  std::pmr::vector<BuildRowList> key_rows_;
+  std::pmr::vector<BuildRowNode> row_nodes_;
   bool index_built_ = false;
   arrow::compute::ExecContext exec_context_;
 };
