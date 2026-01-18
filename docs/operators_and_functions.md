@@ -171,6 +171,12 @@ Registered by `libs/tiforth/src/tiforth/functions/register.cc`:
   - `tiforth.decimal_divide`
   - `tiforth.decimal_tidb_divide`
   - `tiforth.decimal_modulo`
+- Numeric / bitwise arithmetic (TiFlash/TiDB semantics):
+  - bitwise: `bitAnd`, `bitOr`, `bitXor`, `bitNot`, `bitShiftLeft`, `bitShiftRight` (returns `uint64`)
+  - unary: `abs` (signed int -> unsigned; `abs(INT64_MIN)` errors), `negate` (unsigned -> signed nextSize)
+  - division: `intDiv` (division-by-zero errors), `intDivOrZero` (division-by-zero returns 0)
+  - modulo: `modulo` (division-by-zero yields NULL; decimal cases are rewritten to `tiforth.decimal_modulo`)
+  - other: `gcd`, `lcm` (matches TiFlash behavior; currently errors if either argument is zero)
 - Packed MyTime (selected):
   - `toYear`, `toMonth`, `toDayOfMonth`, `toMyDate`
   - `toDayOfWeek`, `toWeek`, `toYearWeek`

@@ -887,7 +887,7 @@ arrow::Status ExecDecimalModulo(arrow::compute::KernelContext* ctx, const arrow:
 
 }  // namespace
 
-arrow::Status RegisterScalarArithmeticFunctions(arrow::compute::FunctionRegistry* registry,
+arrow::Status RegisterDecimalArithmeticFunctions(arrow::compute::FunctionRegistry* registry,
                                                 arrow::compute::FunctionRegistry* fallback_registry) {
   if (registry == nullptr) {
     return arrow::Status::Invalid("function registry must not be null");
