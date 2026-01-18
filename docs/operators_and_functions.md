@@ -143,8 +143,11 @@ physical types) and may rewrite calls:
 - Collated string comparisons:
   - calls like `equal/less/...` become `tiforth.collated_equal/tiforth.collated_less/...`
   - a `collation_id` option is derived from `tiforth.string.collation_id`
-- Decimal add:
-  - `add(x,y)` becomes `tiforth.decimal_add(x,y)` when at least one argument is decimal
+- Decimal arithmetic:
+  - `add/subtract/multiply/divide` become the corresponding `tiforth.decimal_*` functions when at least one argument is
+    decimal
+  - `tidbDivide/modulo` become `tiforth.decimal_tidb_divide` / `tiforth.decimal_modulo` when at least one argument is
+    decimal
 - Packed MyTime extraction:
   - when an argument is `tiforth.logical_type=mydate|mydatetime`, TiForth attaches MyTime options
   - for `hour/minute/second` it routes to `tiforth.mytime_hour/_minute/_second` to avoid colliding with Arrow’s
@@ -163,6 +166,11 @@ Registered by `libs/tiforth/src/tiforth/functions/register.cc`:
   - `tiforth.collated_greater_equal`
 - Decimal arithmetic:
   - `tiforth.decimal_add`
+  - `tiforth.decimal_subtract`
+  - `tiforth.decimal_multiply`
+  - `tiforth.decimal_divide`
+  - `tiforth.decimal_tidb_divide`
+  - `tiforth.decimal_modulo`
 - Packed MyTime (selected):
   - `toYear`, `toMonth`, `toDayOfMonth`, `toMyDate`
   - `toDayOfWeek`, `toWeek`, `toYearWeek`
@@ -171,4 +179,3 @@ Registered by `libs/tiforth/src/tiforth/functions/register.cc`:
   - `microSecond`
 
 For the mapping/metadata that drives these rewrites, see `type_mapping_tidb_to_arrow.md`.
-

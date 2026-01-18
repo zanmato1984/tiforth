@@ -108,8 +108,12 @@ How TiForth interprets this:
 
 ### Decimal behavior hooks
 
-TiForth registers a decimal-add kernel (`tiforth.decimal_add`) and expression compilation rewrites
-`add(x,y)` into `tiforth.decimal_add(x,y)` when at least one argument is a decimal logical type.
+TiForth registers a small decimal arithmetic kernel suite and expression compilation rewrites:
+
+- `add/subtract/multiply/divide` are rewritten to `tiforth.decimal_add/_subtract/_multiply/_divide` when at least one
+  argument is a decimal logical type.
+- `tidbDivide` is rewritten to `tiforth.decimal_tidb_divide` (TiDB rounding + div-by-zero => NULL).
+- `modulo` is rewritten to `tiforth.decimal_modulo` (div-by-zero => NULL).
 
 This is how TiForth preserves TiDB/MySQL decimal inference behavior where implemented.
 
@@ -235,4 +239,3 @@ here to make future extensions explicit:
   `tiforth.logical_type` value.
 
 Until implemented, operators that depend on key semantics may reject these as unsupported key types.
-

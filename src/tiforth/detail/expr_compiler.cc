@@ -148,17 +148,48 @@ std::string CollatedCompareName(std::string_view op) {
 
 bool IsDecimalLogical(const LogicalType& t) { return t.id == LogicalTypeId::kDecimal; }
 
-bool IsDecimalAddCall(std::string_view name, const std::vector<TypedExpr>& args) {
-  if (name != "add") {
+bool HasDecimalArgs(const std::vector<TypedExpr>& args) {
+  for (const auto& arg : args) {
+    if (IsDecimalLogical(arg.logical_type)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsDecimalBinaryCall(std::string_view name, std::string_view expected,
+                         const std::vector<TypedExpr>& args) {
+  if (name != expected) {
     return false;
   }
   if (args.size() != 2) {
     return false;
   }
+  return HasDecimalArgs(args);
+}
 
-  const bool lhs_decimal = IsDecimalLogical(args[0].logical_type);
-  const bool rhs_decimal = IsDecimalLogical(args[1].logical_type);
-  return lhs_decimal || rhs_decimal;
+bool IsDecimalAddCall(std::string_view name, const std::vector<TypedExpr>& args) {
+  return IsDecimalBinaryCall(name, "add", args);
+}
+
+bool IsDecimalSubtractCall(std::string_view name, const std::vector<TypedExpr>& args) {
+  return IsDecimalBinaryCall(name, "subtract", args);
+}
+
+bool IsDecimalMultiplyCall(std::string_view name, const std::vector<TypedExpr>& args) {
+  return IsDecimalBinaryCall(name, "multiply", args);
+}
+
+bool IsDecimalDivideCall(std::string_view name, const std::vector<TypedExpr>& args) {
+  return IsDecimalBinaryCall(name, "divide", args);
+}
+
+bool IsDecimalTiDBDivideCall(std::string_view name, const std::vector<TypedExpr>& args) {
+  return IsDecimalBinaryCall(name, "tidbDivide", args);
+}
+
+bool IsDecimalModuloCall(std::string_view name, const std::vector<TypedExpr>& args) {
+  return IsDecimalBinaryCall(name, "modulo", args);
 }
 
 arrow::Result<TypedExpr> CompileTypedExprImpl(const arrow::Schema& schema, const Expr& expr,
@@ -188,6 +219,16 @@ arrow::Result<TypedExpr> CompileCall(const arrow::Schema& schema, const Call& ca
   if (enable_tiforth) {
     if (IsDecimalAddCall(function_name, args)) {
       function_name = "tiforth.decimal_add";
+    } else if (IsDecimalSubtractCall(function_name, args)) {
+      function_name = "tiforth.decimal_subtract";
+    } else if (IsDecimalMultiplyCall(function_name, args)) {
+      function_name = "tiforth.decimal_multiply";
+    } else if (IsDecimalDivideCall(function_name, args)) {
+      function_name = "tiforth.decimal_divide";
+    } else if (IsDecimalTiDBDivideCall(function_name, args)) {
+      function_name = "tiforth.decimal_tidb_divide";
+    } else if (IsDecimalModuloCall(function_name, args)) {
+      function_name = "tiforth.decimal_modulo";
     } else if (IsCollatedCompareFunction(function_name)) {
       bool has_string = false;
       for (const auto& arg : args) {
@@ -225,7 +266,9 @@ arrow::Result<TypedExpr> CompileCall(const arrow::Schema& schema, const Call& ca
 
   LogicalType out_logical;
   if (enable_tiforth) {
-    if (function_name == "tiforth.decimal_add") {
+    if (function_name == "tiforth.decimal_add" || function_name == "tiforth.decimal_subtract" ||
+        function_name == "tiforth.decimal_multiply" || function_name == "tiforth.decimal_divide" ||
+        function_name == "tiforth.decimal_tidb_divide" || function_name == "tiforth.decimal_modulo") {
       out_logical.id = LogicalTypeId::kDecimal;
     } else if (function_name == "toMyDate") {
       out_logical.id = LogicalTypeId::kMyDate;
