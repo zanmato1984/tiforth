@@ -18,6 +18,7 @@
 #include "tiforth/detail/aggregate_function.h"
 #include "tiforth/detail/arena.h"
 #include "tiforth/detail/key_hash_table.h"
+#include "tiforth/detail/scratch_bytes.h"
 
 namespace arrow {
 class Array;
@@ -59,7 +60,7 @@ class HashAggContext final {
   using Decimal128Bytes = std::array<uint8_t, 16>;
   using Decimal256Bytes = std::array<uint8_t, 32>;
   using KeyValue =
-      std::variant<int64_t, uint64_t, Decimal128Bytes, Decimal256Bytes, std::pmr::string>;
+      std::variant<int64_t, uint64_t, Decimal128Bytes, Decimal256Bytes, detail::ByteSlice>;
 
   struct KeyPart {
     bool is_null = false;
@@ -116,9 +117,11 @@ class HashAggContext final {
   detail::Arena group_key_arena_;
   detail::Arena agg_state_arena_;
   detail::KeyHashTable key_to_group_id_;
-  // Owns the memory_resource used by pmr group keys (normalized/original string keys) so the
-  // allocator stays valid for the lifetime of the hash table and group key storage.
+  // Owns the memory_resource used by PMR containers in the hash agg state so the allocator stays
+  // valid for the lifetime of the hash table/key storage.
   std::unique_ptr<std::pmr::memory_resource> pmr_resource_;
+  detail::ScratchBytes scratch_normalized_key_;
+  detail::ScratchBytes scratch_sort_key_;
   std::unique_ptr<Compiled> compiled_;
   arrow::compute::ExecContext exec_context_;
 

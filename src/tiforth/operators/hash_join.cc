@@ -74,6 +74,8 @@ HashJoinTransformOp::HashJoinTransformOp(
                        : (engine != nullptr ? engine->memory_pool() : arrow::default_memory_pool())),
       key_arena_(memory_pool_),
       key_to_key_id_(memory_pool_, &key_arena_),
+      scratch_normalized_key_(memory_pool_),
+      scratch_sort_key_(memory_pool_),
       pmr_resource_(std::make_unique<ArrowMemoryPoolResource>(memory_pool_)),
       key_rows_(std::pmr::polymorphic_allocator<BuildRowList>(pmr_resource_.get())),
       row_nodes_(std::pmr::polymorphic_allocator<BuildRowNode>(pmr_resource_.get())),
@@ -170,27 +172,30 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
     }
   }
 
-  const auto append_u32_le = [](std::string& out, uint32_t v) {
-    out.push_back(static_cast<char>(v));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 24));
+  const auto append_u32_le = [](detail::ScratchBytes& out, uint32_t v) {
+    const char bytes[4] = {static_cast<char>(v),
+                           static_cast<char>(v >> 8),
+                           static_cast<char>(v >> 16),
+                           static_cast<char>(v >> 24)};
+    out.append(bytes, sizeof(bytes));
   };
-  const auto append_u64_le = [](std::string& out, uint64_t v) {
-    out.push_back(static_cast<char>(v));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 24));
-    out.push_back(static_cast<char>(v >> 32));
-    out.push_back(static_cast<char>(v >> 40));
-    out.push_back(static_cast<char>(v >> 48));
-    out.push_back(static_cast<char>(v >> 56));
+  const auto append_u64_le = [](detail::ScratchBytes& out, uint64_t v) {
+    const char bytes[8] = {static_cast<char>(v),
+                           static_cast<char>(v >> 8),
+                           static_cast<char>(v >> 16),
+                           static_cast<char>(v >> 24),
+                           static_cast<char>(v >> 32),
+                           static_cast<char>(v >> 40),
+                           static_cast<char>(v >> 48),
+                           static_cast<char>(v >> 56)};
+    out.append(bytes, sizeof(bytes));
   };
 
   // Build the hash index on the concatenated build side.
-  std::string normalized_key;
-  normalized_key.reserve(static_cast<std::size_t>(key_count_) * 16);
-  std::string sort_key;
+  scratch_normalized_key_.Reset();
+  scratch_sort_key_.Reset();
+  scratch_normalized_key_.reserve(static_cast<std::size_t>(key_count_) * 16);
+  ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
 
   const int64_t rows = build_combined_->num_rows();
   for (int64_t row = 0; row < rows; ++row) {
@@ -205,19 +210,19 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
       continue;
     }
 
-    normalized_key.clear();
+    scratch_normalized_key_.Reset();
     for (uint8_t i = 0; i < key_count_; ++i) {
       const auto& array = *key_arrays[i];
       switch (array.type_id()) {
         case arrow::Type::INT32: {
           const auto& arr = static_cast<const arrow::Int32Array&>(array);
           const int64_t v = static_cast<int64_t>(arr.Value(row));
-          append_u64_le(normalized_key, static_cast<uint64_t>(v));
+          append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
           break;
         }
         case arrow::Type::UINT64: {
           const auto& arr = static_cast<const arrow::UInt64Array&>(array);
-          append_u64_le(normalized_key, arr.Value(row));
+          append_u64_le(scratch_normalized_key_, arr.Value(row));
           break;
         }
         case arrow::Type::DECIMAL128: {
@@ -225,8 +230,8 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
           if (fixed.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
             return arrow::Status::Invalid("unexpected decimal128 byte width");
           }
-          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
-                                Decimal128Bytes{}.size());
+          scratch_normalized_key_.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                         Decimal128Bytes{}.size());
           break;
         }
         case arrow::Type::DECIMAL256: {
@@ -234,19 +239,22 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
           if (fixed.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
             return arrow::Status::Invalid("unexpected decimal256 byte width");
           }
-          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
-                                Decimal256Bytes{}.size());
+          scratch_normalized_key_.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                         Decimal256Bytes{}.size());
           break;
         }
         case arrow::Type::BINARY: {
           const auto& bin = static_cast<const arrow::BinaryArray&>(array);
-          sort_key.clear();
-          SortKeyStringTo(collations[i], bin.GetView(row), &sort_key);
-          if (sort_key.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+          scratch_sort_key_.Reset();
+          SortKeyStringTo(collations[i], bin.GetView(row), &scratch_sort_key_);
+          ARROW_RETURN_NOT_OK(scratch_sort_key_.status());
+          if (scratch_sort_key_.size() >
+              static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
             return arrow::Status::Invalid("normalized join key string too large");
           }
-          append_u32_le(normalized_key, static_cast<uint32_t>(sort_key.size()));
-          normalized_key.append(sort_key.data(), sort_key.size());
+          append_u32_le(scratch_normalized_key_,
+                        static_cast<uint32_t>(scratch_sort_key_.size()));
+          scratch_normalized_key_.append(scratch_sort_key_.view());
           break;
         }
         default:
@@ -255,12 +263,13 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
       }
     }
 
-    if (normalized_key.size() >
-        static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+    ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
+    if (scratch_normalized_key_.size() >
+        static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
       return arrow::Status::Invalid("normalized join key too large");
     }
-    const auto* key_data = reinterpret_cast<const uint8_t*>(normalized_key.data());
-    const auto key_size = static_cast<int32_t>(normalized_key.size());
+    const auto* key_data = scratch_normalized_key_.data();
+    const auto key_size = static_cast<int32_t>(scratch_normalized_key_.size());
     const uint64_t key_hash = detail::HashBytes(key_data, key_size);
 
     if (key_rows_.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
@@ -406,26 +415,29 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
     }
   }
 
-  const auto append_u32_le = [](std::string& out, uint32_t v) {
-    out.push_back(static_cast<char>(v));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 24));
+  const auto append_u32_le = [](detail::ScratchBytes& out, uint32_t v) {
+    const char bytes[4] = {static_cast<char>(v),
+                           static_cast<char>(v >> 8),
+                           static_cast<char>(v >> 16),
+                           static_cast<char>(v >> 24)};
+    out.append(bytes, sizeof(bytes));
   };
-  const auto append_u64_le = [](std::string& out, uint64_t v) {
-    out.push_back(static_cast<char>(v));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 24));
-    out.push_back(static_cast<char>(v >> 32));
-    out.push_back(static_cast<char>(v >> 40));
-    out.push_back(static_cast<char>(v >> 48));
-    out.push_back(static_cast<char>(v >> 56));
+  const auto append_u64_le = [](detail::ScratchBytes& out, uint64_t v) {
+    const char bytes[8] = {static_cast<char>(v),
+                           static_cast<char>(v >> 8),
+                           static_cast<char>(v >> 16),
+                           static_cast<char>(v >> 24),
+                           static_cast<char>(v >> 32),
+                           static_cast<char>(v >> 40),
+                           static_cast<char>(v >> 48),
+                           static_cast<char>(v >> 56)};
+    out.append(bytes, sizeof(bytes));
   };
 
-  std::string normalized_key;
-  normalized_key.reserve(static_cast<std::size_t>(key_count_) * 16);
-  std::string sort_key;
+  scratch_normalized_key_.Reset();
+  scratch_sort_key_.Reset();
+  scratch_normalized_key_.reserve(static_cast<std::size_t>(key_count_) * 16);
+  ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
 
   arrow::UInt64Builder probe_indices(memory_pool_);
   arrow::UInt64Builder build_indices(memory_pool_);
@@ -443,19 +455,19 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
       continue;
     }
 
-    normalized_key.clear();
+    scratch_normalized_key_.Reset();
     for (uint8_t i = 0; i < key_count_; ++i) {
       const auto& array = *probe_key_arrays[i];
       switch (array.type_id()) {
         case arrow::Type::INT32: {
           const auto& arr = static_cast<const arrow::Int32Array&>(array);
           const int64_t v = static_cast<int64_t>(arr.Value(row));
-          append_u64_le(normalized_key, static_cast<uint64_t>(v));
+          append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
           break;
         }
         case arrow::Type::UINT64: {
           const auto& arr = static_cast<const arrow::UInt64Array&>(array);
-          append_u64_le(normalized_key, arr.Value(row));
+          append_u64_le(scratch_normalized_key_, arr.Value(row));
           break;
         }
         case arrow::Type::DECIMAL128: {
@@ -463,8 +475,8 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
           if (fixed.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
             return arrow::Status::Invalid("unexpected decimal128 byte width");
           }
-          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
-                                Decimal128Bytes{}.size());
+          scratch_normalized_key_.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                         Decimal128Bytes{}.size());
           break;
         }
         case arrow::Type::DECIMAL256: {
@@ -472,19 +484,22 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
           if (fixed.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
             return arrow::Status::Invalid("unexpected decimal256 byte width");
           }
-          normalized_key.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
-                                Decimal256Bytes{}.size());
+          scratch_normalized_key_.append(reinterpret_cast<const char*>(fixed.GetValue(row)),
+                                         Decimal256Bytes{}.size());
           break;
         }
         case arrow::Type::BINARY: {
           const auto& bin = static_cast<const arrow::BinaryArray&>(array);
-          sort_key.clear();
-          SortKeyStringTo(collations[i], bin.GetView(row), &sort_key);
-          if (sort_key.size() > static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+          scratch_sort_key_.Reset();
+          SortKeyStringTo(collations[i], bin.GetView(row), &scratch_sort_key_);
+          ARROW_RETURN_NOT_OK(scratch_sort_key_.status());
+          if (scratch_sort_key_.size() >
+              static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
             return arrow::Status::Invalid("normalized join key string too large");
           }
-          append_u32_le(normalized_key, static_cast<uint32_t>(sort_key.size()));
-          normalized_key.append(sort_key.data(), sort_key.size());
+          append_u32_le(scratch_normalized_key_,
+                        static_cast<uint32_t>(scratch_sort_key_.size()));
+          scratch_normalized_key_.append(scratch_sort_key_.view());
           break;
         }
         default:
@@ -493,12 +508,13 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
       }
     }
 
-    if (normalized_key.size() >
-        static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+    ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
+    if (scratch_normalized_key_.size() >
+        static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
       return arrow::Status::Invalid("normalized join key too large");
     }
-    const auto* key_data = reinterpret_cast<const uint8_t*>(normalized_key.data());
-    const auto key_size = static_cast<int32_t>(normalized_key.size());
+    const auto* key_data = scratch_normalized_key_.data();
+    const auto key_size = static_cast<int32_t>(scratch_normalized_key_.size());
     const uint64_t key_hash = detail::HashBytes(key_data, key_size);
     ARROW_ASSIGN_OR_RAISE(auto found, key_to_key_id_.Find(key_data, key_size, key_hash));
     if (!found.has_value()) {

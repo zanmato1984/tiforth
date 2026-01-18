@@ -598,6 +598,8 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
       agg_state_arena_(memory_pool_),
       key_to_group_id_(memory_pool_, &group_key_arena_),
       pmr_resource_(std::make_unique<ArrowMemoryPoolResource>(memory_pool_)),
+      scratch_normalized_key_(memory_pool_),
+      scratch_sort_key_(memory_pool_),
       exec_context_(memory_pool_, /*executor=*/nullptr,
                    engine != nullptr ? engine->function_registry() : nullptr),
       group_keys_(std::pmr::polymorphic_allocator<OutputKey>(pmr_resource_.get())),
@@ -984,21 +986,23 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
     agg_collations[i] = collation;
   }
 
-  const auto append_u32_le = [](std::string& out, uint32_t v) {
-    out.push_back(static_cast<char>(v));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 24));
+  const auto append_u32_le = [](detail::ScratchBytes& out, uint32_t v) {
+    const char bytes[4] = {static_cast<char>(v),
+                           static_cast<char>(v >> 8),
+                           static_cast<char>(v >> 16),
+                           static_cast<char>(v >> 24)};
+    out.append(bytes, sizeof(bytes));
   };
-  const auto append_u64_le = [](std::string& out, uint64_t v) {
-    out.push_back(static_cast<char>(v));
-    out.push_back(static_cast<char>(v >> 8));
-    out.push_back(static_cast<char>(v >> 16));
-    out.push_back(static_cast<char>(v >> 24));
-    out.push_back(static_cast<char>(v >> 32));
-    out.push_back(static_cast<char>(v >> 40));
-    out.push_back(static_cast<char>(v >> 48));
-    out.push_back(static_cast<char>(v >> 56));
+  const auto append_u64_le = [](detail::ScratchBytes& out, uint64_t v) {
+    const char bytes[8] = {static_cast<char>(v),
+                           static_cast<char>(v >> 8),
+                           static_cast<char>(v >> 16),
+                           static_cast<char>(v >> 24),
+                           static_cast<char>(v >> 32),
+                           static_cast<char>(v >> 40),
+                           static_cast<char>(v >> 48),
+                           static_cast<char>(v >> 56)};
+    out.append(bytes, sizeof(bytes));
   };
 
   if (!agg_state_layout_ready_) {
@@ -1102,15 +1106,16 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
     }
   }
 
-  std::string normalized_key;
-  normalized_key.reserve(key_count * 16);
-  std::string sort_key;
+  scratch_normalized_key_.Reset();
+  scratch_sort_key_.Reset();
+  scratch_normalized_key_.reserve(key_count * 16);
+  ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
 
   const int64_t rows = input.num_rows();
   for (int64_t row = 0; row < rows; ++row) {
     uint32_t group_id = 0;
     if (key_count != 0) {
-      normalized_key.clear();
+      scratch_normalized_key_.Reset();
 
       for (std::size_t ki = 0; ki < key_count; ++ki) {
         const auto& arr_any = key_arrays[ki];
@@ -1119,76 +1124,76 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
         }
 
         if (arr_any->IsNull(row)) {
-          normalized_key.push_back(static_cast<char>(0));
+          scratch_normalized_key_.push_back(static_cast<char>(0));
           continue;
         }
-        normalized_key.push_back(static_cast<char>(1));
+        scratch_normalized_key_.push_back(static_cast<char>(1));
 
         switch (arr_any->type_id()) {
           case arrow::Type::BOOL: {
             const auto& arr = static_cast<const arrow::BooleanArray&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row) ? 1 : 0);
-            append_u64_le(normalized_key, v);
+            append_u64_le(scratch_normalized_key_, v);
             break;
           }
           case arrow::Type::INT8: {
             const auto& arr = static_cast<const arrow::Int8Array&>(*arr_any);
             const int64_t v = static_cast<int64_t>(arr.Value(row));
-            append_u64_le(normalized_key, static_cast<uint64_t>(v));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::INT16: {
             const auto& arr = static_cast<const arrow::Int16Array&>(*arr_any);
             const int64_t v = static_cast<int64_t>(arr.Value(row));
-            append_u64_le(normalized_key, static_cast<uint64_t>(v));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::INT32: {
             const auto& arr = static_cast<const arrow::Int32Array&>(*arr_any);
             const int64_t v = static_cast<int64_t>(arr.Value(row));
-            append_u64_le(normalized_key, static_cast<uint64_t>(v));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::INT64: {
             const auto& arr = static_cast<const arrow::Int64Array&>(*arr_any);
             const int64_t v = arr.Value(row);
-            append_u64_le(normalized_key, static_cast<uint64_t>(v));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::UINT8: {
             const auto& arr = static_cast<const arrow::UInt8Array&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-            append_u64_le(normalized_key, v);
+            append_u64_le(scratch_normalized_key_, v);
             break;
           }
           case arrow::Type::UINT16: {
             const auto& arr = static_cast<const arrow::UInt16Array&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-            append_u64_le(normalized_key, v);
+            append_u64_le(scratch_normalized_key_, v);
             break;
           }
           case arrow::Type::UINT32: {
             const auto& arr = static_cast<const arrow::UInt32Array&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-            append_u64_le(normalized_key, v);
+            append_u64_le(scratch_normalized_key_, v);
             break;
           }
           case arrow::Type::UINT64: {
             const auto& arr = static_cast<const arrow::UInt64Array&>(*arr_any);
             const uint64_t v = arr.Value(row);
-            append_u64_le(normalized_key, v);
+            append_u64_le(scratch_normalized_key_, v);
             break;
           }
           case arrow::Type::FLOAT: {
             const auto& arr = static_cast<const arrow::FloatArray&>(*arr_any);
             const float v = arr.Value(row);
-            append_u64_le(normalized_key, CanonicalizeFloat32Bits(v));
+            append_u64_le(scratch_normalized_key_, CanonicalizeFloat32Bits(v));
             break;
           }
           case arrow::Type::DOUBLE: {
             const auto& arr = static_cast<const arrow::DoubleArray&>(*arr_any);
             const double v = arr.Value(row);
-            append_u64_le(normalized_key, CanonicalizeFloat64Bits(v));
+            append_u64_le(scratch_normalized_key_, CanonicalizeFloat64Bits(v));
             break;
           }
           case arrow::Type::DECIMAL128: {
@@ -1196,8 +1201,9 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             if (arr.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
               return arrow::Status::Invalid("unexpected decimal128 byte width");
             }
-            normalized_key.append(reinterpret_cast<const char*>(arr.GetValue(row)),
-                                  Decimal128Bytes{}.size());
+            scratch_normalized_key_.append(
+                reinterpret_cast<const char*>(arr.GetValue(row)),
+                Decimal128Bytes{}.size());
             break;
           }
           case arrow::Type::DECIMAL256: {
@@ -1205,21 +1211,24 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             if (arr.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
               return arrow::Status::Invalid("unexpected decimal256 byte width");
             }
-            normalized_key.append(reinterpret_cast<const char*>(arr.GetValue(row)),
-                                  Decimal256Bytes{}.size());
+            scratch_normalized_key_.append(
+                reinterpret_cast<const char*>(arr.GetValue(row)),
+                Decimal256Bytes{}.size());
             break;
           }
           case arrow::Type::BINARY: {
             const auto& arr = static_cast<const arrow::BinaryArray&>(*arr_any);
             std::string_view view = arr.GetView(row);
-            sort_key.clear();
-            SortKeyStringTo(collations[ki], view, &sort_key);
-            if (sort_key.size() >
-                static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+            scratch_sort_key_.Reset();
+            SortKeyStringTo(collations[ki], view, &scratch_sort_key_);
+            ARROW_RETURN_NOT_OK(scratch_sort_key_.status());
+            if (scratch_sort_key_.size() >
+                static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
               return arrow::Status::Invalid("normalized string key too large");
             }
-            append_u32_le(normalized_key, static_cast<uint32_t>(sort_key.size()));
-            normalized_key.append(sort_key.data(), sort_key.size());
+            append_u32_le(scratch_normalized_key_,
+                          static_cast<uint32_t>(scratch_sort_key_.size()));
+            scratch_normalized_key_.append(scratch_sort_key_.view());
             break;
           }
           default:
@@ -1228,13 +1237,14 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
         }
       }
 
-      if (normalized_key.size() >
-          static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+      ARROW_RETURN_NOT_OK(scratch_normalized_key_.status());
+      if (scratch_normalized_key_.size() >
+          static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
         return arrow::Status::Invalid("normalized key too large");
       }
       const auto* key_data =
-          reinterpret_cast<const uint8_t*>(normalized_key.data());
-      const auto key_size = static_cast<int32_t>(normalized_key.size());
+          scratch_normalized_key_.data();
+      const auto key_size = static_cast<int32_t>(scratch_normalized_key_.size());
       const uint64_t key_hash = detail::HashBytes(key_data, key_size);
 
       ARROW_ASSIGN_OR_RAISE(auto found, key_to_group_id_.Find(key_data, key_size, key_hash));
@@ -1339,9 +1349,17 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             case arrow::Type::BINARY: {
               const auto& arr = static_cast<const arrow::BinaryArray&>(*arr_any);
               std::string_view view = arr.GetView(row);
-              std::pmr::string out_value(pmr_resource_.get());
-              out_value.assign(view.data(), view.size());
-              out_part.value = std::move(out_value);
+              if (view.size() >
+                  static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+                return arrow::Status::Invalid("group key binary too large");
+              }
+              ARROW_ASSIGN_OR_RAISE(
+                  const auto* stored,
+                  group_key_arena_.Append(
+                      reinterpret_cast<const uint8_t*>(view.data()),
+                      static_cast<int64_t>(view.size())));
+              out_part.value =
+                  detail::ByteSlice{stored, static_cast<int32_t>(view.size())};
               break;
             }
             default:
@@ -1350,7 +1368,8 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
           }
         }
 
-        ARROW_ASSIGN_OR_RAISE(group_id, InsertGroup(normalized_key, key_hash, std::move(out_key)));
+        ARROW_ASSIGN_OR_RAISE(group_id, InsertGroup(scratch_normalized_key_.view(), key_hash,
+                                                    std::move(out_key)));
       }
     }
 
@@ -1694,9 +1713,14 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::FinalizeOutpu
           if (part.is_null) {
             ARROW_RETURN_NOT_OK(builder.AppendNull());
           } else {
-            const auto& bytes = std::get<std::pmr::string>(part.value);
-            ARROW_RETURN_NOT_OK(builder.Append(reinterpret_cast<const uint8_t*>(bytes.data()),
-                                               static_cast<int32_t>(bytes.size())));
+            const auto& bytes = std::get<detail::ByteSlice>(part.value);
+            if (bytes.size < 0) {
+              return arrow::Status::Invalid("invalid binary key slice size");
+            }
+            if (bytes.size > 0 && bytes.data == nullptr) {
+              return arrow::Status::Invalid("binary key slice data must not be null");
+            }
+            ARROW_RETURN_NOT_OK(builder.Append(bytes.data, bytes.size));
           }
         }
         ARROW_RETURN_NOT_OK(builder.Finish(&out_key));

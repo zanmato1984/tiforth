@@ -15,6 +15,7 @@
 
 #include "tiforth/detail/arena.h"
 #include "tiforth/detail/key_hash_table.h"
+#include "tiforth/detail/scratch_bytes.h"
 #include "tiforth/operators.h"
 
 namespace arrow {
@@ -76,6 +77,8 @@ class HashJoinTransformOp final : public TransformOp {
   arrow::MemoryPool* memory_pool_ = nullptr;
   detail::Arena key_arena_;
   detail::KeyHashTable key_to_key_id_;
+  detail::ScratchBytes scratch_normalized_key_;
+  detail::ScratchBytes scratch_sort_key_;
   // Owns the memory_resource used by PMR containers in the join index so the allocator stays
   // valid for the lifetime of the hash table/state.
   std::unique_ptr<std::pmr::memory_resource> pmr_resource_;

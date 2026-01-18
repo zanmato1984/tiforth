@@ -79,7 +79,8 @@ Public headers live under `libs/tiforth/include/tiforth/operators/`.
   - original key value is preserved for output
   - normalized key (sort-key bytes) is used for hashing/equality to match collation semantics
 - Memory:
-  - group key storage uses `std::pmr::string` backed by an Arrow `MemoryPool` adapter
+  - scratch key encoding uses a reusable Arrow-pool-backed buffer (`detail::ScratchBytes`)
+  - variable-length output keys (`binary`) are stored as arena slices (`detail::ByteSlice`)
 
 ### Hash join (inner join)
 
