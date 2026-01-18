@@ -120,7 +120,7 @@ class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
 
 }  // namespace
 
-std::size_t HashAggTransformOp::KeyHash::operator()(const NormalizedKey& key) const noexcept {
+std::size_t HashAggContext::KeyHash::operator()(const NormalizedKey& key) const noexcept {
   // FNV-1a style mixing over key parts (supports 1 or 2 keys).
   uint64_t h = 14695981039346656037ULL;
   h ^= static_cast<uint64_t>(key.key_count);
@@ -157,8 +157,8 @@ std::size_t HashAggTransformOp::KeyHash::operator()(const NormalizedKey& key) co
   return static_cast<std::size_t>(h);
 }
 
-bool HashAggTransformOp::KeyEq::operator()(const NormalizedKey& lhs,
-                                           const NormalizedKey& rhs) const noexcept {
+bool HashAggContext::KeyEq::operator()(const NormalizedKey& lhs,
+                                       const NormalizedKey& rhs) const noexcept {
   if (lhs.key_count != rhs.key_count) {
     return false;
   }
@@ -178,15 +178,15 @@ bool HashAggTransformOp::KeyEq::operator()(const NormalizedKey& lhs,
   return true;
 }
 
-struct HashAggTransformOp::Compiled {
+struct HashAggContext::Compiled {
   std::vector<CompiledExpr> key_exprs;
   std::vector<std::optional<CompiledExpr>> agg_arg_exprs;
 };
 
-HashAggTransformOp::~HashAggTransformOp() = default;
+HashAggContext::~HashAggContext() = default;
 
-HashAggTransformOp::HashAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
-                                       std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool)
+HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
+                               std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool)
     : engine_(engine),
       keys_(std::move(keys)),
       memory_pool_(memory_pool != nullptr
@@ -233,7 +233,7 @@ HashAggTransformOp::HashAggTransformOp(const Engine* engine, std::vector<AggKey>
   }
 }
 
-arrow::Result<uint32_t> HashAggTransformOp::GetOrAddGroup(NormalizedKey key, OutputKey output_key) {
+arrow::Result<uint32_t> HashAggContext::GetOrAddGroup(NormalizedKey key, OutputKey output_key) {
   auto it = key_to_group_id_.find(key);
   if (it != key_to_group_id_.end()) {
     return it->second;
@@ -281,7 +281,7 @@ arrow::Result<uint32_t> HashAggTransformOp::GetOrAddGroup(NormalizedKey key, Out
   return group_id;
 }
 
-arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& input) {
+arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("hash agg engine must not be null");
   }
@@ -999,7 +999,7 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& input) 
   return arrow::Status::OK();
 }
 
-arrow::Result<std::shared_ptr<arrow::Schema>> HashAggTransformOp::BuildOutputSchema() const {
+arrow::Result<std::shared_ptr<arrow::Schema>> HashAggContext::BuildOutputSchema() const {
   const std::size_t key_count = keys_.size();
   if (key_count > kMaxKeys) {
     return arrow::Status::NotImplemented("hash agg supports up to ", kMaxKeys, " group keys");
@@ -1035,7 +1035,7 @@ arrow::Result<std::shared_ptr<arrow::Schema>> HashAggTransformOp::BuildOutputSch
   return arrow::schema(std::move(fields));
 }
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggTransformOp::FinalizeOutput() {
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::FinalizeOutput() {
   if (output_schema_ == nullptr) {
     ARROW_ASSIGN_OR_RAISE(output_schema_, BuildOutputSchema());
   }
@@ -1509,11 +1509,104 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggTransformOp::FinalizeO
   return arrow::RecordBatch::Make(output_schema_, static_cast<int64_t>(group_count), std::move(columns));
 }
 
+arrow::Status HashAggContext::FinishBuild() {
+  if (build_finished_) {
+    return arrow::Status::OK();
+  }
+  build_finished_ = true;
+  next_output_row_ = 0;
+  if (output_all_ == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(output_all_, FinalizeOutput());
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::ReadNextOutputBatch(int64_t max_rows) {
+  if (!build_finished_) {
+    return arrow::Status::Invalid("hash agg build is not finished");
+  }
+  if (max_rows <= 0) {
+    return arrow::Status::Invalid("max_rows must be positive");
+  }
+  if (output_all_ == nullptr) {
+    ARROW_ASSIGN_OR_RAISE(output_all_, FinalizeOutput());
+  }
+  if (output_all_ == nullptr) {
+    return arrow::Status::Invalid("hash agg output batch must not be null");
+  }
+
+  const int64_t total_rows = output_all_->num_rows();
+  if (total_rows == 0) {
+    if (next_output_row_ == 0) {
+      next_output_row_ = 1;
+      return output_all_;
+    }
+    return std::shared_ptr<arrow::RecordBatch>();
+  }
+
+  if (next_output_row_ >= total_rows) {
+    return std::shared_ptr<arrow::RecordBatch>();
+  }
+
+  const int64_t remaining = total_rows - next_output_row_;
+  const int64_t length = remaining < max_rows ? remaining : max_rows;
+  auto out = output_all_->Slice(next_output_row_, length);
+  next_output_row_ += length;
+  return out;
+}
+
+HashAggBuildSinkOp::HashAggBuildSinkOp(std::shared_ptr<HashAggContext> context)
+    : context_(std::move(context)) {}
+
+arrow::Result<OperatorStatus> HashAggBuildSinkOp::WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) {
+  if (context_ == nullptr) {
+    return arrow::Status::Invalid("hash agg context must not be null");
+  }
+  if (batch == nullptr) {
+    ARROW_RETURN_NOT_OK(context_->FinishBuild());
+    return OperatorStatus::kFinished;
+  }
+  ARROW_RETURN_NOT_OK(context_->ConsumeBatch(*batch));
+  return OperatorStatus::kNeedInput;
+}
+
+HashAggConvergentSourceOp::HashAggConvergentSourceOp(std::shared_ptr<HashAggContext> context,
+                                                     int64_t max_output_rows)
+    : context_(std::move(context)), max_output_rows_(max_output_rows) {}
+
+arrow::Result<OperatorStatus> HashAggConvergentSourceOp::ReadImpl(
+    std::shared_ptr<arrow::RecordBatch>* batch) {
+  if (batch == nullptr) {
+    return arrow::Status::Invalid("batch output must not be null");
+  }
+  if (context_ == nullptr) {
+    return arrow::Status::Invalid("hash agg context must not be null");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out, context_->ReadNextOutputBatch(max_output_rows_));
+  if (out == nullptr) {
+    batch->reset();
+    return OperatorStatus::kFinished;
+  }
+  *batch = std::move(out);
+  return OperatorStatus::kHasOutput;
+}
+
+HashAggTransformOp::~HashAggTransformOp() = default;
+
+HashAggTransformOp::HashAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
+                                       std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool)
+    : context_(std::make_shared<HashAggContext>(engine, std::move(keys), std::move(aggs), memory_pool)) {}
+
 arrow::Result<OperatorStatus> HashAggTransformOp::TransformImpl(
     std::shared_ptr<arrow::RecordBatch>* batch) {
+  if (context_ == nullptr) {
+    return arrow::Status::Invalid("hash agg context must not be null");
+  }
   if (*batch == nullptr) {
     if (!finalized_) {
-      ARROW_ASSIGN_OR_RAISE(*batch, FinalizeOutput());
+      ARROW_RETURN_NOT_OK(context_->FinishBuild());
+      ARROW_ASSIGN_OR_RAISE(*batch, context_->ReadNextOutputBatch(std::numeric_limits<int64_t>::max()));
       finalized_ = true;
       return OperatorStatus::kHasOutput;
     }
@@ -1531,7 +1624,7 @@ arrow::Result<OperatorStatus> HashAggTransformOp::TransformImpl(
   }
 
   const auto& input = **batch;
-  ARROW_RETURN_NOT_OK(ConsumeBatch(input));
+  ARROW_RETURN_NOT_OK(context_->ConsumeBatch(input));
   batch->reset();
   return OperatorStatus::kNeedInput;
 }

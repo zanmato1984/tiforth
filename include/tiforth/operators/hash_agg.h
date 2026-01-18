@@ -36,15 +36,19 @@ struct AggFunc {
   ExprPtr arg;       // unused for "count_all"
 };
 
-class HashAggTransformOp final : public TransformOp {
+class HashAggContext final {
  public:
-  HashAggTransformOp(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
-                     arrow::MemoryPool* memory_pool = nullptr);
-  ~HashAggTransformOp() override;
+  HashAggContext(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+                 arrow::MemoryPool* memory_pool = nullptr);
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(
-      std::shared_ptr<arrow::RecordBatch>* batch) override;
+  HashAggContext(const HashAggContext&) = delete;
+  HashAggContext& operator=(const HashAggContext&) = delete;
+
+  ~HashAggContext();
+
+  arrow::Status ConsumeBatch(const arrow::RecordBatch& input);
+  arrow::Status FinishBuild();
+ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ReadNextOutputBatch(int64_t max_rows);
 
  private:
   static constexpr std::size_t kMaxKeys = 8;
@@ -73,6 +77,10 @@ class HashAggTransformOp final : public TransformOp {
   struct KeyEq {
     bool operator()(const NormalizedKey& lhs, const NormalizedKey& rhs) const noexcept;
   };
+
+  arrow::Result<uint32_t> GetOrAddGroup(NormalizedKey key, OutputKey output_key);
+  arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema() const;
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> FinalizeOutput();
 
   struct AggState {
     enum class Kind {
@@ -105,12 +113,6 @@ class HashAggTransformOp final : public TransformOp {
     std::vector<KeyPart> extreme_norm;
   };
 
-  arrow::Status ConsumeBatch(const arrow::RecordBatch& input);
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> FinalizeOutput();
-  arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema() const;
-
-  arrow::Result<uint32_t> GetOrAddGroup(NormalizedKey key, OutputKey output_key);
-
   struct Compiled;
 
   const Engine* engine_ = nullptr;
@@ -128,11 +130,51 @@ class HashAggTransformOp final : public TransformOp {
   std::unique_ptr<Compiled> compiled_;
   arrow::compute::ExecContext exec_context_;
 
-  bool finalized_ = false;
-  bool eos_forwarded_ = false;
-
   std::unordered_map<NormalizedKey, uint32_t, KeyHash, KeyEq> key_to_group_id_;
   std::vector<OutputKey> group_keys_;
+
+  bool build_finished_ = false;
+  std::shared_ptr<arrow::RecordBatch> output_all_;
+  int64_t next_output_row_ = 0;
+};
+
+class HashAggBuildSinkOp final : public SinkOp {
+ public:
+  explicit HashAggBuildSinkOp(std::shared_ptr<HashAggContext> context);
+
+ protected:
+  arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override;
+
+ private:
+  std::shared_ptr<HashAggContext> context_;
+};
+
+class HashAggConvergentSourceOp final : public SourceOp {
+ public:
+  HashAggConvergentSourceOp(std::shared_ptr<HashAggContext> context, int64_t max_output_rows = 65536);
+
+ protected:
+  arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
+
+ private:
+  std::shared_ptr<HashAggContext> context_;
+  int64_t max_output_rows_ = 65536;
+};
+
+class HashAggTransformOp final : public TransformOp {
+ public:
+  HashAggTransformOp(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+                     arrow::MemoryPool* memory_pool = nullptr);
+  ~HashAggTransformOp() override;
+
+ protected:
+  arrow::Result<OperatorStatus> TransformImpl(
+      std::shared_ptr<arrow::RecordBatch>* batch) override;
+
+ private:
+  std::shared_ptr<HashAggContext> context_;
+  bool finalized_ = false;
+  bool eos_forwarded_ = false;
 };
 
 }  // namespace tiforth
