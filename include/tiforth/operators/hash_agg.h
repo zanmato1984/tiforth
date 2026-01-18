@@ -5,7 +5,7 @@
 #include <memory>
 #include <memory_resource>
 #include <string>
-#include <unordered_map>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -15,6 +15,8 @@
 
 #include "tiforth/expr.h"
 #include "tiforth/operators.h"
+#include "tiforth/detail/arena.h"
+#include "tiforth/detail/key_hash_table.h"
 
 namespace arrow {
 class Array;
@@ -63,22 +65,13 @@ class HashAggContext final {
     KeyValue value;
   };
 
-  struct NormalizedKey {
-    uint8_t key_count = 0;
-    std::array<KeyPart, kMaxKeys> parts;
-  };
   struct OutputKey {
     uint8_t key_count = 0;
     std::array<KeyPart, kMaxKeys> parts;
   };
-  struct KeyHash {
-    std::size_t operator()(const NormalizedKey& key) const noexcept;
-  };
-  struct KeyEq {
-    bool operator()(const NormalizedKey& lhs, const NormalizedKey& rhs) const noexcept;
-  };
 
-  arrow::Result<uint32_t> GetOrAddGroup(NormalizedKey key, OutputKey output_key);
+  arrow::Result<uint32_t> InsertGroup(std::string_view normalized_key_bytes, uint64_t hash,
+                                      OutputKey output_key);
   arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema() const;
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> FinalizeOutput();
 
@@ -124,13 +117,14 @@ class HashAggContext final {
   std::vector<std::shared_ptr<arrow::Field>> output_agg_fields_;
 
   arrow::MemoryPool* memory_pool_ = nullptr;
+  detail::Arena group_key_arena_;
+  detail::KeyHashTable key_to_group_id_;
   // Owns the memory_resource used by pmr group keys (normalized/original string keys) so the
   // allocator stays valid for the lifetime of the hash table and group key storage.
   std::unique_ptr<std::pmr::memory_resource> pmr_resource_;
   std::unique_ptr<Compiled> compiled_;
   arrow::compute::ExecContext exec_context_;
 
-  std::unordered_map<NormalizedKey, uint32_t, KeyHash, KeyEq> key_to_group_id_;
   std::vector<OutputKey> group_keys_;
 
   bool build_finished_ = false;

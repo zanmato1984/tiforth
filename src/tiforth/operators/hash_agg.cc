@@ -30,20 +30,6 @@ namespace tiforth {
 
 namespace {
 
-std::size_t HashBytes(const uint8_t* data, std::size_t size) noexcept {
-  uint64_t h = 14695981039346656037ULL;
-  for (std::size_t i = 0; i < size; ++i) {
-    h ^= static_cast<uint64_t>(data[i]);
-    h *= 1099511628211ULL;
-  }
-  return static_cast<std::size_t>(h);
-}
-
-template <std::size_t N>
-std::size_t HashBytes(const std::array<uint8_t, N>& bytes) noexcept {
-  return HashBytes(bytes.data(), bytes.size());
-}
-
 uint64_t Float32ToBits(float value) noexcept {
   uint32_t bits = 0;
   std::memcpy(&bits, &value, sizeof(bits));
@@ -120,64 +106,6 @@ class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
 
 }  // namespace
 
-std::size_t HashAggContext::KeyHash::operator()(const NormalizedKey& key) const noexcept {
-  // FNV-1a style mixing over key parts (supports 1 or 2 keys).
-  uint64_t h = 14695981039346656037ULL;
-  h ^= static_cast<uint64_t>(key.key_count);
-  h *= 1099511628211ULL;
-
-  for (uint8_t i = 0; i < key.key_count && i < key.parts.size(); ++i) {
-    const auto& part = key.parts[i];
-    if (part.is_null) {
-      h ^= 0x9e3779b97f4a7c15ULL;
-      h *= 1099511628211ULL;
-      continue;
-    }
-    const std::size_t part_hash = std::visit(
-        [&](const auto& v) -> std::size_t {
-          using V = std::decay_t<decltype(v)>;
-          if constexpr (std::is_same_v<V, int64_t>) {
-            return std::hash<int64_t>{}(v);
-          } else if constexpr (std::is_same_v<V, uint64_t>) {
-            return std::hash<uint64_t>{}(v);
-          } else if constexpr (std::is_same_v<V, Decimal128Bytes> ||
-                               std::is_same_v<V, Decimal256Bytes>) {
-            return HashBytes(v);
-          } else if constexpr (std::is_same_v<V, std::pmr::string>) {
-            return HashBytes(reinterpret_cast<const uint8_t*>(v.data()), v.size());
-          } else {
-            return 0;
-          }
-        },
-        part.value);
-    h ^= static_cast<uint64_t>(part_hash);
-    h *= 1099511628211ULL;
-  }
-
-  return static_cast<std::size_t>(h);
-}
-
-bool HashAggContext::KeyEq::operator()(const NormalizedKey& lhs,
-                                       const NormalizedKey& rhs) const noexcept {
-  if (lhs.key_count != rhs.key_count) {
-    return false;
-  }
-  for (uint8_t i = 0; i < lhs.key_count && i < lhs.parts.size(); ++i) {
-    const auto& l = lhs.parts[i];
-    const auto& r = rhs.parts[i];
-    if (l.is_null != r.is_null) {
-      return false;
-    }
-    if (l.is_null) {
-      continue;
-    }
-    if (l.value != r.value) {
-      return false;
-    }
-  }
-  return true;
-}
-
 struct HashAggContext::Compiled {
   std::vector<CompiledExpr> key_exprs;
   std::vector<std::optional<CompiledExpr>> agg_arg_exprs;
@@ -192,6 +120,8 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
       memory_pool_(memory_pool != nullptr
                        ? memory_pool
                        : (engine != nullptr ? engine->memory_pool() : arrow::default_memory_pool())),
+      group_key_arena_(memory_pool_),
+      key_to_group_id_(memory_pool_, &group_key_arena_),
       exec_context_(memory_pool_, /*executor=*/nullptr,
                    engine != nullptr ? engine->function_registry() : nullptr) {
   pmr_resource_ = std::make_unique<ArrowMemoryPoolResource>(memory_pool_);
@@ -233,14 +163,33 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
   }
 }
 
-arrow::Result<uint32_t> HashAggContext::GetOrAddGroup(NormalizedKey key, OutputKey output_key) {
-  auto it = key_to_group_id_.find(key);
-  if (it != key_to_group_id_.end()) {
-    return it->second;
+arrow::Result<uint32_t> HashAggContext::InsertGroup(std::string_view normalized_key_bytes,
+                                                    uint64_t hash, OutputKey output_key) {
+  if (normalized_key_bytes.size() >
+      static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+    return arrow::Status::Invalid("normalized key too large");
+  }
+  if (group_keys_.size() >
+      static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+    return arrow::Status::Invalid("too many groups");
   }
 
-  const uint32_t group_id = static_cast<uint32_t>(group_keys_.size());
-  key_to_group_id_.emplace(std::move(key), group_id);
+  const uint32_t candidate_group_id = static_cast<uint32_t>(group_keys_.size());
+  const auto* key_data =
+      reinterpret_cast<const uint8_t*>(normalized_key_bytes.data());
+  const auto key_size = static_cast<int32_t>(normalized_key_bytes.size());
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto res, key_to_group_id_.FindOrInsert(key_data, key_size, hash, candidate_group_id));
+  const auto group_id = res.first;
+  const bool inserted = res.second;
+  if (!inserted) {
+    return group_id;
+  }
+  if (group_id != candidate_group_id) {
+    return arrow::Status::Invalid("unexpected group id assignment");
+  }
+
   group_keys_.push_back(std::move(output_key));
   for (auto& agg : aggs_) {
     switch (agg.kind) {
@@ -278,7 +227,7 @@ arrow::Result<uint32_t> HashAggContext::GetOrAddGroup(NormalizedKey key, OutputK
       }
     }
   }
-  return group_id;
+  return candidate_group_id;
 }
 
 arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
@@ -580,121 +529,152 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
     agg_collations[i] = collation;
   }
 
+  const auto append_u32_le = [](std::string& out, uint32_t v) {
+    out.push_back(static_cast<char>(v));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 24));
+  };
+  const auto append_u64_le = [](std::string& out, uint64_t v) {
+    out.push_back(static_cast<char>(v));
+    out.push_back(static_cast<char>(v >> 8));
+    out.push_back(static_cast<char>(v >> 16));
+    out.push_back(static_cast<char>(v >> 24));
+    out.push_back(static_cast<char>(v >> 32));
+    out.push_back(static_cast<char>(v >> 40));
+    out.push_back(static_cast<char>(v >> 48));
+    out.push_back(static_cast<char>(v >> 56));
+  };
+
   if (key_count == 0 && group_keys_.empty()) {
-    NormalizedKey norm_key;
-    norm_key.key_count = 0;
     OutputKey out_key;
     out_key.key_count = 0;
-    ARROW_ASSIGN_OR_RAISE(const auto global_group,
-                          GetOrAddGroup(std::move(norm_key), std::move(out_key)));
-    if (global_group != 0) {
-      return arrow::Status::Invalid("unexpected global agg group id");
+    group_keys_.push_back(std::move(out_key));
+    for (auto& agg : aggs_) {
+      switch (agg.kind) {
+        case AggState::Kind::kUnsupported:
+          break;
+        case AggState::Kind::kCountAll:
+          agg.count_all.push_back(0);
+          break;
+        case AggState::Kind::kCount:
+          agg.count.push_back(0);
+          break;
+        case AggState::Kind::kSum: {
+          switch (agg.sum_kind) {
+            case AggState::SumKind::kUnresolved:
+              return arrow::Status::Invalid("internal error: sum kind must be resolved");
+            case AggState::SumKind::kInt64:
+              agg.sum_i64.push_back(0);
+              agg.sum_has_value.push_back(0);
+              break;
+            case AggState::SumKind::kUInt64:
+              agg.sum_u64.push_back(0);
+              agg.sum_has_value.push_back(0);
+              break;
+          }
+          break;
+        }
+        case AggState::Kind::kMin:
+        case AggState::Kind::kMax: {
+          KeyPart out;
+          out.is_null = true;
+          out.value = int64_t{0};
+          agg.extreme_out.push_back(out);
+          agg.extreme_norm.push_back(std::move(out));
+          break;
+        }
+      }
     }
   }
+
+  std::string normalized_key;
+  normalized_key.reserve(key_count * 16);
+  std::string sort_key;
 
   const int64_t rows = input.num_rows();
   for (int64_t row = 0; row < rows; ++row) {
     uint32_t group_id = 0;
     if (key_count != 0) {
-      NormalizedKey norm_key;
-      norm_key.key_count = static_cast<uint8_t>(key_count);
-      OutputKey out_key;
-      out_key.key_count = static_cast<uint8_t>(key_count);
+      normalized_key.clear();
 
       for (std::size_t ki = 0; ki < key_count; ++ki) {
-        auto& norm_part = norm_key.parts[ki];
-        auto& out_part = out_key.parts[ki];
-
         const auto& arr_any = key_arrays[ki];
         if (arr_any == nullptr) {
           return arrow::Status::Invalid("internal error: missing key array");
         }
 
         if (arr_any->IsNull(row)) {
-          norm_part.is_null = true;
-          out_part.is_null = true;
+          normalized_key.push_back(static_cast<char>(0));
           continue;
         }
-
-        norm_part.is_null = false;
-        out_part.is_null = false;
+        normalized_key.push_back(static_cast<char>(1));
 
         switch (arr_any->type_id()) {
           case arrow::Type::BOOL: {
             const auto& arr = static_cast<const arrow::BooleanArray&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row) ? 1 : 0);
-            norm_part.value = static_cast<uint64_t>(v);
-            out_part.value = static_cast<uint64_t>(v);
+            append_u64_le(normalized_key, v);
             break;
           }
           case arrow::Type::INT8: {
             const auto& arr = static_cast<const arrow::Int8Array&>(*arr_any);
             const int64_t v = static_cast<int64_t>(arr.Value(row));
-            norm_part.value = static_cast<int64_t>(v);
-            out_part.value = static_cast<int64_t>(v);
+            append_u64_le(normalized_key, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::INT16: {
             const auto& arr = static_cast<const arrow::Int16Array&>(*arr_any);
             const int64_t v = static_cast<int64_t>(arr.Value(row));
-            norm_part.value = static_cast<int64_t>(v);
-            out_part.value = static_cast<int64_t>(v);
+            append_u64_le(normalized_key, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::INT32: {
             const auto& arr = static_cast<const arrow::Int32Array&>(*arr_any);
             const int64_t v = static_cast<int64_t>(arr.Value(row));
-            norm_part.value = static_cast<int64_t>(v);
-            out_part.value = static_cast<int64_t>(v);
+            append_u64_le(normalized_key, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::INT64: {
             const auto& arr = static_cast<const arrow::Int64Array&>(*arr_any);
             const int64_t v = arr.Value(row);
-            norm_part.value = static_cast<int64_t>(v);
-            out_part.value = static_cast<int64_t>(v);
+            append_u64_le(normalized_key, static_cast<uint64_t>(v));
             break;
           }
           case arrow::Type::UINT8: {
             const auto& arr = static_cast<const arrow::UInt8Array&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-            norm_part.value = static_cast<uint64_t>(v);
-            out_part.value = static_cast<uint64_t>(v);
+            append_u64_le(normalized_key, v);
             break;
           }
           case arrow::Type::UINT16: {
             const auto& arr = static_cast<const arrow::UInt16Array&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-            norm_part.value = static_cast<uint64_t>(v);
-            out_part.value = static_cast<uint64_t>(v);
+            append_u64_le(normalized_key, v);
             break;
           }
           case arrow::Type::UINT32: {
             const auto& arr = static_cast<const arrow::UInt32Array&>(*arr_any);
             const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-            norm_part.value = static_cast<uint64_t>(v);
-            out_part.value = static_cast<uint64_t>(v);
+            append_u64_le(normalized_key, v);
             break;
           }
           case arrow::Type::UINT64: {
             const auto& arr = static_cast<const arrow::UInt64Array&>(*arr_any);
             const uint64_t v = arr.Value(row);
-            norm_part.value = static_cast<uint64_t>(v);
-            out_part.value = static_cast<uint64_t>(v);
+            append_u64_le(normalized_key, v);
             break;
           }
           case arrow::Type::FLOAT: {
             const auto& arr = static_cast<const arrow::FloatArray&>(*arr_any);
             const float v = arr.Value(row);
-            out_part.value = static_cast<uint64_t>(Float32ToBits(v));
-            norm_part.value = static_cast<uint64_t>(CanonicalizeFloat32Bits(v));
+            append_u64_le(normalized_key, CanonicalizeFloat32Bits(v));
             break;
           }
           case arrow::Type::DOUBLE: {
             const auto& arr = static_cast<const arrow::DoubleArray&>(*arr_any);
             const double v = arr.Value(row);
-            out_part.value = static_cast<uint64_t>(Float64ToBits(v));
-            norm_part.value = static_cast<uint64_t>(CanonicalizeFloat64Bits(v));
+            append_u64_le(normalized_key, CanonicalizeFloat64Bits(v));
             break;
           }
           case arrow::Type::DECIMAL128: {
@@ -702,10 +682,8 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             if (arr.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
               return arrow::Status::Invalid("unexpected decimal128 byte width");
             }
-            Decimal128Bytes bytes{};
-            std::memcpy(bytes.data(), arr.GetValue(row), bytes.size());
-            norm_part.value = bytes;
-            out_part.value = bytes;
+            normalized_key.append(reinterpret_cast<const char*>(arr.GetValue(row)),
+                                  Decimal128Bytes{}.size());
             break;
           }
           case arrow::Type::DECIMAL256: {
@@ -713,25 +691,21 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             if (arr.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
               return arrow::Status::Invalid("unexpected decimal256 byte width");
             }
-            Decimal256Bytes bytes{};
-            std::memcpy(bytes.data(), arr.GetValue(row), bytes.size());
-            norm_part.value = bytes;
-            out_part.value = bytes;
+            normalized_key.append(reinterpret_cast<const char*>(arr.GetValue(row)),
+                                  Decimal256Bytes{}.size());
             break;
           }
           case arrow::Type::BINARY: {
             const auto& arr = static_cast<const arrow::BinaryArray&>(*arr_any);
             std::string_view view = arr.GetView(row);
-            if (pmr_resource_ == nullptr) {
-              return arrow::Status::Invalid("internal error: pmr resource must not be null");
+            sort_key.clear();
+            SortKeyStringTo(collations[ki], view, &sort_key);
+            if (sort_key.size() >
+                static_cast<std::size_t>(std::numeric_limits<uint32_t>::max())) {
+              return arrow::Status::Invalid("normalized string key too large");
             }
-            std::pmr::string out_value(pmr_resource_.get());
-            out_value.assign(view.data(), view.size());
-            out_part.value = std::move(out_value);
-
-            std::pmr::string norm_value(pmr_resource_.get());
-            SortKeyStringTo(collations[ki], view, &norm_value);
-            norm_part.value = std::move(norm_value);
+            append_u32_le(normalized_key, static_cast<uint32_t>(sort_key.size()));
+            normalized_key.append(sort_key.data(), sort_key.size());
             break;
           }
           default:
@@ -740,7 +714,130 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
         }
       }
 
-      ARROW_ASSIGN_OR_RAISE(group_id, GetOrAddGroup(std::move(norm_key), std::move(out_key)));
+      if (normalized_key.size() >
+          static_cast<std::size_t>(std::numeric_limits<int32_t>::max())) {
+        return arrow::Status::Invalid("normalized key too large");
+      }
+      const auto* key_data =
+          reinterpret_cast<const uint8_t*>(normalized_key.data());
+      const auto key_size = static_cast<int32_t>(normalized_key.size());
+      const uint64_t key_hash = detail::HashBytes(key_data, key_size);
+
+      ARROW_ASSIGN_OR_RAISE(auto found, key_to_group_id_.Find(key_data, key_size, key_hash));
+      if (found.has_value()) {
+        group_id = *found;
+      } else {
+        if (pmr_resource_ == nullptr) {
+          return arrow::Status::Invalid("internal error: pmr resource must not be null");
+        }
+
+        OutputKey out_key;
+        out_key.key_count = static_cast<uint8_t>(key_count);
+        for (std::size_t ki = 0; ki < key_count; ++ki) {
+          auto& out_part = out_key.parts[ki];
+          const auto& arr_any = key_arrays[ki];
+          if (arr_any == nullptr) {
+            return arrow::Status::Invalid("internal error: missing key array");
+          }
+          if (arr_any->IsNull(row)) {
+            out_part.is_null = true;
+            continue;
+          }
+          out_part.is_null = false;
+
+          switch (arr_any->type_id()) {
+            case arrow::Type::BOOL: {
+              const auto& arr = static_cast<const arrow::BooleanArray&>(*arr_any);
+              const uint64_t v = static_cast<uint64_t>(arr.Value(row) ? 1 : 0);
+              out_part.value = static_cast<uint64_t>(v);
+              break;
+            }
+            case arrow::Type::INT8: {
+              const auto& arr = static_cast<const arrow::Int8Array&>(*arr_any);
+              out_part.value = static_cast<int64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::INT16: {
+              const auto& arr = static_cast<const arrow::Int16Array&>(*arr_any);
+              out_part.value = static_cast<int64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::INT32: {
+              const auto& arr = static_cast<const arrow::Int32Array&>(*arr_any);
+              out_part.value = static_cast<int64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::INT64: {
+              const auto& arr = static_cast<const arrow::Int64Array&>(*arr_any);
+              out_part.value = static_cast<int64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::UINT8: {
+              const auto& arr = static_cast<const arrow::UInt8Array&>(*arr_any);
+              out_part.value = static_cast<uint64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::UINT16: {
+              const auto& arr = static_cast<const arrow::UInt16Array&>(*arr_any);
+              out_part.value = static_cast<uint64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::UINT32: {
+              const auto& arr = static_cast<const arrow::UInt32Array&>(*arr_any);
+              out_part.value = static_cast<uint64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::UINT64: {
+              const auto& arr = static_cast<const arrow::UInt64Array&>(*arr_any);
+              out_part.value = static_cast<uint64_t>(arr.Value(row));
+              break;
+            }
+            case arrow::Type::FLOAT: {
+              const auto& arr = static_cast<const arrow::FloatArray&>(*arr_any);
+              out_part.value = static_cast<uint64_t>(Float32ToBits(arr.Value(row)));
+              break;
+            }
+            case arrow::Type::DOUBLE: {
+              const auto& arr = static_cast<const arrow::DoubleArray&>(*arr_any);
+              out_part.value = static_cast<uint64_t>(Float64ToBits(arr.Value(row)));
+              break;
+            }
+            case arrow::Type::DECIMAL128: {
+              const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arr_any);
+              if (arr.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
+                return arrow::Status::Invalid("unexpected decimal128 byte width");
+              }
+              Decimal128Bytes bytes{};
+              std::memcpy(bytes.data(), arr.GetValue(row), bytes.size());
+              out_part.value = bytes;
+              break;
+            }
+            case arrow::Type::DECIMAL256: {
+              const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arr_any);
+              if (arr.byte_width() != static_cast<int>(Decimal256Bytes{}.size())) {
+                return arrow::Status::Invalid("unexpected decimal256 byte width");
+              }
+              Decimal256Bytes bytes{};
+              std::memcpy(bytes.data(), arr.GetValue(row), bytes.size());
+              out_part.value = bytes;
+              break;
+            }
+            case arrow::Type::BINARY: {
+              const auto& arr = static_cast<const arrow::BinaryArray&>(*arr_any);
+              std::string_view view = arr.GetView(row);
+              std::pmr::string out_value(pmr_resource_.get());
+              out_value.assign(view.data(), view.size());
+              out_part.value = std::move(out_value);
+              break;
+            }
+            default:
+              return arrow::Status::NotImplemented("unsupported group key type: ",
+                                                   arr_any->type()->ToString());
+          }
+        }
+
+        ARROW_ASSIGN_OR_RAISE(group_id, InsertGroup(normalized_key, key_hash, std::move(out_key)));
+      }
     }
 
     for (std::size_t i = 0; i < aggs_.size(); ++i) {
