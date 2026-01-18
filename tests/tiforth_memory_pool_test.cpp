@@ -14,6 +14,8 @@
 #include <gtest/gtest.h>
 
 #include "tiforth/engine.h"
+#include "tiforth/expr.h"
+#include "tiforth/operators/hash_agg.h"
 #include "tiforth/operators/hash_join.h"
 #include "tiforth/operators/sort.h"
 #include "tiforth/pipeline.h"
@@ -237,6 +239,62 @@ arrow::Status RunHashJoinMemoryPoolSmoke() {
   return arrow::Status::OK();
 }
 
+arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
+  arrow::ProxyMemoryPool pool(arrow::default_memory_pool());
+
+  EngineOptions options;
+  options.memory_pool = &pool;
+  ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(options));
+  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
+  const auto* eng = engine.get();
+
+  std::vector<AggKey> keys = {AggKey{.name = "x", .expr = MakeFieldRef("x")}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back(AggFunc{.name = "cnt", .func = "count_all", .arg = nullptr});
+
+  ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, aggs, eng]() -> arrow::Result<TransformOpPtr> {
+    return std::make_unique<HashAggTransformOp>(eng, keys, aggs);
+  }));
+
+  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+
+  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
+  if (initial_state != TaskState::kNeedInput) {
+    return arrow::Status::Invalid("expected TaskState::kNeedInput");
+  }
+
+  std::vector<std::optional<std::string>> values;
+  values.reserve(4096);
+  for (int i = 0; i < 4096; ++i) {
+    std::string s(64, static_cast<char>('a' + (i % 26)));
+    s[0] = static_cast<char>('a' + (i % 26));
+    s[1] = static_cast<char>('0' + ((i / 26) % 10));
+    s[2] = static_cast<char>('0' + ((i / 260) % 10));
+    values.push_back(std::move(s));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto batch, MakeBinaryBatch(collation_id, values));
+  ARROW_RETURN_NOT_OK(task->PushInput(batch));
+  ARROW_RETURN_NOT_OK(task->CloseInput());
+
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
+    if (state == TaskState::kFinished) {
+      break;
+    }
+    if (state == TaskState::kNeedInput) {
+      continue;
+    }
+    if (state != TaskState::kHasOutput) {
+      return arrow::Status::Invalid("unexpected task state");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+    (void)out;
+  }
+
+  return pool.total_bytes_allocated();
+}
+
 }  // namespace
 
 TEST(TiForthMemoryPoolTest, SortUsesEnginePool) {
@@ -258,6 +316,17 @@ TEST(TiForthMemoryPoolTest, CollatedSortUsesEnginePoolForSortKeys) {
 TEST(TiForthMemoryPoolTest, HashJoinUsesEnginePool) {
   auto status = RunHashJoinMemoryPoolSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
+}
+
+TEST(TiForthMemoryPoolTest, HashAggUsesEnginePool) {
+  auto bytes_binary = RunHashAggBytesAllocated(/*collation_id=*/63);
+  ASSERT_TRUE(bytes_binary.ok()) << bytes_binary.status().ToString();
+
+  auto bytes_general_ci = RunHashAggBytesAllocated(/*collation_id=*/33);
+  ASSERT_TRUE(bytes_general_ci.ok()) << bytes_general_ci.status().ToString();
+
+  ASSERT_GT(*bytes_binary, 0);
+  ASSERT_GT(*bytes_general_ci, 0);
 }
 
 }  // namespace tiforth
