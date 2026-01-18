@@ -14,7 +14,7 @@ This document specifies the mapping rules and metadata in detail.
 
 ## 1) Metadata keys (reserved namespace)
 
-Defined in `libs/tiforth/include/tiforth/type_metadata.h`:
+Defined in `include/tiforth/type_metadata.h`:
 
 - `tiforth.logical_type`
 - `tiforth.decimal.precision`
@@ -189,7 +189,7 @@ If `tiforth.string.collation_id` is missing, TiForth treats the column as collat
 
 ### Supported collation ids (common path)
 
-`libs/tiforth/src/tiforth/collation.cc` maps a TiDB collation id to a TiForth `CollationKind`:
+`src/tiforth/collation.cc` maps a TiDB collation id to a TiForth `CollationKind`:
 
 | Collation id | Example TiDB name (informal) | Kind | PAD SPACE | Case-insensitive |
 | --- | --- | --- | --- | --- |
@@ -212,7 +212,7 @@ If an id is not in this table, TiForth currently treats it as unsupported.
 For key-based operators, TiForth normalizes collated strings into **sort-key bytes** to make hashing and
 equality consistent with TiDB collation semantics.
 
-Defined in `libs/tiforth/include/tiforth/collation.h`:
+Defined in `include/tiforth/collation.h`:
 
 - `SortKeyStringTo(CollationKind, std::string_view, out)`
 

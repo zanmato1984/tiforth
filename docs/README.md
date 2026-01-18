@@ -1,6 +1,6 @@
 # TiForth docs
 
-This directory contains **user-facing** documentation for the standalone TiForth library (`libs/tiforth`).
+This directory contains **user-facing** documentation for the standalone TiForth library.
 
 - `architecture.md`: overall architecture, data model, execution model.
 - `pipeline_apis.md`: pipeline/task APIs (C++ and C ABI).
@@ -9,6 +9,5 @@ This directory contains **user-facing** documentation for the standalone TiForth
 
 Related docs:
 
-- Design/milestones: `docs/design/2026-01-14-tiforth.md`
-- Consumer build/packaging examples: `libs/tiforth/examples/README.md`
-
+- Design/milestones: tracked in the integrating host project (not in this repo yet)
+- Consumer build/packaging examples: `examples/README.md`

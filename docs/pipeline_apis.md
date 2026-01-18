@@ -13,7 +13,7 @@ This doc focuses on the execution model and API contracts. For operator details,
 Include:
 
 - umbrella header: `#include <tiforth/tiforth.h>`
-- or individual headers under `libs/tiforth/include/tiforth/`
+- or individual headers under `include/tiforth/`
 
 ### Engine
 
@@ -83,7 +83,7 @@ This wraps a task internally and drives it until completion.
 
 ## C ABI (tiforth_capi)
 
-C header: `libs/tiforth/include/tiforth_c/tiforth.h`.
+C header: `include/tiforth_c/tiforth.h`.
 
 The C ABI mirrors the C++ concepts:
 
@@ -121,4 +121,3 @@ The C pipeline builder currently exposes:
 - projection: `tiforth_pipeline_append_projection`
 
 Other operators are available through the C++ API.
-

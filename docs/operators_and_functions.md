@@ -5,7 +5,7 @@ Arrow compute.
 
 ## 1) Operator model
 
-Public interfaces: `libs/tiforth/include/tiforth/operators.h`.
+Public interfaces: `include/tiforth/operators.h`.
 
 TiForth defines three operator kinds:
 
@@ -34,7 +34,7 @@ Rules:
 
 ## 2) Built-in transform operators
 
-Public headers live under `libs/tiforth/include/tiforth/operators/`.
+Public headers live under `include/tiforth/operators/`.
 
 ### Pass-through
 
@@ -66,15 +66,19 @@ Public headers live under `libs/tiforth/include/tiforth/operators/`.
 
 - `tiforth::HashAggTransformOp` (`hash_agg.h`)
 - Current limitations (common path):
-  - supports 1 or 2 group keys
+  - supports up to 8 group keys
   - supported key physical types:
-    - `int32`
-    - `uint64`
+    - `bool`
+    - signed integers: `int8` / `int16` / `int32` / `int64`
+    - unsigned integers: `uint8` / `uint16` / `uint32` / `uint64`
+    - `float` / `double` (canonicalized bits for hashing/equality; `-0 == 0`, NaNs canonicalized)
     - `decimal128` / `decimal256` (compared by raw fixed-size bytes)
     - `binary` (with `tiforth.logical_type=string` and supported `collation_id` for normalization)
   - supported aggregate funcs:
     - `count_all`
-    - `sum_int32` (argument must evaluate to `int32`)
+    - `count` (non-null)
+    - `sum` (BOOL/INT*/UINT* -> output `int64`/`uint64`, nullable)
+    - `min` / `max` (INT*/UINT*/BINARY; collation-aware for BINARY)
 - Collated string keys:
   - original key value is preserved for output
   - normalized key (sort-key bytes) is used for hashing/equality to match collation semantics
@@ -90,7 +94,11 @@ Public headers live under `libs/tiforth/include/tiforth/operators/`.
   - concatenated and indexed on first probe batch
 - Join keys:
   - 1 or 2 keys
-  - supported key physical types match hash-agg’s supported set
+  - supported key physical types:
+    - `int32`
+    - `uint64`
+    - `decimal128` / `decimal256` (compared by raw fixed-size bytes)
+    - `binary` (with `tiforth.logical_type=string` and supported `collation_id` for normalization)
   - for string keys, build/probe must agree on `collation_id`
 - Output schema:
   - concatenation of probe schema fields followed by build schema fields
@@ -111,7 +119,7 @@ Public headers live under `libs/tiforth/include/tiforth/operators/`.
 
 ## 3) Expressions
 
-Public API: `libs/tiforth/include/tiforth/expr.h`.
+Public API: `include/tiforth/expr.h`.
 
 TiForth has a minimal expression IR:
 
@@ -159,7 +167,7 @@ physical types) and may rewrite calls:
 
 ### TiForth-defined function names (common path)
 
-Registered by `libs/tiforth/src/tiforth/functions/register.cc`:
+Registered by `src/tiforth/functions/register.cc`:
 
 - Collated compare:
   - `tiforth.collated_equal`

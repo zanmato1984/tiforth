@@ -18,7 +18,7 @@ Notes:
 
 ## Example list
 
-All projects live under `libs/tiforth/examples/projects/`:
+All projects live under `examples/projects/`:
 
 - `noarrow__tiforth-system-shared`
 - `noarrow__tiforth-system-static`
@@ -51,15 +51,15 @@ Combinations intentionally not provided:
 
 ### 1) Prepare local “system” prefixes (Arrow + TiForth)
 
-Use `libs/tiforth/examples/scripts/bootstrap_local_system_deps.sh` to build/install:
+Use `examples/scripts/bootstrap_local_system_deps.sh` to build/install:
 
-- `libs/tiforth/examples/_install/arrow` (Arrow core + compute; shared + static targets)
-- `libs/tiforth/examples/_install/tiforth-<shared|static>-arrow-<shared|static>` (4 TiForth variants)
+- `examples/_install/arrow` (Arrow core + compute; shared + static targets)
+- `examples/_install/tiforth-<shared|static>-arrow-<shared|static>` (4 TiForth variants)
 
 To avoid FetchContent downloads, pass a local Arrow source checkout:
 
 ```sh
-FETCHCONTENT_SOURCE_DIR_ARROW=/path/to/arrow-src ./libs/tiforth/examples/scripts/bootstrap_local_system_deps.sh
+FETCHCONTENT_SOURCE_DIR_ARROW=/path/to/arrow-src ./examples/scripts/bootstrap_local_system_deps.sh
 ```
 
 ### 2) Configure/build an example
@@ -67,8 +67,8 @@ FETCHCONTENT_SOURCE_DIR_ARROW=/path/to/arrow-src ./libs/tiforth/examples/scripts
 From the repo root:
 
 ```sh
-cmake -S libs/tiforth/examples/projects/<example> -B /tmp/<example>-build \
-  -DCMAKE_PREFIX_PATH="$(pwd)/libs/tiforth/examples/_install/arrow;$(pwd)/libs/tiforth/examples/_install/tiforth-shared-arrow-shared"
+cmake -S examples/projects/<example> -B /tmp/<example>-build \
+  -DCMAKE_PREFIX_PATH="$(pwd)/examples/_install/arrow;$(pwd)/examples/_install/tiforth-shared-arrow-shared"
 cmake --build /tmp/<example>-build
 ```
 

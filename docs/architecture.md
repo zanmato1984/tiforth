@@ -18,7 +18,7 @@ This document describes the main moving pieces and how they fit together. For ho
 
 ### Engine: host integration point
 
-Public API: `tiforth::Engine` (`libs/tiforth/include/tiforth/engine.h`).
+Public API: `tiforth::Engine` (`include/tiforth/engine.h`).
 
 An `Engine` is the “host context” for execution. It owns/points to:
 
@@ -31,8 +31,8 @@ An `Engine` is the “host context” for execution. It owns/points to:
 
 Public APIs:
 
-- `tiforth::PipelineBuilder` / `tiforth::Pipeline` (`libs/tiforth/include/tiforth/pipeline.h`)
-- `tiforth::Task` (`libs/tiforth/include/tiforth/task.h`)
+- `tiforth::PipelineBuilder` / `tiforth::Pipeline` (`include/tiforth/pipeline.h`)
+- `tiforth::Task` (`include/tiforth/task.h`)
 
 Model:
 
@@ -59,7 +59,7 @@ EOS is treated like an “output” batch to allow transforms/sinks to flush and
 ### Operator abstraction
 
 Public API: `tiforth::Operator` and derived `SourceOp` / `TransformOp` / `SinkOp`
-(`libs/tiforth/include/tiforth/operators.h`).
+(`include/tiforth/operators.h`).
 
 Key points:
 
@@ -76,8 +76,8 @@ TiForth ships a small set of built-in transform operators (filter/projection/joi
 
 Public APIs:
 
-- Expression IR: `tiforth::Expr` (`libs/tiforth/include/tiforth/expr.h`)
-- “Bind once, execute many”: `tiforth::CompiledExpr` (`libs/tiforth/include/tiforth/compiled_expr.h`)
+- Expression IR: `tiforth::Expr` (`include/tiforth/expr.h`)
+- “Bind once, execute many”: `tiforth::CompiledExpr` (`include/tiforth/compiled_expr.h`)
 
 TiForth expression compilation uses Arrow compute `Expression::Bind` against an input schema and an engine-local
 function registry. During compilation TiForth may rewrite certain calls to preserve TiDB/MySQL semantics, driven
@@ -85,7 +85,7 @@ by Arrow field metadata (see `type_mapping_tidb_to_arrow.md`).
 
 ### Logical types via Arrow field metadata
 
-Public API: `tiforth::LogicalType` helpers (`libs/tiforth/include/tiforth/type_metadata.h`).
+Public API: `tiforth::LogicalType` helpers (`include/tiforth/type_metadata.h`).
 
 TiForth uses Arrow `Field::metadata()` to preserve semantics that cannot be represented by Arrow’s physical type
 alone (notably: decimals, packed date/time, and collated strings).
