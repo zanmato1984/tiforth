@@ -15,6 +15,7 @@
 
 #include "tiforth/expr.h"
 #include "tiforth/operators.h"
+#include "tiforth/detail/aggregate_function.h"
 #include "tiforth/detail/arena.h"
 #include "tiforth/detail/key_hash_table.h"
 
@@ -97,13 +98,8 @@ class HashAggContext final {
     ExprPtr arg;
     SumKind sum_kind = SumKind::kUnresolved;
 
-    std::vector<uint64_t> count_all;
-    std::vector<uint64_t> count;
-    std::vector<int64_t> sum_i64;
-    std::vector<uint64_t> sum_u64;
-    std::vector<uint8_t> sum_has_value;
-    std::vector<KeyPart> extreme_out;
-    std::vector<KeyPart> extreme_norm;
+    std::unique_ptr<detail::AggregateFunction> fn;
+    int64_t state_offset = 0;
   };
 
   struct Compiled;
@@ -118,6 +114,7 @@ class HashAggContext final {
 
   arrow::MemoryPool* memory_pool_ = nullptr;
   detail::Arena group_key_arena_;
+  detail::Arena agg_state_arena_;
   detail::KeyHashTable key_to_group_id_;
   // Owns the memory_resource used by pmr group keys (normalized/original string keys) so the
   // allocator stays valid for the lifetime of the hash table and group key storage.
@@ -126,6 +123,10 @@ class HashAggContext final {
   arrow::compute::ExecContext exec_context_;
 
   std::vector<OutputKey> group_keys_;
+  std::vector<uint8_t*> group_agg_states_;
+  int64_t agg_state_row_size_ = 0;
+  int64_t agg_state_row_alignment_ = 1;
+  bool agg_state_layout_ready_ = false;
 
   bool build_finished_ = false;
   std::shared_ptr<arrow::RecordBatch> output_all_;

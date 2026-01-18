@@ -20,6 +20,7 @@
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
+#include <arrow/util/logging.h>
 
 #include "tiforth/compiled_expr.h"
 #include "tiforth/engine.h"
@@ -104,6 +105,460 @@ class ArrowMemoryPoolResource final : public std::pmr::memory_resource {
   arrow::MemoryPool* pool_;
 };
 
+class AggCountAll final : public detail::AggregateFunction {
+ public:
+  struct State {
+    uint64_t count = 0;
+  };
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    (void)arg;
+    (void)row;
+    ++reinterpret_cast<State*>(state)->count;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::UINT64) {
+      return arrow::Status::Invalid("count_all expects uint64 output builder");
+    }
+    auto* builder = static_cast<arrow::UInt64Builder*>(out);
+    return builder->Append(reinterpret_cast<const State*>(state)->count);
+  }
+};
+
+class AggCount final : public detail::AggregateFunction {
+ public:
+  struct State {
+    uint64_t count = 0;
+  };
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("count expects non-null arg array");
+    }
+    if (!arg->IsNull(row)) {
+      ++reinterpret_cast<State*>(state)->count;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::UINT64) {
+      return arrow::Status::Invalid("count expects uint64 output builder");
+    }
+    auto* builder = static_cast<arrow::UInt64Builder*>(out);
+    return builder->Append(reinterpret_cast<const State*>(state)->count);
+  }
+};
+
+class AggSumInt64 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    int64_t sum = 0;
+    uint8_t has_value = 0;
+  };
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("sum(int64) expects non-null arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    int64_t add = 0;
+    switch (arg->type_id()) {
+      case arrow::Type::INT8: {
+        const auto& arr = static_cast<const arrow::Int8Array&>(*arg);
+        add = static_cast<int64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT16: {
+        const auto& arr = static_cast<const arrow::Int16Array&>(*arg);
+        add = static_cast<int64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT32: {
+        const auto& arr = static_cast<const arrow::Int32Array&>(*arg);
+        add = static_cast<int64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT64: {
+        const auto& arr = static_cast<const arrow::Int64Array&>(*arg);
+        add = arr.Value(row);
+        break;
+      }
+      default:
+        return arrow::Status::NotImplemented("sum(int64) arg type not supported: ",
+                                             arg->type()->ToString());
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    s->has_value = 1;
+    s->sum += add;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::INT64) {
+      return arrow::Status::Invalid("sum(int64) expects int64 output builder");
+    }
+    auto* builder = static_cast<arrow::Int64Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    return builder->Append(s->sum);
+  }
+};
+
+class AggSumUInt64 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    uint64_t sum = 0;
+    uint8_t has_value = 0;
+  };
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("sum(uint64) expects non-null arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    uint64_t add = 0;
+    switch (arg->type_id()) {
+      case arrow::Type::BOOL: {
+        const auto& arr = static_cast<const arrow::BooleanArray&>(*arg);
+        add = static_cast<uint64_t>(arr.Value(row) ? 1 : 0);
+        break;
+      }
+      case arrow::Type::UINT8: {
+        const auto& arr = static_cast<const arrow::UInt8Array&>(*arg);
+        add = static_cast<uint64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT16: {
+        const auto& arr = static_cast<const arrow::UInt16Array&>(*arg);
+        add = static_cast<uint64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT32: {
+        const auto& arr = static_cast<const arrow::UInt32Array&>(*arg);
+        add = static_cast<uint64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT64: {
+        const auto& arr = static_cast<const arrow::UInt64Array&>(*arg);
+        add = arr.Value(row);
+        break;
+      }
+      default:
+        return arrow::Status::NotImplemented("sum(uint64) arg type not supported: ",
+                                             arg->type()->ToString());
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    s->has_value = 1;
+    s->sum += add;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::UINT64) {
+      return arrow::Status::Invalid("sum(uint64) expects uint64 output builder");
+    }
+    auto* builder = static_cast<arrow::UInt64Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    return builder->Append(s->sum);
+  }
+};
+
+class AggMinMaxSigned final : public detail::AggregateFunction {
+ public:
+  struct State {
+    int64_t value = 0;
+    uint8_t has_value = 0;
+  };
+
+  AggMinMaxSigned(bool is_min, arrow::Type::type output_type_id)
+      : is_min_(is_min), output_type_id_(output_type_id) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("min/max expects non-null arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    int64_t cand = 0;
+    switch (arg->type_id()) {
+      case arrow::Type::INT8: {
+        const auto& arr = static_cast<const arrow::Int8Array&>(*arg);
+        cand = static_cast<int64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT16: {
+        const auto& arr = static_cast<const arrow::Int16Array&>(*arg);
+        cand = static_cast<int64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT32: {
+        const auto& arr = static_cast<const arrow::Int32Array&>(*arg);
+        cand = static_cast<int64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT64: {
+        const auto& arr = static_cast<const arrow::Int64Array&>(*arg);
+        cand = arr.Value(row);
+        break;
+      }
+      default:
+        return arrow::Status::NotImplemented("unsupported min/max arg type: ",
+                                             arg->type()->ToString());
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->value = cand;
+      return arrow::Status::OK();
+    }
+    if ((is_min_ && cand < s->value) || (!is_min_ && cand > s->value)) {
+      s->value = cand;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != output_type_id_) {
+      return arrow::Status::Invalid("min/max output builder type mismatch");
+    }
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return out->AppendNull();
+    }
+
+    switch (output_type_id_) {
+      case arrow::Type::INT8:
+        return static_cast<arrow::Int8Builder*>(out)->Append(static_cast<int8_t>(s->value));
+      case arrow::Type::INT16:
+        return static_cast<arrow::Int16Builder*>(out)->Append(static_cast<int16_t>(s->value));
+      case arrow::Type::INT32:
+        return static_cast<arrow::Int32Builder*>(out)->Append(static_cast<int32_t>(s->value));
+      case arrow::Type::INT64:
+        return static_cast<arrow::Int64Builder*>(out)->Append(static_cast<int64_t>(s->value));
+      default:
+        break;
+    }
+    return arrow::Status::NotImplemented("unsupported min/max output type");
+  }
+
+ private:
+  bool is_min_ = true;
+  arrow::Type::type output_type_id_;
+};
+
+class AggMinMaxUnsigned final : public detail::AggregateFunction {
+ public:
+  struct State {
+    uint64_t value = 0;
+    uint8_t has_value = 0;
+  };
+
+  AggMinMaxUnsigned(bool is_min, arrow::Type::type output_type_id)
+      : is_min_(is_min), output_type_id_(output_type_id) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("min/max expects non-null arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    uint64_t cand = 0;
+    switch (arg->type_id()) {
+      case arrow::Type::UINT8: {
+        const auto& arr = static_cast<const arrow::UInt8Array&>(*arg);
+        cand = static_cast<uint64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT16: {
+        const auto& arr = static_cast<const arrow::UInt16Array&>(*arg);
+        cand = static_cast<uint64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT32: {
+        const auto& arr = static_cast<const arrow::UInt32Array&>(*arg);
+        cand = static_cast<uint64_t>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT64: {
+        const auto& arr = static_cast<const arrow::UInt64Array&>(*arg);
+        cand = arr.Value(row);
+        break;
+      }
+      default:
+        return arrow::Status::NotImplemented("unsupported min/max arg type: ",
+                                             arg->type()->ToString());
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->value = cand;
+      return arrow::Status::OK();
+    }
+    if ((is_min_ && cand < s->value) || (!is_min_ && cand > s->value)) {
+      s->value = cand;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != output_type_id_) {
+      return arrow::Status::Invalid("min/max output builder type mismatch");
+    }
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return out->AppendNull();
+    }
+
+    switch (output_type_id_) {
+      case arrow::Type::UINT8:
+        return static_cast<arrow::UInt8Builder*>(out)->Append(static_cast<uint8_t>(s->value));
+      case arrow::Type::UINT16:
+        return static_cast<arrow::UInt16Builder*>(out)->Append(static_cast<uint16_t>(s->value));
+      case arrow::Type::UINT32:
+        return static_cast<arrow::UInt32Builder*>(out)->Append(static_cast<uint32_t>(s->value));
+      case arrow::Type::UINT64:
+        return static_cast<arrow::UInt64Builder*>(out)->Append(static_cast<uint64_t>(s->value));
+      default:
+        break;
+    }
+    return arrow::Status::NotImplemented("unsupported min/max output type");
+  }
+
+ private:
+  bool is_min_ = true;
+  arrow::Type::type output_type_id_;
+};
+
+class AggMinMaxBinary final : public detail::AggregateFunction {
+ public:
+  struct State {
+    explicit State(std::pmr::memory_resource* resource) : out(resource), norm(resource) {}
+    bool has_value = false;
+    std::pmr::string out;
+    std::pmr::string norm;
+  };
+
+  AggMinMaxBinary(bool is_min, Collation collation, std::pmr::memory_resource* resource)
+      : is_min_(is_min), collation_(collation), resource_(resource), scratch_norm_(resource) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(resource_); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("min/max expects non-null arg array");
+    }
+    if (arg->type_id() != arrow::Type::BINARY) {
+      return arrow::Status::Invalid("min/max(binary) expects binary arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& arr = static_cast<const arrow::BinaryArray&>(*arg);
+    const std::string_view view = arr.GetView(row);
+    auto* s = reinterpret_cast<State*>(state);
+
+    scratch_norm_.clear();
+    SortKeyStringTo(collation_, view, &scratch_norm_);
+
+    if (!s->has_value) {
+      s->has_value = true;
+      s->out.assign(view.data(), view.size());
+      s->norm = scratch_norm_;
+      return arrow::Status::OK();
+    }
+
+    const int cmp = scratch_norm_.compare(s->norm);
+    const bool take = is_min_ ? (cmp < 0) : (cmp > 0);
+    if (take) {
+      s->out.assign(view.data(), view.size());
+      s->norm = scratch_norm_;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::BINARY) {
+      return arrow::Status::Invalid("min/max(binary) expects binary output builder");
+    }
+    auto* builder = static_cast<arrow::BinaryBuilder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (!s->has_value) {
+      return builder->AppendNull();
+    }
+    return builder->Append(reinterpret_cast<const uint8_t*>(s->out.data()),
+                           static_cast<int32_t>(s->out.size()));
+  }
+
+ private:
+  bool is_min_ = true;
+  Collation collation_;
+  std::pmr::memory_resource* resource_ = nullptr;
+  mutable std::pmr::string scratch_norm_;
+};
+
 }  // namespace
 
 struct HashAggContext::Compiled {
@@ -111,7 +566,26 @@ struct HashAggContext::Compiled {
   std::vector<std::optional<CompiledExpr>> agg_arg_exprs;
 };
 
-HashAggContext::~HashAggContext() = default;
+HashAggContext::~HashAggContext() {
+  // Aggregate states live in an arena (bulk-freed), but some states can own nested resources
+  // (e.g. pmr strings). Destroy them explicitly.
+  if (group_agg_states_.empty()) {
+    return;
+  }
+  ARROW_DCHECK(group_agg_states_.size() == group_keys_.size());
+
+  for (auto* row_state : group_agg_states_) {
+    if (row_state == nullptr) {
+      continue;
+    }
+    for (const auto& agg : aggs_) {
+      if (agg.fn == nullptr) {
+        continue;
+      }
+      agg.fn->Destroy(row_state + agg.state_offset);
+    }
+  }
+}
 
 HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
                                std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool)
@@ -121,6 +595,7 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
                        ? memory_pool
                        : (engine != nullptr ? engine->memory_pool() : arrow::default_memory_pool())),
       group_key_arena_(memory_pool_),
+      agg_state_arena_(memory_pool_),
       key_to_group_id_(memory_pool_, &group_key_arena_),
       exec_context_(memory_pool_, /*executor=*/nullptr,
                    engine != nullptr ? engine->function_registry() : nullptr) {
@@ -191,41 +666,19 @@ arrow::Result<uint32_t> HashAggContext::InsertGroup(std::string_view normalized_
   }
 
   group_keys_.push_back(std::move(output_key));
+
+  if (!agg_state_layout_ready_) {
+    return arrow::Status::Invalid("internal error: aggregate state layout must be initialized");
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      auto* row_state, agg_state_arena_.Allocate(agg_state_row_size_, agg_state_row_alignment_));
+  group_agg_states_.push_back(row_state);
+  ARROW_DCHECK(group_agg_states_.size() == group_keys_.size());
   for (auto& agg : aggs_) {
-    switch (agg.kind) {
-      case AggState::Kind::kUnsupported:
-        break;
-      case AggState::Kind::kCountAll:
-        agg.count_all.push_back(0);
-        break;
-      case AggState::Kind::kCount:
-        agg.count.push_back(0);
-        break;
-      case AggState::Kind::kSum: {
-        switch (agg.sum_kind) {
-          case AggState::SumKind::kUnresolved:
-            return arrow::Status::Invalid("internal error: sum kind must be resolved");
-          case AggState::SumKind::kInt64:
-            agg.sum_i64.push_back(0);
-            agg.sum_has_value.push_back(0);
-            break;
-          case AggState::SumKind::kUInt64:
-            agg.sum_u64.push_back(0);
-            agg.sum_has_value.push_back(0);
-            break;
-        }
-        break;
-      }
-      case AggState::Kind::kMin:
-      case AggState::Kind::kMax: {
-        KeyPart out;
-        out.is_null = true;
-        out.value = int64_t{0};
-        agg.extreme_out.push_back(out);
-        agg.extreme_norm.push_back(std::move(out));
-        break;
-      }
+    if (agg.fn == nullptr) {
+      return arrow::Status::Invalid("internal error: aggregate function must not be null");
     }
+    agg.fn->Create(row_state + agg.state_offset);
   }
   return candidate_group_id;
 }
@@ -546,45 +999,104 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
     out.push_back(static_cast<char>(v >> 56));
   };
 
-  if (key_count == 0 && group_keys_.empty()) {
-    OutputKey out_key;
-    out_key.key_count = 0;
-    group_keys_.push_back(std::move(out_key));
-    for (auto& agg : aggs_) {
+  if (!agg_state_layout_ready_) {
+    if (pmr_resource_ == nullptr) {
+      return arrow::Status::Invalid("internal error: pmr resource must not be null");
+    }
+
+    // Create aggregate function instances (once) after arg types/collations are known.
+    for (std::size_t i = 0; i < aggs_.size(); ++i) {
+      auto& agg = aggs_[i];
+      if (agg.fn != nullptr) {
+        continue;
+      }
+      const auto& arg_any = i < agg_args.size() ? agg_args[i] : nullptr;
+
       switch (agg.kind) {
         case AggState::Kind::kUnsupported:
-          break;
+          return arrow::Status::NotImplemented("unsupported aggregate func: ", agg.func);
         case AggState::Kind::kCountAll:
-          agg.count_all.push_back(0);
+          agg.fn = std::make_unique<AggCountAll>();
           break;
         case AggState::Kind::kCount:
-          agg.count.push_back(0);
+          agg.fn = std::make_unique<AggCount>();
           break;
         case AggState::Kind::kSum: {
           switch (agg.sum_kind) {
             case AggState::SumKind::kUnresolved:
               return arrow::Status::Invalid("internal error: sum kind must be resolved");
             case AggState::SumKind::kInt64:
-              agg.sum_i64.push_back(0);
-              agg.sum_has_value.push_back(0);
+              agg.fn = std::make_unique<AggSumInt64>();
               break;
             case AggState::SumKind::kUInt64:
-              agg.sum_u64.push_back(0);
-              agg.sum_has_value.push_back(0);
+              agg.fn = std::make_unique<AggSumUInt64>();
               break;
           }
           break;
         }
         case AggState::Kind::kMin:
         case AggState::Kind::kMax: {
-          KeyPart out;
-          out.is_null = true;
-          out.value = int64_t{0};
-          agg.extreme_out.push_back(out);
-          agg.extreme_norm.push_back(std::move(out));
+          if (arg_any == nullptr) {
+            return arrow::Status::Invalid("internal error: missing ", agg.func, " arg array");
+          }
+          const bool is_min = (agg.kind == AggState::Kind::kMin);
+          switch (arg_any->type_id()) {
+            case arrow::Type::INT8:
+            case arrow::Type::INT16:
+            case arrow::Type::INT32:
+            case arrow::Type::INT64:
+              agg.fn = std::make_unique<AggMinMaxSigned>(is_min, arg_any->type_id());
+              break;
+            case arrow::Type::UINT8:
+            case arrow::Type::UINT16:
+            case arrow::Type::UINT32:
+            case arrow::Type::UINT64:
+              agg.fn = std::make_unique<AggMinMaxUnsigned>(is_min, arg_any->type_id());
+              break;
+            case arrow::Type::BINARY:
+              agg.fn = std::make_unique<AggMinMaxBinary>(is_min, agg_collations[i],
+                                                         pmr_resource_.get());
+              break;
+            default:
+              return arrow::Status::NotImplemented(agg.func, " arg type not supported: ",
+                                                   arg_any->type()->ToString());
+          }
           break;
         }
       }
+    }
+
+    std::vector<const detail::AggregateFunction*> fns;
+    fns.reserve(aggs_.size());
+    for (const auto& agg : aggs_) {
+      if (agg.fn == nullptr) {
+        return arrow::Status::Invalid("internal error: aggregate function must not be null");
+      }
+      fns.push_back(agg.fn.get());
+    }
+    ARROW_ASSIGN_OR_RAISE(const auto layout, detail::ComputeAggStateLayout(fns));
+    agg_state_row_size_ = layout.row_size;
+    agg_state_row_alignment_ = layout.row_alignment;
+    for (std::size_t i = 0; i < aggs_.size(); ++i) {
+      aggs_[i].state_offset = layout.offsets[i];
+    }
+    agg_state_layout_ready_ = true;
+  }
+
+  if (key_count == 0 && group_keys_.empty()) {
+    OutputKey out_key;
+    out_key.key_count = 0;
+    group_keys_.push_back(std::move(out_key));
+    ARROW_DCHECK(group_agg_states_.empty());
+    ARROW_DCHECK(agg_state_layout_ready_);
+    ARROW_ASSIGN_OR_RAISE(auto* row_state,
+                          agg_state_arena_.Allocate(agg_state_row_size_, agg_state_row_alignment_));
+    group_agg_states_.push_back(row_state);
+    for (auto& agg : aggs_) {
+      if (agg.fn == nullptr) {
+        return arrow::Status::Invalid("internal error: aggregate function must not be null");
+      }
+      agg.fn->Create(row_state + agg.state_offset);
     }
   }
 
@@ -840,256 +1352,20 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
       }
     }
 
+    if (group_id >= group_agg_states_.size()) {
+      return arrow::Status::Invalid("internal error: agg state group id out of range");
+    }
+    auto* row_state = group_agg_states_[group_id];
+    if (row_state == nullptr) {
+      return arrow::Status::Invalid("internal error: missing aggregate state row");
+    }
     for (std::size_t i = 0; i < aggs_.size(); ++i) {
       auto& agg = aggs_[i];
-      switch (agg.kind) {
-        case AggState::Kind::kUnsupported:
-          return arrow::Status::NotImplemented("unsupported aggregate func: ", agg.func);
-        case AggState::Kind::kCountAll:
-          ++agg.count_all[group_id];
-          break;
-        case AggState::Kind::kCount: {
-          const auto& arg_any = agg_args[i];
-          if (arg_any == nullptr) {
-            return arrow::Status::Invalid("internal error: missing count arg array");
-          }
-          if (!arg_any->IsNull(row)) {
-            ++agg.count[group_id];
-          }
-          break;
-        }
-        case AggState::Kind::kSum: {
-          const auto& arg_any = agg_args[i];
-          if (arg_any == nullptr) {
-            return arrow::Status::Invalid("internal error: missing sum arg array");
-          }
-          if (arg_any->IsNull(row)) {
-            break;
-          }
-          if (group_id >= agg.sum_has_value.size()) {
-            return arrow::Status::Invalid("internal error: sum group id out of range");
-          }
-          agg.sum_has_value[group_id] = 1;
-
-          switch (agg.sum_kind) {
-            case AggState::SumKind::kUnresolved:
-              return arrow::Status::Invalid("internal error: sum kind must be resolved");
-            case AggState::SumKind::kInt64: {
-              if (group_id >= agg.sum_i64.size()) {
-                return arrow::Status::Invalid("internal error: sum group id out of range");
-              }
-              int64_t add = 0;
-              switch (arg_any->type_id()) {
-                case arrow::Type::INT8: {
-                  const auto& arr = static_cast<const arrow::Int8Array&>(*arg_any);
-                  add = static_cast<int64_t>(arr.Value(row));
-                  break;
-                }
-                case arrow::Type::INT16: {
-                  const auto& arr = static_cast<const arrow::Int16Array&>(*arg_any);
-                  add = static_cast<int64_t>(arr.Value(row));
-                  break;
-                }
-                case arrow::Type::INT32: {
-                  const auto& arr = static_cast<const arrow::Int32Array&>(*arg_any);
-                  add = static_cast<int64_t>(arr.Value(row));
-                  break;
-                }
-                case arrow::Type::INT64: {
-                  const auto& arr = static_cast<const arrow::Int64Array&>(*arg_any);
-                  add = arr.Value(row);
-                  break;
-                }
-                default:
-                  return arrow::Status::NotImplemented("sum(int64) arg type not supported: ",
-                                                       arg_any->type()->ToString());
-              }
-              agg.sum_i64[group_id] += add;
-              break;
-            }
-            case AggState::SumKind::kUInt64: {
-              if (group_id >= agg.sum_u64.size()) {
-                return arrow::Status::Invalid("internal error: sum group id out of range");
-              }
-              uint64_t add = 0;
-              switch (arg_any->type_id()) {
-                case arrow::Type::BOOL: {
-                  const auto& arr = static_cast<const arrow::BooleanArray&>(*arg_any);
-                  add = static_cast<uint64_t>(arr.Value(row) ? 1 : 0);
-                  break;
-                }
-                case arrow::Type::UINT8: {
-                  const auto& arr = static_cast<const arrow::UInt8Array&>(*arg_any);
-                  add = static_cast<uint64_t>(arr.Value(row));
-                  break;
-                }
-                case arrow::Type::UINT16: {
-                  const auto& arr = static_cast<const arrow::UInt16Array&>(*arg_any);
-                  add = static_cast<uint64_t>(arr.Value(row));
-                  break;
-                }
-                case arrow::Type::UINT32: {
-                  const auto& arr = static_cast<const arrow::UInt32Array&>(*arg_any);
-                  add = static_cast<uint64_t>(arr.Value(row));
-                  break;
-                }
-                case arrow::Type::UINT64: {
-                  const auto& arr = static_cast<const arrow::UInt64Array&>(*arg_any);
-                  add = arr.Value(row);
-                  break;
-                }
-                default:
-                  return arrow::Status::NotImplemented("sum(uint64) arg type not supported: ",
-                                                       arg_any->type()->ToString());
-              }
-              agg.sum_u64[group_id] += add;
-              break;
-            }
-          }
-          break;
-        }
-        case AggState::Kind::kMin:
-        case AggState::Kind::kMax: {
-          const auto& arg_any = agg_args[i];
-          if (arg_any == nullptr) {
-            return arrow::Status::Invalid("internal error: missing ", agg.func, " arg array");
-          }
-          if (arg_any->IsNull(row)) {
-            break;
-          }
-          if (group_id >= agg.extreme_norm.size() || group_id >= agg.extreme_out.size()) {
-            return arrow::Status::Invalid("internal error: group id out of range");
-          }
-
-          KeyPart out;
-          out.is_null = false;
-          KeyPart norm;
-          norm.is_null = false;
-
-          switch (arg_any->type_id()) {
-            case arrow::Type::INT8: {
-              const auto& arr = static_cast<const arrow::Int8Array&>(*arg_any);
-              const int64_t v = static_cast<int64_t>(arr.Value(row));
-              out.value = static_cast<int64_t>(v);
-              norm.value = static_cast<int64_t>(v);
-              break;
-            }
-            case arrow::Type::INT16: {
-              const auto& arr = static_cast<const arrow::Int16Array&>(*arg_any);
-              const int64_t v = static_cast<int64_t>(arr.Value(row));
-              out.value = static_cast<int64_t>(v);
-              norm.value = static_cast<int64_t>(v);
-              break;
-            }
-            case arrow::Type::INT32: {
-              const auto& arr = static_cast<const arrow::Int32Array&>(*arg_any);
-              const int64_t v = static_cast<int64_t>(arr.Value(row));
-              out.value = static_cast<int64_t>(v);
-              norm.value = static_cast<int64_t>(v);
-              break;
-            }
-            case arrow::Type::INT64: {
-              const auto& arr = static_cast<const arrow::Int64Array&>(*arg_any);
-              const int64_t v = arr.Value(row);
-              out.value = static_cast<int64_t>(v);
-              norm.value = static_cast<int64_t>(v);
-              break;
-            }
-            case arrow::Type::UINT8: {
-              const auto& arr = static_cast<const arrow::UInt8Array&>(*arg_any);
-              const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-              out.value = static_cast<uint64_t>(v);
-              norm.value = static_cast<uint64_t>(v);
-              break;
-            }
-            case arrow::Type::UINT16: {
-              const auto& arr = static_cast<const arrow::UInt16Array&>(*arg_any);
-              const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-              out.value = static_cast<uint64_t>(v);
-              norm.value = static_cast<uint64_t>(v);
-              break;
-            }
-            case arrow::Type::UINT32: {
-              const auto& arr = static_cast<const arrow::UInt32Array&>(*arg_any);
-              const uint64_t v = static_cast<uint64_t>(arr.Value(row));
-              out.value = static_cast<uint64_t>(v);
-              norm.value = static_cast<uint64_t>(v);
-              break;
-            }
-            case arrow::Type::UINT64: {
-              const auto& arr = static_cast<const arrow::UInt64Array&>(*arg_any);
-              const uint64_t v = arr.Value(row);
-              out.value = static_cast<uint64_t>(v);
-              norm.value = static_cast<uint64_t>(v);
-              break;
-            }
-            case arrow::Type::BINARY: {
-              const auto& arr = static_cast<const arrow::BinaryArray&>(*arg_any);
-              std::string_view view = arr.GetView(row);
-              if (pmr_resource_ == nullptr) {
-                return arrow::Status::Invalid("internal error: pmr resource must not be null");
-              }
-              std::pmr::string out_value(pmr_resource_.get());
-              out_value.assign(view.data(), view.size());
-              out.value = std::move(out_value);
-
-              std::pmr::string norm_value(pmr_resource_.get());
-              SortKeyStringTo(agg_collations[i], view, &norm_value);
-              norm.value = std::move(norm_value);
-              break;
-            }
-            default:
-              return arrow::Status::NotImplemented(agg.func, " arg type not supported: ",
-                                                   arg_any->type()->ToString());
-          }
-
-          auto& cur_norm = agg.extreme_norm[group_id];
-          auto& cur_out = agg.extreme_out[group_id];
-          if (cur_norm.is_null) {
-            cur_norm = std::move(norm);
-            cur_out = std::move(out);
-            break;
-          }
-
-          bool take = false;
-          switch (arg_any->type_id()) {
-            case arrow::Type::INT8:
-            case arrow::Type::INT16:
-            case arrow::Type::INT32:
-            case arrow::Type::INT64: {
-              const int64_t cand = std::get<int64_t>(norm.value);
-              const int64_t cur = std::get<int64_t>(cur_norm.value);
-              take = (agg.kind == AggState::Kind::kMin) ? (cand < cur) : (cand > cur);
-              break;
-            }
-            case arrow::Type::UINT8:
-            case arrow::Type::UINT16:
-            case arrow::Type::UINT32:
-            case arrow::Type::UINT64: {
-              const uint64_t cand = std::get<uint64_t>(norm.value);
-              const uint64_t cur = std::get<uint64_t>(cur_norm.value);
-              take = (agg.kind == AggState::Kind::kMin) ? (cand < cur) : (cand > cur);
-              break;
-            }
-            case arrow::Type::BINARY: {
-              const auto& cand = std::get<std::pmr::string>(norm.value);
-              const auto& cur = std::get<std::pmr::string>(cur_norm.value);
-              const int cmp = cand.compare(cur);
-              take = (agg.kind == AggState::Kind::kMin) ? (cmp < 0) : (cmp > 0);
-              break;
-            }
-            default:
-              return arrow::Status::NotImplemented(agg.func, " arg type not supported: ",
-                                                   arg_any->type()->ToString());
-          }
-
-          if (take) {
-            cur_norm = std::move(norm);
-            cur_out = std::move(out);
-          }
-          break;
-        }
+      if (agg.fn == nullptr) {
+        return arrow::Status::Invalid("internal error: aggregate function must not be null");
       }
+      const auto* arg_any = i < agg_args.size() ? agg_args[i].get() : nullptr;
+      ARROW_RETURN_NOT_OK(agg.fn->Add(row_state + agg.state_offset, arg_any, row));
     }
   }
 
@@ -1150,206 +1426,35 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::FinalizeOutpu
   std::vector<std::shared_ptr<arrow::Array>> columns;
   columns.reserve(aggs_.size() + key_count);
 
+  if (group_agg_states_.size() != group_count) {
+    return arrow::Status::Invalid("aggregate state group count mismatch");
+  }
+
   for (std::size_t ai = 0; ai < aggs_.size(); ++ai) {
     const auto& agg = aggs_[ai];
     const auto& field = output_agg_fields_[ai];
     if (field == nullptr) {
       return arrow::Status::Invalid("agg output field must not be null");
     }
-    switch (agg.kind) {
-      case AggState::Kind::kUnsupported:
-        return arrow::Status::NotImplemented("unsupported aggregate func: ", agg.func);
-      case AggState::Kind::kCountAll: {
-        arrow::UInt64Builder builder(memory_pool_);
-        ARROW_RETURN_NOT_OK(builder.AppendValues(agg.count_all));
-        std::shared_ptr<arrow::Array> out;
-        ARROW_RETURN_NOT_OK(builder.Finish(&out));
-        columns.push_back(std::move(out));
-        break;
-      }
-      case AggState::Kind::kCount: {
-        arrow::UInt64Builder builder(memory_pool_);
-        ARROW_RETURN_NOT_OK(builder.AppendValues(agg.count));
-        std::shared_ptr<arrow::Array> out;
-        ARROW_RETURN_NOT_OK(builder.Finish(&out));
-        columns.push_back(std::move(out));
-        break;
-      }
-      case AggState::Kind::kSum: {
-        if (agg.sum_has_value.size() != group_count) {
-          return arrow::Status::Invalid("agg state size mismatch");
-        }
-        std::shared_ptr<arrow::Array> out;
-        switch (agg.sum_kind) {
-          case AggState::SumKind::kUnresolved:
-            return arrow::Status::Invalid("internal error: sum kind must be resolved");
-          case AggState::SumKind::kInt64: {
-            if (agg.sum_i64.size() != group_count) {
-              return arrow::Status::Invalid("agg state size mismatch");
-            }
-            arrow::Int64Builder builder(memory_pool_);
-            ARROW_RETURN_NOT_OK(builder.Reserve(static_cast<int64_t>(group_count)));
-            for (std::size_t i = 0; i < group_count; ++i) {
-              if (agg.sum_has_value[i] == 0) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(builder.Append(agg.sum_i64[i]));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case AggState::SumKind::kUInt64: {
-            if (agg.sum_u64.size() != group_count) {
-              return arrow::Status::Invalid("agg state size mismatch");
-            }
-            arrow::UInt64Builder builder(memory_pool_);
-            ARROW_RETURN_NOT_OK(builder.Reserve(static_cast<int64_t>(group_count)));
-            for (std::size_t i = 0; i < group_count; ++i) {
-              if (agg.sum_has_value[i] == 0) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(builder.Append(agg.sum_u64[i]));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-        }
-        columns.push_back(std::move(out));
-        break;
-      }
-      case AggState::Kind::kMin:
-      case AggState::Kind::kMax: {
-        if (agg.extreme_out.size() != group_count) {
-          return arrow::Status::Invalid("agg state size mismatch");
-        }
-        std::shared_ptr<arrow::Array> out;
-        switch (field->type()->id()) {
-          case arrow::Type::INT8: {
-            arrow::Int8Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(
-                    builder.Append(static_cast<int8_t>(std::get<int64_t>(part.value))));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::INT16: {
-            arrow::Int16Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(
-                    builder.Append(static_cast<int16_t>(std::get<int64_t>(part.value))));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::INT32: {
-            arrow::Int32Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(
-                    builder.Append(static_cast<int32_t>(std::get<int64_t>(part.value))));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::INT64: {
-            arrow::Int64Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(builder.Append(std::get<int64_t>(part.value)));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::UINT8: {
-            arrow::UInt8Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(
-                    builder.Append(static_cast<uint8_t>(std::get<uint64_t>(part.value))));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::UINT16: {
-            arrow::UInt16Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(
-                    builder.Append(static_cast<uint16_t>(std::get<uint64_t>(part.value))));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::UINT32: {
-            arrow::UInt32Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(
-                    builder.Append(static_cast<uint32_t>(std::get<uint64_t>(part.value))));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::UINT64: {
-            arrow::UInt64Builder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                ARROW_RETURN_NOT_OK(builder.Append(std::get<uint64_t>(part.value)));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          case arrow::Type::BINARY: {
-            arrow::BinaryBuilder builder(memory_pool_);
-            for (const auto& part : agg.extreme_out) {
-              if (part.is_null) {
-                ARROW_RETURN_NOT_OK(builder.AppendNull());
-              } else {
-                const auto& bytes = std::get<std::pmr::string>(part.value);
-                ARROW_RETURN_NOT_OK(builder.Append(reinterpret_cast<const uint8_t*>(bytes.data()),
-                                                   static_cast<int32_t>(bytes.size())));
-              }
-            }
-            ARROW_RETURN_NOT_OK(builder.Finish(&out));
-            break;
-          }
-          default:
-            return arrow::Status::NotImplemented("unsupported min/max output type: ",
-                                                 field->type()->ToString());
-        }
-        columns.push_back(std::move(out));
-        break;
-      }
+    if (agg.fn == nullptr) {
+      return arrow::Status::Invalid("internal error: aggregate function must not be null");
     }
+
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    ARROW_RETURN_NOT_OK(arrow::MakeBuilder(memory_pool_, field->type(), &builder));
+    ARROW_RETURN_NOT_OK(builder->Reserve(static_cast<int64_t>(group_count)));
+
+    for (std::size_t gi = 0; gi < group_count; ++gi) {
+      auto* row_state = group_agg_states_[gi];
+      if (row_state == nullptr) {
+        return arrow::Status::Invalid("internal error: missing aggregate state row");
+      }
+      ARROW_RETURN_NOT_OK(agg.fn->Finalize(row_state + agg.state_offset, builder.get()));
+    }
+
+    std::shared_ptr<arrow::Array> out;
+    ARROW_RETURN_NOT_OK(builder->Finish(&out));
+    columns.push_back(std::move(out));
   }
 
   for (std::size_t ki = 0; ki < key_count; ++ki) {
