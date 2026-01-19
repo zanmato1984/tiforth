@@ -182,20 +182,56 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
     }
 
     scratch_normalized_key_.Reset();
-    for (uint8_t i = 0; i < key_count_; ++i) {
-      const auto& array = *key_arrays[i];
-      switch (array.type_id()) {
-        case arrow::Type::INT32: {
-          const auto& arr = static_cast<const arrow::Int32Array&>(array);
-          const int64_t v = static_cast<int64_t>(arr.Value(row));
-          append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
-          break;
-        }
-        case arrow::Type::UINT64: {
-          const auto& arr = static_cast<const arrow::UInt64Array&>(array);
-          append_u64_le(scratch_normalized_key_, arr.Value(row));
-          break;
-        }
+      for (uint8_t i = 0; i < key_count_; ++i) {
+        const auto& array = *key_arrays[i];
+        switch (array.type_id()) {
+          case arrow::Type::INT8: {
+            const auto& arr = static_cast<const arrow::Int8Array&>(array);
+            const int64_t v = static_cast<int64_t>(arr.Value(row));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+            break;
+          }
+          case arrow::Type::INT16: {
+            const auto& arr = static_cast<const arrow::Int16Array&>(array);
+            const int64_t v = static_cast<int64_t>(arr.Value(row));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+            break;
+          }
+          case arrow::Type::INT32: {
+            const auto& arr = static_cast<const arrow::Int32Array&>(array);
+            const int64_t v = static_cast<int64_t>(arr.Value(row));
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+            break;
+          }
+          case arrow::Type::INT64: {
+            const auto& arr = static_cast<const arrow::Int64Array&>(array);
+            const int64_t v = arr.Value(row);
+            append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+            break;
+          }
+          case arrow::Type::UINT8: {
+            const auto& arr = static_cast<const arrow::UInt8Array&>(array);
+            append_u64_le(scratch_normalized_key_,
+                          static_cast<uint64_t>(arr.Value(row)));
+            break;
+          }
+          case arrow::Type::UINT16: {
+            const auto& arr = static_cast<const arrow::UInt16Array&>(array);
+            append_u64_le(scratch_normalized_key_,
+                          static_cast<uint64_t>(arr.Value(row)));
+            break;
+          }
+          case arrow::Type::UINT32: {
+            const auto& arr = static_cast<const arrow::UInt32Array&>(array);
+            append_u64_le(scratch_normalized_key_,
+                          static_cast<uint64_t>(arr.Value(row)));
+            break;
+          }
+          case arrow::Type::UINT64: {
+            const auto& arr = static_cast<const arrow::UInt64Array&>(array);
+            append_u64_le(scratch_normalized_key_, arr.Value(row));
+            break;
+          }
         case arrow::Type::DECIMAL128: {
           const auto& fixed = static_cast<const arrow::FixedSizeBinaryArray&>(array);
           if (fixed.byte_width() != static_cast<int>(Decimal128Bytes{}.size())) {
@@ -430,10 +466,46 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
     for (uint8_t i = 0; i < key_count_; ++i) {
       const auto& array = *probe_key_arrays[i];
       switch (array.type_id()) {
+        case arrow::Type::INT8: {
+          const auto& arr = static_cast<const arrow::Int8Array&>(array);
+          const int64_t v = static_cast<int64_t>(arr.Value(row));
+          append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+          break;
+        }
+        case arrow::Type::INT16: {
+          const auto& arr = static_cast<const arrow::Int16Array&>(array);
+          const int64_t v = static_cast<int64_t>(arr.Value(row));
+          append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+          break;
+        }
         case arrow::Type::INT32: {
           const auto& arr = static_cast<const arrow::Int32Array&>(array);
           const int64_t v = static_cast<int64_t>(arr.Value(row));
           append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+          break;
+        }
+        case arrow::Type::INT64: {
+          const auto& arr = static_cast<const arrow::Int64Array&>(array);
+          const int64_t v = arr.Value(row);
+          append_u64_le(scratch_normalized_key_, static_cast<uint64_t>(v));
+          break;
+        }
+        case arrow::Type::UINT8: {
+          const auto& arr = static_cast<const arrow::UInt8Array&>(array);
+          append_u64_le(scratch_normalized_key_,
+                        static_cast<uint64_t>(arr.Value(row)));
+          break;
+        }
+        case arrow::Type::UINT16: {
+          const auto& arr = static_cast<const arrow::UInt16Array&>(array);
+          append_u64_le(scratch_normalized_key_,
+                        static_cast<uint64_t>(arr.Value(row)));
+          break;
+        }
+        case arrow::Type::UINT32: {
+          const auto& arr = static_cast<const arrow::UInt32Array&>(array);
+          append_u64_le(scratch_normalized_key_,
+                        static_cast<uint64_t>(arr.Value(row)));
           break;
         }
         case arrow::Type::UINT64: {
