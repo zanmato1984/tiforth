@@ -32,6 +32,7 @@ endif()
 
 set(TIFORTH_ARROW_CORE_TARGET "")
 set(TIFORTH_ARROW_COMPUTE_TARGET "")
+set(TIFORTH_ARROW_ACERO_TARGET "")
 set(TIFORTH_ARROW_TESTING_TARGET "")
 set(TIFORTH_ARROW_INCLUDE_DIRS "")
 
@@ -52,6 +53,7 @@ endfunction()
 # multiple Arrow builds in one process is fragile.
 set(_tiforth_parent_arrow_core "")
 set(_tiforth_parent_arrow_compute "")
+set(_tiforth_parent_arrow_acero "")
 if(TIFORTH_ARROW_LINKAGE STREQUAL "shared")
   _tiforth_try_select_target(_tiforth_parent_arrow_core arrow Arrow::arrow Arrow::arrow_shared arrow_shared)
   _tiforth_try_select_target(
@@ -60,6 +62,12 @@ if(TIFORTH_ARROW_LINKAGE STREQUAL "shared")
     ArrowCompute::arrow_compute
     ArrowCompute::arrow_compute_shared
     arrow_compute_shared)
+  _tiforth_try_select_target(
+    _tiforth_parent_arrow_acero
+    arrow_acero
+    ArrowAcero::arrow_acero
+    ArrowAcero::arrow_acero_shared
+    arrow_acero_shared)
 else()
   _tiforth_try_select_target(_tiforth_parent_arrow_core arrow Arrow::arrow Arrow::arrow_static arrow_static)
   _tiforth_try_select_target(
@@ -68,6 +76,12 @@ else()
     ArrowCompute::arrow_compute
     ArrowCompute::arrow_compute_static
     arrow_compute_static)
+  _tiforth_try_select_target(
+    _tiforth_parent_arrow_acero
+    arrow_acero
+    ArrowAcero::arrow_acero
+    ArrowAcero::arrow_acero_static
+    arrow_acero_static)
 endif()
 
 if(_tiforth_parent_arrow_core)
@@ -83,12 +97,20 @@ if(_tiforth_parent_arrow_core)
       "Parent-provided Arrow target '${_tiforth_parent_arrow_core}' is missing Arrow compute; "
       "provide a compute target (arrow_compute / ArrowCompute::arrow_compute*)")
   endif()
+  if(NOT _tiforth_parent_arrow_acero)
+    message(
+      FATAL_ERROR
+      "Parent-provided Arrow targets are missing Arrow Acero; provide an Acero target "
+      "(arrow_acero / ArrowAcero::arrow_acero*)")
+  endif()
 
   message(STATUS "Using parent-provided Arrow core target: '${_tiforth_parent_arrow_core}'")
   message(STATUS "Using parent-provided Arrow compute target: '${_tiforth_parent_arrow_compute}'")
+  message(STATUS "Using parent-provided Arrow Acero target: '${_tiforth_parent_arrow_acero}'")
 
   set(TIFORTH_ARROW_CORE_TARGET "${_tiforth_parent_arrow_core}")
   set(TIFORTH_ARROW_COMPUTE_TARGET "${_tiforth_parent_arrow_compute}")
+  set(TIFORTH_ARROW_ACERO_TARGET "${_tiforth_parent_arrow_acero}")
   set(TIFORTH_ARROW_TESTING_TARGET "")
   set(TIFORTH_ARROW_INCLUDE_DIRS "")
   return()
@@ -100,6 +122,7 @@ if(TIFORTH_ARROW_PROVIDER STREQUAL "system")
   set(Arrow_FIND_QUIETLY 0)
   find_package(Arrow CONFIG REQUIRED)
   find_package(ArrowCompute CONFIG REQUIRED)
+  find_package(ArrowAcero CONFIG REQUIRED)
 
   if(TIFORTH_ARROW_LINKAGE STREQUAL "shared")
     if(TARGET Arrow::arrow_shared)
@@ -120,6 +143,17 @@ if(TIFORTH_ARROW_PROVIDER STREQUAL "system")
         "System ArrowCompute is missing a usable target (need ArrowCompute::arrow_compute_shared or ArrowCompute::arrow_compute)"
       )
     endif()
+
+    if(TARGET ArrowAcero::arrow_acero_shared)
+      set(TIFORTH_ARROW_ACERO_TARGET ArrowAcero::arrow_acero_shared)
+    elseif(TARGET ArrowAcero::arrow_acero)
+      set(TIFORTH_ARROW_ACERO_TARGET ArrowAcero::arrow_acero)
+    else()
+      message(
+        FATAL_ERROR
+        "System ArrowAcero is missing a usable target (need ArrowAcero::arrow_acero_shared or ArrowAcero::arrow_acero)"
+      )
+    endif()
   else()
     if(TARGET Arrow::arrow_static)
       set(TIFORTH_ARROW_CORE_TARGET Arrow::arrow_static)
@@ -135,6 +169,17 @@ if(TIFORTH_ARROW_PROVIDER STREQUAL "system")
       message(
         FATAL_ERROR
         "System ArrowCompute is missing a usable target (need ArrowCompute::arrow_compute_static or ArrowCompute::arrow_compute)"
+      )
+    endif()
+
+    if(TARGET ArrowAcero::arrow_acero_static)
+      set(TIFORTH_ARROW_ACERO_TARGET ArrowAcero::arrow_acero_static)
+    elseif(TARGET ArrowAcero::arrow_acero)
+      set(TIFORTH_ARROW_ACERO_TARGET ArrowAcero::arrow_acero)
+    else()
+      message(
+        FATAL_ERROR
+        "System ArrowAcero is missing a usable target (need ArrowAcero::arrow_acero_static or ArrowAcero::arrow_acero)"
       )
     endif()
   endif()
@@ -221,7 +266,7 @@ else()
   set(ARROW_TESTING OFF CACHE BOOL "" FORCE)
 endif()
 
-set(ARROW_ACERO OFF CACHE BOOL "" FORCE)
+set(ARROW_ACERO ON CACHE BOOL "" FORCE)
 set(ARROW_CSV OFF CACHE BOOL "" FORCE)
 set(ARROW_DATASET OFF CACHE BOOL "" FORCE)
 set(ARROW_FILESYSTEM OFF CACHE BOOL "" FORCE)
@@ -309,12 +354,24 @@ endfunction()
 if(TIFORTH_ARROW_LINKAGE STREQUAL "shared")
   _tiforth_select_target(TIFORTH_ARROW_CORE_TARGET arrow_shared Arrow::arrow_shared)
   _tiforth_select_target(TIFORTH_ARROW_COMPUTE_TARGET arrow_compute_shared ArrowCompute::arrow_compute_shared)
+  _tiforth_select_target(
+    TIFORTH_ARROW_ACERO_TARGET
+    arrow_acero_shared
+    ArrowAcero::arrow_acero_shared
+    arrow_acero
+    ArrowAcero::arrow_acero)
   if(TIFORTH_BUILD_TESTS)
     _tiforth_select_target(TIFORTH_ARROW_TESTING_TARGET arrow_testing_shared ArrowTesting::arrow_testing_shared)
   endif()
 else()
   _tiforth_select_target(TIFORTH_ARROW_CORE_TARGET arrow_static Arrow::arrow_static)
   _tiforth_select_target(TIFORTH_ARROW_COMPUTE_TARGET arrow_compute_static ArrowCompute::arrow_compute_static)
+  _tiforth_select_target(
+    TIFORTH_ARROW_ACERO_TARGET
+    arrow_acero_static
+    ArrowAcero::arrow_acero_static
+    arrow_acero
+    ArrowAcero::arrow_acero)
   if(TIFORTH_BUILD_TESTS)
     _tiforth_select_target(TIFORTH_ARROW_TESTING_TARGET arrow_testing_static ArrowTesting::arrow_testing_static)
   endif()

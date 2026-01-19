@@ -6,6 +6,10 @@ if(NOT TIFORTH_ARROW_COMPUTE_TARGET)
   message(FATAL_ERROR "TiForth Arrow compute target is not configured")
 endif()
 
+if(NOT TIFORTH_ARROW_ACERO_TARGET)
+  message(FATAL_ERROR "TiForth Arrow Acero target is not configured")
+endif()
+
 if(TIFORTH_LIBRARY_LINKAGE STREQUAL "shared")
   add_library(tiforth SHARED)
 else()
@@ -14,7 +18,7 @@ else()
 endif()
 add_library(tiforth::tiforth ALIAS tiforth)
 
-target_sources(tiforth PRIVATE collation.cc compiled_expr.cc detail/arrow_compute.cc detail/expr_compiler.cc detail/tidb_collation_lut.cc engine.cc expr.cc functions/register.cc functions/scalar/arithmetic/register.cc functions/scalar/arithmetic/decimal_arithmetic.cc functions/scalar/arithmetic/numeric_arithmetic.cc functions/scalar/comparison/collated_compare.cc functions/scalar/logical/logical.cc functions/scalar/temporal/mytime.cc pipeline.cc plan.cc pipeline_exec.cc operators/filter.cc operators/hash_agg.cc operators/hash_join.cc operators/projection.cc operators/sort.cc task.cc type_metadata.cc)
+target_sources(tiforth PRIVATE collation.cc compiled_expr.cc detail/arrow_compute.cc detail/expr_compiler.cc detail/tidb_collation_lut.cc engine.cc expr.cc functions/register.cc functions/scalar/arithmetic/register.cc functions/scalar/arithmetic/decimal_arithmetic.cc functions/scalar/arithmetic/numeric_arithmetic.cc functions/scalar/comparison/collated_compare.cc functions/scalar/logical/logical.cc functions/scalar/temporal/mytime.cc pipeline.cc plan.cc pipeline_exec.cc operators/arrow_compute_agg.cc operators/filter.cc operators/hash_agg.cc operators/hash_join.cc operators/projection.cc operators/sort.cc task.cc type_metadata.cc)
 target_compile_features(tiforth PUBLIC cxx_std_20)
 
 target_include_directories(
@@ -29,6 +33,7 @@ endif()
 
 target_link_libraries(tiforth PUBLIC ${TIFORTH_ARROW_CORE_TARGET})
 target_link_libraries(tiforth PUBLIC ${TIFORTH_ARROW_COMPUTE_TARGET})
+target_link_libraries(tiforth PUBLIC ${TIFORTH_ARROW_ACERO_TARGET})
 
 if(TIFORTH_LIBRARY_LINKAGE STREQUAL "shared")
   set_target_properties(

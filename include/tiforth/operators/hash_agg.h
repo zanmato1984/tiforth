@@ -15,6 +15,7 @@
 
 #include "tiforth/expr.h"
 #include "tiforth/operators.h"
+#include "tiforth/operators/agg_defs.h"
 #include "tiforth/detail/aggregate_function.h"
 #include "tiforth/detail/arena.h"
 #include "tiforth/detail/key_hash_table.h"
@@ -28,18 +29,6 @@ class Schema;
 }  // namespace arrow
 
 namespace tiforth {
-
-struct AggKey {
-  std::string name;
-  ExprPtr expr;
-};
-
-struct AggFunc {
-  std::string name;
-  // Supported: "count_all", "count", "sum", "avg", "min", "max" (some aliases accepted).
-  std::string func;
-  ExprPtr arg;       // unused for "count_all"
-};
 
 class HashAggContext final {
  public:
