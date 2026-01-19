@@ -55,6 +55,12 @@ arrow::Status AppendMetadata(std::vector<std::string>* keys, std::vector<std::st
   if (keys == nullptr || values == nullptr) {
     return arrow::Status::Invalid("internal error: metadata output vectors must not be null");
   }
+  for (std::size_t i = 0; i < keys->size(); ++i) {
+    if ((*keys)[i] == key) {
+      (*values)[i] = std::move(value);
+      return arrow::Status::OK();
+    }
+  }
   keys->push_back(std::string(key));
   values->push_back(std::move(value));
   return arrow::Status::OK();

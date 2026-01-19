@@ -1,5 +1,6 @@
 #include "tiforth/operators/hash_agg.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -20,6 +21,7 @@
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
+#include <arrow/util/decimal.h>
 #include <arrow/util/logging.h>
 
 #include "tiforth/compiled_expr.h"
@@ -76,6 +78,69 @@ uint64_t CanonicalizeFloat64Bits(double value) noexcept {
     return Float64ToBits(std::numeric_limits<double>::quiet_NaN());
   }
   return Float64ToBits(value);
+}
+
+struct DecimalSpec {
+  int32_t precision = 0;
+  int32_t scale = 0;
+};
+
+constexpr int32_t kDecimalMaxPrecision = 65;
+constexpr int32_t kDecimalMaxScale = 30;
+constexpr int32_t kDecimalLongLongDigits = 22;
+constexpr int32_t kDefaultDivPrecisionIncrement = 4;
+
+arrow::Result<DecimalSpec> GetDecimalSpec(const arrow::DataType& type) {
+  if (type.id() != arrow::Type::DECIMAL128 && type.id() != arrow::Type::DECIMAL256) {
+    return arrow::Status::Invalid("expected decimal type, got: ", type.ToString());
+  }
+  const auto& dec = static_cast<const arrow::DecimalType&>(type);
+  DecimalSpec out{static_cast<int32_t>(dec.precision()), static_cast<int32_t>(dec.scale())};
+  if (out.precision <= 0) {
+    return arrow::Status::Invalid("decimal precision must be positive");
+  }
+  if (out.precision > kDecimalMaxPrecision) {
+    return arrow::Status::Invalid("decimal precision exceeds TiFlash max precision");
+  }
+  if (out.scale < 0) {
+    return arrow::Status::Invalid("decimal scale must not be negative");
+  }
+  if (out.scale > kDecimalMaxScale) {
+    return arrow::Status::Invalid("decimal scale exceeds TiFlash max scale");
+  }
+  if (out.scale > out.precision) {
+    return arrow::Status::Invalid("decimal scale must not exceed precision");
+  }
+  return out;
+}
+
+DecimalSpec InferSumDecimalSpec(const DecimalSpec& arg) {
+  const int32_t precision =
+      std::min<int32_t>(arg.precision + kDecimalLongLongDigits, kDecimalMaxPrecision);
+  return DecimalSpec{precision, arg.scale};
+}
+
+DecimalSpec InferAvgDecimalResultSpec(const DecimalSpec& arg, int32_t div_precincrement) {
+  const int32_t precision =
+      std::min<int32_t>(arg.precision + div_precincrement, kDecimalMaxPrecision);
+  const int32_t scale = std::min<int32_t>(arg.scale + div_precincrement, kDecimalMaxScale);
+  return DecimalSpec{precision, scale};
+}
+
+std::shared_ptr<arrow::DataType> MakeArrowDecimalType(const DecimalSpec& spec) {
+  if (spec.precision <= arrow::Decimal128Type::kMaxPrecision) {
+    return arrow::decimal128(spec.precision, spec.scale);
+  }
+  return arrow::decimal256(spec.precision, spec.scale);
+}
+
+arrow::Result<arrow::Decimal128> Decimal256ToDecimal128(const arrow::Decimal256& value) {
+  const auto le = value.little_endian_array();  // low->high
+  const uint64_t sign_ext = (le[3] & (uint64_t(1) << 63)) != 0 ? ~uint64_t{0} : uint64_t{0};
+  if (le[2] != sign_ext || le[3] != sign_ext) {
+    return arrow::Status::Invalid("decimal value does not fit in decimal128");
+  }
+  return arrow::Decimal128(arrow::Decimal128::LittleEndianArray, {le[0], le[1]});
 }
 
 class AggCountAll final : public detail::AggregateFunction {
@@ -276,6 +341,502 @@ class AggSumUInt64 final : public detail::AggregateFunction {
   }
 };
 
+class AggSumDouble final : public detail::AggregateFunction {
+ public:
+  struct State {
+    double sum = 0.0;
+    uint8_t has_value = 0;
+  };
+
+  explicit AggSumDouble(arrow::Type::type arg_type_id) : arg_type_id_(arg_type_id) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("sum(double) expects non-null arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    double add = 0.0;
+    switch (arg_type_id_) {
+      case arrow::Type::FLOAT: {
+        const auto& arr = static_cast<const arrow::FloatArray&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::DOUBLE: {
+        const auto& arr = static_cast<const arrow::DoubleArray&>(*arg);
+        add = arr.Value(row);
+        break;
+      }
+      default:
+        return arrow::Status::NotImplemented("sum(double) arg type not supported: ",
+                                             arg->type()->ToString());
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    s->has_value = 1;
+    s->sum += add;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DOUBLE) {
+      return arrow::Status::Invalid("sum(double) expects float64 output builder");
+    }
+    auto* builder = static_cast<arrow::DoubleBuilder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    return builder->Append(s->sum);
+  }
+
+ private:
+  arrow::Type::type arg_type_id_;
+};
+
+class AggSumDecimal128 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    arrow::Decimal128 sum{};
+    uint8_t has_value = 0;
+  };
+
+  AggSumDecimal128(int32_t out_precision, int32_t expected_scale)
+      : out_precision_(out_precision), expected_scale_(expected_scale) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || (arg->type_id() != arrow::Type::DECIMAL128 &&
+                           arg->type_id() != arrow::Type::DECIMAL256)) {
+      return arrow::Status::Invalid("sum(decimal) expects decimal arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& dec_type = static_cast<const arrow::DecimalType&>(*arg->type());
+    if (static_cast<int32_t>(dec_type.scale()) != expected_scale_) {
+      return arrow::Status::Invalid("sum(decimal) arg scale mismatch");
+    }
+
+    const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arg);
+    arrow::Decimal128 add{};
+    if (arg->type_id() == arrow::Type::DECIMAL128) {
+      if (arr.byte_width() != 16) {
+        return arrow::Status::Invalid("unexpected decimal128 byte width");
+      }
+      add = arrow::Decimal128(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+    } else {
+      if (arr.byte_width() != 32) {
+        return arrow::Status::Invalid("unexpected decimal256 byte width");
+      }
+      const arrow::Decimal256 add256(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+      ARROW_ASSIGN_OR_RAISE(add, Decimal256ToDecimal128(add256));
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->sum = add;
+      return arrow::Status::OK();
+    }
+    s->sum += add;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DECIMAL128) {
+      return arrow::Status::Invalid("sum(decimal128) output builder type mismatch");
+    }
+    auto* builder = static_cast<arrow::Decimal128Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    if (!s->sum.FitsInPrecision(out_precision_)) {
+      return arrow::Status::Invalid("decimal sum overflow");
+    }
+    return builder->Append(s->sum);
+  }
+
+ private:
+  int32_t out_precision_ = 0;
+  int32_t expected_scale_ = 0;
+};
+
+class AggSumDecimal256 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    arrow::Decimal256 sum{};
+    uint8_t has_value = 0;
+  };
+
+  AggSumDecimal256(int32_t out_precision, int32_t expected_scale)
+      : out_precision_(out_precision), expected_scale_(expected_scale) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || (arg->type_id() != arrow::Type::DECIMAL128 &&
+                           arg->type_id() != arrow::Type::DECIMAL256)) {
+      return arrow::Status::Invalid("sum(decimal) expects decimal arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& dec_type = static_cast<const arrow::DecimalType&>(*arg->type());
+    if (static_cast<int32_t>(dec_type.scale()) != expected_scale_) {
+      return arrow::Status::Invalid("sum(decimal) arg scale mismatch");
+    }
+
+    const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arg);
+    arrow::Decimal256 add{};
+    if (arg->type_id() == arrow::Type::DECIMAL128) {
+      if (arr.byte_width() != 16) {
+        return arrow::Status::Invalid("unexpected decimal128 byte width");
+      }
+      const arrow::Decimal128 add128(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+      add = arrow::Decimal256(add128);
+    } else {
+      if (arr.byte_width() != 32) {
+        return arrow::Status::Invalid("unexpected decimal256 byte width");
+      }
+      add = arrow::Decimal256(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->sum = add;
+      return arrow::Status::OK();
+    }
+    s->sum += add;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DECIMAL256) {
+      return arrow::Status::Invalid("sum(decimal256) output builder type mismatch");
+    }
+    auto* builder = static_cast<arrow::Decimal256Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    if (!s->sum.FitsInPrecision(out_precision_)) {
+      return arrow::Status::Invalid("decimal sum overflow");
+    }
+    return builder->Append(s->sum);
+  }
+
+ private:
+ int32_t out_precision_ = 0;
+  int32_t expected_scale_ = 0;
+};
+
+class AggAvgDecimal128 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    arrow::Decimal256 sum{};
+    uint64_t count = 0;
+  };
+
+  AggAvgDecimal128(int32_t in_scale, int32_t out_precision, int32_t out_scale)
+      : in_scale_(in_scale), out_precision_(out_precision), out_scale_(out_scale) {
+    const int32_t scale_up = out_scale_ - in_scale_;
+    ARROW_CHECK(scale_up >= 0);
+    const arrow::Decimal256 ten(10);
+    for (int32_t i = 0; i < scale_up; ++i) {
+      scale_multiplier_ *= ten;
+    }
+  }
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || (arg->type_id() != arrow::Type::DECIMAL128 &&
+                           arg->type_id() != arrow::Type::DECIMAL256)) {
+      return arrow::Status::Invalid("avg(decimal) expects decimal arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& dec_type = static_cast<const arrow::DecimalType&>(*arg->type());
+    if (static_cast<int32_t>(dec_type.scale()) != in_scale_) {
+      return arrow::Status::Invalid("avg(decimal) arg scale mismatch");
+    }
+
+    const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arg);
+    arrow::Decimal256 add{};
+    if (arg->type_id() == arrow::Type::DECIMAL128) {
+      if (arr.byte_width() != 16) {
+        return arrow::Status::Invalid("unexpected decimal128 byte width");
+      }
+      add = arrow::Decimal256(arrow::Decimal128(reinterpret_cast<const uint8_t*>(arr.GetValue(row))));
+    } else {
+      if (arr.byte_width() != 32) {
+        return arrow::Status::Invalid("unexpected decimal256 byte width");
+      }
+      add = arrow::Decimal256(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    s->sum += add;
+    s->count += 1;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DECIMAL128) {
+      return arrow::Status::Invalid("avg(decimal) output builder type mismatch");
+    }
+    auto* builder = static_cast<arrow::Decimal128Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->count == 0) {
+      return builder->AppendNull();
+    }
+    if (s->count > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+      return arrow::Status::Invalid("avg(decimal) count overflow");
+    }
+
+    arrow::Decimal256 scaled = s->sum;
+    scaled *= scale_multiplier_;
+    const arrow::Decimal256 divisor(static_cast<int64_t>(s->count));
+    ARROW_ASSIGN_OR_RAISE(auto div, scaled.Divide(divisor));
+    const auto& q = div.first;
+    if (!q.FitsInPrecision(out_precision_)) {
+      return arrow::Status::Invalid("decimal avg overflow");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out_value, Decimal256ToDecimal128(q));
+    return builder->Append(out_value);
+  }
+
+ private:
+  int32_t in_scale_ = 0;
+  int32_t out_precision_ = 0;
+  int32_t out_scale_ = 0;
+  arrow::Decimal256 scale_multiplier_{1};
+};
+
+class AggAvgDecimal256 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    arrow::Decimal256 sum{};
+    uint64_t count = 0;
+  };
+
+  AggAvgDecimal256(int32_t in_scale, int32_t out_precision, int32_t out_scale)
+      : in_scale_(in_scale), out_precision_(out_precision), out_scale_(out_scale) {
+    const int32_t scale_up = out_scale_ - in_scale_;
+    ARROW_CHECK(scale_up >= 0);
+    const arrow::Decimal256 ten(10);
+    for (int32_t i = 0; i < scale_up; ++i) {
+      scale_multiplier_ *= ten;
+    }
+  }
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || (arg->type_id() != arrow::Type::DECIMAL128 &&
+                           arg->type_id() != arrow::Type::DECIMAL256)) {
+      return arrow::Status::Invalid("avg(decimal) expects decimal arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& dec_type = static_cast<const arrow::DecimalType&>(*arg->type());
+    if (static_cast<int32_t>(dec_type.scale()) != in_scale_) {
+      return arrow::Status::Invalid("avg(decimal) arg scale mismatch");
+    }
+
+    const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arg);
+    arrow::Decimal256 add{};
+    if (arg->type_id() == arrow::Type::DECIMAL128) {
+      if (arr.byte_width() != 16) {
+        return arrow::Status::Invalid("unexpected decimal128 byte width");
+      }
+      add = arrow::Decimal256(arrow::Decimal128(reinterpret_cast<const uint8_t*>(arr.GetValue(row))));
+    } else {
+      if (arr.byte_width() != 32) {
+        return arrow::Status::Invalid("unexpected decimal256 byte width");
+      }
+      add = arrow::Decimal256(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    s->sum += add;
+    s->count += 1;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DECIMAL256) {
+      return arrow::Status::Invalid("avg(decimal) output builder type mismatch");
+    }
+    auto* builder = static_cast<arrow::Decimal256Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->count == 0) {
+      return builder->AppendNull();
+    }
+    if (s->count > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+      return arrow::Status::Invalid("avg(decimal) count overflow");
+    }
+
+    arrow::Decimal256 scaled = s->sum;
+    scaled *= scale_multiplier_;
+    const arrow::Decimal256 divisor(static_cast<int64_t>(s->count));
+    ARROW_ASSIGN_OR_RAISE(auto div, scaled.Divide(divisor));
+    const auto& q = div.first;
+    if (!q.FitsInPrecision(out_precision_)) {
+      return arrow::Status::Invalid("decimal avg overflow");
+    }
+    return builder->Append(q);
+  }
+
+ private:
+  int32_t in_scale_ = 0;
+  int32_t out_precision_ = 0;
+  int32_t out_scale_ = 0;
+  arrow::Decimal256 scale_multiplier_{1};
+};
+
+class AggAvgDouble final : public detail::AggregateFunction {
+ public:
+  struct State {
+    double sum = 0.0;
+    uint64_t count = 0;
+  };
+
+  explicit AggAvgDouble(arrow::Type::type arg_type_id) : arg_type_id_(arg_type_id) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr) {
+      return arrow::Status::Invalid("avg(double) expects non-null arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    double add = 0.0;
+    switch (arg_type_id_) {
+      case arrow::Type::BOOL: {
+        const auto& arr = static_cast<const arrow::BooleanArray&>(*arg);
+        add = arr.Value(row) ? 1.0 : 0.0;
+        break;
+      }
+      case arrow::Type::INT8: {
+        const auto& arr = static_cast<const arrow::Int8Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT16: {
+        const auto& arr = static_cast<const arrow::Int16Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT32: {
+        const auto& arr = static_cast<const arrow::Int32Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::INT64: {
+        const auto& arr = static_cast<const arrow::Int64Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT8: {
+        const auto& arr = static_cast<const arrow::UInt8Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT16: {
+        const auto& arr = static_cast<const arrow::UInt16Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT32: {
+        const auto& arr = static_cast<const arrow::UInt32Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::UINT64: {
+        const auto& arr = static_cast<const arrow::UInt64Array&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::FLOAT: {
+        const auto& arr = static_cast<const arrow::FloatArray&>(*arg);
+        add = static_cast<double>(arr.Value(row));
+        break;
+      }
+      case arrow::Type::DOUBLE: {
+        const auto& arr = static_cast<const arrow::DoubleArray&>(*arg);
+        add = arr.Value(row);
+        break;
+      }
+      default:
+        return arrow::Status::NotImplemented("avg arg type not supported: ",
+                                             arg->type()->ToString());
+    }
+
+    auto* s = reinterpret_cast<State*>(state);
+    s->sum += add;
+    s->count += 1;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DOUBLE) {
+      return arrow::Status::Invalid("avg(double) expects float64 output builder");
+    }
+    auto* builder = static_cast<arrow::DoubleBuilder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->count == 0) {
+      return builder->AppendNull();
+    }
+    return builder->Append(s->sum / static_cast<double>(s->count));
+  }
+
+ private:
+  arrow::Type::type arg_type_id_;
+};
+
 class AggMinMaxSigned final : public detail::AggregateFunction {
  public:
   struct State {
@@ -460,6 +1021,226 @@ class AggMinMaxUnsigned final : public detail::AggregateFunction {
   arrow::Type::type output_type_id_;
 };
 
+class AggMinMaxFloat32 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    float value = 0.0F;
+    uint8_t has_value = 0;
+  };
+
+  explicit AggMinMaxFloat32(bool is_min) : is_min_(is_min) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || arg->type_id() != arrow::Type::FLOAT) {
+      return arrow::Status::Invalid("min/max(float32) expects float arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& arr = static_cast<const arrow::FloatArray&>(*arg);
+    const float cand = arr.Value(row);
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->value = cand;
+      return arrow::Status::OK();
+    }
+    if ((is_min_ && cand < s->value) || (!is_min_ && cand > s->value)) {
+      s->value = cand;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::FLOAT) {
+      return arrow::Status::Invalid("min/max(float32) expects float output builder");
+    }
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return out->AppendNull();
+    }
+    return static_cast<arrow::FloatBuilder*>(out)->Append(s->value);
+  }
+
+ private:
+  bool is_min_ = true;
+};
+
+class AggMinMaxFloat64 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    double value = 0.0;
+    uint8_t has_value = 0;
+  };
+
+  explicit AggMinMaxFloat64(bool is_min) : is_min_(is_min) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || arg->type_id() != arrow::Type::DOUBLE) {
+      return arrow::Status::Invalid("min/max(float64) expects double arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& arr = static_cast<const arrow::DoubleArray&>(*arg);
+    const double cand = arr.Value(row);
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->value = cand;
+      return arrow::Status::OK();
+    }
+    if ((is_min_ && cand < s->value) || (!is_min_ && cand > s->value)) {
+      s->value = cand;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DOUBLE) {
+      return arrow::Status::Invalid("min/max(float64) expects double output builder");
+    }
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return out->AppendNull();
+    }
+    return static_cast<arrow::DoubleBuilder*>(out)->Append(s->value);
+  }
+
+ private:
+  bool is_min_ = true;
+};
+
+class AggMinMaxDecimal128 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    arrow::Decimal128 value{};
+    uint8_t has_value = 0;
+  };
+
+  explicit AggMinMaxDecimal128(bool is_min) : is_min_(is_min) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || arg->type_id() != arrow::Type::DECIMAL128) {
+      return arrow::Status::Invalid("min/max(decimal128) expects decimal128 arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arg);
+    if (arr.byte_width() != 16) {
+      return arrow::Status::Invalid("unexpected decimal128 byte width");
+    }
+    const arrow::Decimal128 cand(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->value = cand;
+      return arrow::Status::OK();
+    }
+    if ((is_min_ && cand < s->value) || (!is_min_ && cand > s->value)) {
+      s->value = cand;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DECIMAL128) {
+      return arrow::Status::Invalid("min/max(decimal128) output builder type mismatch");
+    }
+    auto* builder = static_cast<arrow::Decimal128Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    return builder->Append(s->value);
+  }
+
+ private:
+  bool is_min_ = true;
+};
+
+class AggMinMaxDecimal256 final : public detail::AggregateFunction {
+ public:
+  struct State {
+    arrow::Decimal256 value{};
+    uint8_t has_value = 0;
+  };
+
+  explicit AggMinMaxDecimal256(bool is_min) : is_min_(is_min) {}
+
+  int64_t state_size() const override { return static_cast<int64_t>(sizeof(State)); }
+  int64_t state_alignment() const override { return static_cast<int64_t>(alignof(State)); }
+
+  void Create(uint8_t* state) const override { new (state) State(); }
+  void Destroy(uint8_t* state) const override { reinterpret_cast<State*>(state)->~State(); }
+
+  arrow::Status Add(uint8_t* state, const arrow::Array* arg, int64_t row) const override {
+    if (arg == nullptr || arg->type_id() != arrow::Type::DECIMAL256) {
+      return arrow::Status::Invalid("min/max(decimal256) expects decimal256 arg array");
+    }
+    if (arg->IsNull(row)) {
+      return arrow::Status::OK();
+    }
+
+    const auto& arr = static_cast<const arrow::FixedSizeBinaryArray&>(*arg);
+    if (arr.byte_width() != 32) {
+      return arrow::Status::Invalid("unexpected decimal256 byte width");
+    }
+    const arrow::Decimal256 cand(reinterpret_cast<const uint8_t*>(arr.GetValue(row)));
+
+    auto* s = reinterpret_cast<State*>(state);
+    if (s->has_value == 0) {
+      s->has_value = 1;
+      s->value = cand;
+      return arrow::Status::OK();
+    }
+    if ((is_min_ && cand < s->value) || (!is_min_ && cand > s->value)) {
+      s->value = cand;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finalize(const uint8_t* state, arrow::ArrayBuilder* out) const override {
+    if (out == nullptr || out->type()->id() != arrow::Type::DECIMAL256) {
+      return arrow::Status::Invalid("min/max(decimal256) output builder type mismatch");
+    }
+    auto* builder = static_cast<arrow::Decimal256Builder*>(out);
+    const auto* s = reinterpret_cast<const State*>(state);
+    if (s->has_value == 0) {
+      return builder->AppendNull();
+    }
+    return builder->Append(s->value);
+  }
+
+ private:
+  bool is_min_ = true;
+};
+
 class AggMinMaxBinary final : public detail::AggregateFunction {
  public:
   struct State {
@@ -619,6 +1400,11 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
                                .kind = AggState::Kind::kSum,
                                .arg = std::move(agg.arg),
                                .sum_kind = AggState::SumKind::kUnresolved});
+    } else if (agg.func == "avg") {
+      aggs_.push_back(AggState{.name = std::move(agg.name),
+                               .func = "avg",
+                               .kind = AggState::Kind::kAvg,
+                               .arg = std::move(agg.arg)});
     } else if (agg.func == "min") {
       aggs_.push_back(AggState{.name = std::move(agg.name),
                                .func = "min",
@@ -701,6 +1487,7 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
           continue;
         case AggState::Kind::kCount:
         case AggState::Kind::kSum:
+        case AggState::Kind::kAvg:
         case AggState::Kind::kMin:
         case AggState::Kind::kMax:
           break;
@@ -791,6 +1578,7 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
         continue;
       case AggState::Kind::kCount:
       case AggState::Kind::kSum:
+      case AggState::Kind::kAvg:
       case AggState::Kind::kMin:
       case AggState::Kind::kMax:
         break;
@@ -810,6 +1598,12 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
       return arrow::Status::Invalid(agg.func, " arg length mismatch");
     }
 
+    if (agg.arg_type == nullptr) {
+      agg.arg_type = arg_any->type();
+    } else if (arg_any->type() == nullptr || !agg.arg_type->Equals(*arg_any->type())) {
+      return arrow::Status::Invalid(agg.func, " arg type mismatch across batches");
+    }
+
     if (agg.kind == AggState::Kind::kSum) {
       switch (arg_any->type_id()) {
         case arrow::Type::BOOL:
@@ -821,9 +1615,34 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
         case arrow::Type::UINT16:
         case arrow::Type::UINT32:
         case arrow::Type::UINT64:
+        case arrow::Type::FLOAT:
+        case arrow::Type::DOUBLE:
+        case arrow::Type::DECIMAL128:
+        case arrow::Type::DECIMAL256:
           break;
         default:
           return arrow::Status::NotImplemented("sum arg type not supported: ",
+                                               arg_any->type()->ToString());
+      }
+    }
+    if (agg.kind == AggState::Kind::kAvg) {
+      switch (arg_any->type_id()) {
+        case arrow::Type::BOOL:
+        case arrow::Type::INT8:
+        case arrow::Type::INT16:
+        case arrow::Type::INT32:
+        case arrow::Type::INT64:
+        case arrow::Type::UINT8:
+        case arrow::Type::UINT16:
+        case arrow::Type::UINT32:
+        case arrow::Type::UINT64:
+        case arrow::Type::FLOAT:
+        case arrow::Type::DOUBLE:
+        case arrow::Type::DECIMAL128:
+        case arrow::Type::DECIMAL256:
+          break;
+        default:
+          return arrow::Status::NotImplemented("avg arg type not supported: ",
                                                arg_any->type()->ToString());
       }
     }
@@ -837,6 +1656,10 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
         case arrow::Type::UINT16:
         case arrow::Type::UINT32:
         case arrow::Type::UINT64:
+        case arrow::Type::FLOAT:
+        case arrow::Type::DOUBLE:
+        case arrow::Type::DECIMAL128:
+        case arrow::Type::DECIMAL256:
         case arrow::Type::BINARY:
           break;
         default:
@@ -885,6 +1708,22 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             case arrow::Type::INT64:
               expected = AggState::SumKind::kInt64;
               break;
+            case arrow::Type::FLOAT:
+            case arrow::Type::DOUBLE:
+              expected = AggState::SumKind::kDouble;
+              break;
+            case arrow::Type::DECIMAL128:
+            case arrow::Type::DECIMAL256: {
+              ARROW_ASSIGN_OR_RAISE(auto in_spec, GetDecimalSpec(*arg_any->type()));
+              const auto out_spec = InferSumDecimalSpec(in_spec);
+              const auto out_type = MakeArrowDecimalType(out_spec);
+              if (out_type->id() == arrow::Type::DECIMAL128) {
+                expected = AggState::SumKind::kDecimal128;
+              } else {
+                expected = AggState::SumKind::kDecimal256;
+              }
+              break;
+            }
             default:
               return arrow::Status::NotImplemented("sum arg type not supported: ",
                                                    arg_any->type()->ToString());
@@ -897,9 +1736,86 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
           }
 
           if (expected == AggState::SumKind::kInt64) {
-            output_agg_fields_.push_back(arrow::field(agg.name, arrow::int64(), /*nullable=*/true));
+            output_agg_fields_.push_back(
+                arrow::field(agg.name, arrow::int64(), /*nullable=*/true));
+          } else if (expected == AggState::SumKind::kUInt64) {
+            output_agg_fields_.push_back(
+                arrow::field(agg.name, arrow::uint64(), /*nullable=*/true));
+          } else if (expected == AggState::SumKind::kDouble) {
+            output_agg_fields_.push_back(
+                arrow::field(agg.name, arrow::float64(), /*nullable=*/true));
           } else {
-            output_agg_fields_.push_back(arrow::field(agg.name, arrow::uint64(), /*nullable=*/true));
+            // Decimal: infer output precision/scale (TiFlash semantics), and preserve metadata when
+            // the argument is a direct FieldRef.
+            ARROW_ASSIGN_OR_RAISE(auto in_spec, GetDecimalSpec(*arg_any->type()));
+            const auto out_spec = InferSumDecimalSpec(in_spec);
+            const auto out_type = MakeArrowDecimalType(out_spec);
+
+            std::shared_ptr<arrow::Field> out_field;
+            const auto* field_ref =
+                agg.arg != nullptr ? std::get_if<FieldRef>(&agg.arg->node) : nullptr;
+            if (schema != nullptr && field_ref != nullptr) {
+              int field_index = field_ref->index;
+              if (field_index < 0 && !field_ref->name.empty()) {
+                field_index = schema->GetFieldIndex(field_ref->name);
+              }
+              if (field_index >= 0 && field_index < schema->num_fields()) {
+                if (const auto& field = schema->field(field_index); field != nullptr) {
+                  out_field = field->WithName(agg.name)->WithType(out_type)->WithNullable(true);
+                }
+              }
+            }
+            if (out_field == nullptr) {
+              out_field = arrow::field(agg.name, out_type, /*nullable=*/true);
+            }
+            LogicalType type;
+            type.id = LogicalTypeId::kDecimal;
+            type.decimal_precision = out_spec.precision;
+            type.decimal_scale = out_spec.scale;
+            ARROW_ASSIGN_OR_RAISE(out_field, WithLogicalTypeMetadata(out_field, type));
+            output_agg_fields_.push_back(std::move(out_field));
+          }
+          break;
+        }
+        case AggState::Kind::kAvg: {
+          const auto& arg_any = agg_args[i];
+          if (arg_any == nullptr) {
+            return arrow::Status::Invalid("internal error: missing avg arg array");
+          }
+
+          if (arg_any->type_id() == arrow::Type::DECIMAL128 ||
+              arg_any->type_id() == arrow::Type::DECIMAL256) {
+            ARROW_ASSIGN_OR_RAISE(auto in_spec, GetDecimalSpec(*arg_any->type()));
+            const auto out_spec =
+                InferAvgDecimalResultSpec(in_spec, kDefaultDivPrecisionIncrement);
+            const auto out_type = MakeArrowDecimalType(out_spec);
+
+            std::shared_ptr<arrow::Field> out_field;
+            const auto* field_ref =
+                agg.arg != nullptr ? std::get_if<FieldRef>(&agg.arg->node) : nullptr;
+            if (schema != nullptr && field_ref != nullptr) {
+              int field_index = field_ref->index;
+              if (field_index < 0 && !field_ref->name.empty()) {
+                field_index = schema->GetFieldIndex(field_ref->name);
+              }
+              if (field_index >= 0 && field_index < schema->num_fields()) {
+                if (const auto& field = schema->field(field_index); field != nullptr) {
+                  out_field = field->WithName(agg.name)->WithType(out_type)->WithNullable(true);
+                }
+              }
+            }
+            if (out_field == nullptr) {
+              out_field = arrow::field(agg.name, out_type, /*nullable=*/true);
+            }
+            LogicalType type;
+            type.id = LogicalTypeId::kDecimal;
+            type.decimal_precision = out_spec.precision;
+            type.decimal_scale = out_spec.scale;
+            ARROW_ASSIGN_OR_RAISE(out_field, WithLogicalTypeMetadata(out_field, type));
+            output_agg_fields_.push_back(std::move(out_field));
+          } else {
+            output_agg_fields_.push_back(
+                arrow::field(agg.name, arrow::float64(), /*nullable=*/true));
           }
           break;
         }
@@ -1013,6 +1929,64 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             case AggState::SumKind::kUInt64:
               agg.fn = std::make_unique<AggSumUInt64>();
               break;
+            case AggState::SumKind::kDouble:
+              if (arg_any == nullptr) {
+                return arrow::Status::Invalid("internal error: missing sum arg array");
+              }
+              agg.fn = std::make_unique<AggSumDouble>(arg_any->type_id());
+              break;
+            case AggState::SumKind::kDecimal128: {
+              if (i >= output_agg_fields_.size() || output_agg_fields_[i] == nullptr ||
+                  output_agg_fields_[i]->type() == nullptr ||
+                  output_agg_fields_[i]->type()->id() != arrow::Type::DECIMAL128) {
+                return arrow::Status::Invalid("internal error: sum(decimal) output type mismatch");
+              }
+              const auto& out_dec =
+                  static_cast<const arrow::DecimalType&>(*output_agg_fields_[i]->type());
+              agg.fn = std::make_unique<AggSumDecimal128>(
+                  static_cast<int32_t>(out_dec.precision()), static_cast<int32_t>(out_dec.scale()));
+              break;
+            }
+            case AggState::SumKind::kDecimal256: {
+              if (i >= output_agg_fields_.size() || output_agg_fields_[i] == nullptr ||
+                  output_agg_fields_[i]->type() == nullptr ||
+                  output_agg_fields_[i]->type()->id() != arrow::Type::DECIMAL256) {
+                return arrow::Status::Invalid("internal error: sum(decimal) output type mismatch");
+              }
+              const auto& out_dec =
+                  static_cast<const arrow::DecimalType&>(*output_agg_fields_[i]->type());
+              agg.fn = std::make_unique<AggSumDecimal256>(
+                  static_cast<int32_t>(out_dec.precision()), static_cast<int32_t>(out_dec.scale()));
+              break;
+            }
+          }
+          break;
+        }
+        case AggState::Kind::kAvg: {
+          if (arg_any == nullptr) {
+            return arrow::Status::Invalid("internal error: missing avg arg array");
+          }
+          if (arg_any->type_id() == arrow::Type::DECIMAL128 ||
+              arg_any->type_id() == arrow::Type::DECIMAL256) {
+            if (i >= output_agg_fields_.size() || output_agg_fields_[i] == nullptr ||
+                output_agg_fields_[i]->type() == nullptr ||
+                (output_agg_fields_[i]->type()->id() != arrow::Type::DECIMAL128 &&
+                 output_agg_fields_[i]->type()->id() != arrow::Type::DECIMAL256)) {
+              return arrow::Status::Invalid("internal error: avg(decimal) output type mismatch");
+            }
+            const auto& in_dec = static_cast<const arrow::DecimalType&>(*arg_any->type());
+            const auto& out_dec =
+                static_cast<const arrow::DecimalType&>(*output_agg_fields_[i]->type());
+            const int32_t in_scale = static_cast<int32_t>(in_dec.scale());
+            const int32_t out_precision = static_cast<int32_t>(out_dec.precision());
+            const int32_t out_scale = static_cast<int32_t>(out_dec.scale());
+            if (output_agg_fields_[i]->type()->id() == arrow::Type::DECIMAL128) {
+              agg.fn = std::make_unique<AggAvgDecimal128>(in_scale, out_precision, out_scale);
+            } else {
+              agg.fn = std::make_unique<AggAvgDecimal256>(in_scale, out_precision, out_scale);
+            }
+          } else {
+            agg.fn = std::make_unique<AggAvgDouble>(arg_any->type_id());
           }
           break;
         }
@@ -1034,6 +2008,18 @@ arrow::Status HashAggContext::ConsumeBatch(const arrow::RecordBatch& input) {
             case arrow::Type::UINT32:
             case arrow::Type::UINT64:
               agg.fn = std::make_unique<AggMinMaxUnsigned>(is_min, arg_any->type_id());
+              break;
+            case arrow::Type::FLOAT:
+              agg.fn = std::make_unique<AggMinMaxFloat32>(is_min);
+              break;
+            case arrow::Type::DOUBLE:
+              agg.fn = std::make_unique<AggMinMaxFloat64>(is_min);
+              break;
+            case arrow::Type::DECIMAL128:
+              agg.fn = std::make_unique<AggMinMaxDecimal128>(is_min);
+              break;
+            case arrow::Type::DECIMAL256:
+              agg.fn = std::make_unique<AggMinMaxDecimal256>(is_min);
               break;
             case arrow::Type::BINARY:
               agg.fn = std::make_unique<AggMinMaxBinary>(is_min, agg_collations[i],

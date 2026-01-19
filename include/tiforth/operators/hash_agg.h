@@ -22,6 +22,7 @@
 
 namespace arrow {
 class Array;
+class DataType;
 class MemoryPool;
 class Schema;
 }  // namespace arrow
@@ -35,7 +36,7 @@ struct AggKey {
 
 struct AggFunc {
   std::string name;
-  // Supported: "count_all", "count", "sum", "min", "max" (some aliases accepted).
+  // Supported: "count_all", "count", "sum", "avg", "min", "max" (some aliases accepted).
   std::string func;
   ExprPtr arg;       // unused for "count_all"
 };
@@ -52,7 +53,7 @@ class HashAggContext final {
 
   arrow::Status ConsumeBatch(const arrow::RecordBatch& input);
   arrow::Status FinishBuild();
- arrow::Result<std::shared_ptr<arrow::RecordBatch>> ReadNextOutputBatch(int64_t max_rows);
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> ReadNextOutputBatch(int64_t max_rows);
 
  private:
   static constexpr std::size_t kMaxKeys = 8;
@@ -82,6 +83,7 @@ class HashAggContext final {
       kCountAll,
       kCount,
       kSum,
+      kAvg,
       kMin,
       kMax,
     };
@@ -90,6 +92,9 @@ class HashAggContext final {
       kUnresolved,
       kInt64,
       kUInt64,
+      kDouble,
+      kDecimal128,
+      kDecimal256,
     };
 
     std::string name;
@@ -97,6 +102,7 @@ class HashAggContext final {
     Kind kind;
     ExprPtr arg;
     SumKind sum_kind = SumKind::kUnresolved;
+    std::shared_ptr<arrow::DataType> arg_type;
 
     std::unique_ptr<detail::AggregateFunction> fn;
     int64_t state_offset = 0;

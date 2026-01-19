@@ -77,8 +77,21 @@ Public headers live under `include/tiforth/operators/`.
   - supported aggregate funcs:
     - `count_all`
     - `count` (non-null)
-    - `sum` (BOOL/INT*/UINT* -> output `int64`/`uint64`, nullable)
-    - `min` / `max` (INT*/UINT*/BINARY; collation-aware for BINARY)
+    - `sum`:
+      - BOOL/UINT* -> output `uint64`, nullable
+      - INT* -> output `int64`, nullable
+      - FLOAT/DOUBLE -> output `float64`, nullable
+      - DECIMAL128/DECIMAL256 -> output decimal with TiFlash inference:
+        - precision `min(input_precision + 22, 65)`
+        - scale `input_scale`
+        - output physical type is `decimal128` if precision <= 38 else `decimal256`
+    - `avg`:
+      - BOOL/INT*/UINT*/FLOAT/DOUBLE -> output `float64`, nullable
+      - DECIMAL128/DECIMAL256 -> output decimal with TiFlash inference:
+        - precision `min(input_precision + 4, 65)`
+        - scale `min(input_scale + 4, 30)`
+        - output physical type is `decimal128` if precision <= 38 else `decimal256`
+    - `min` / `max` (INT*/UINT*/FLOAT/DOUBLE/DECIMAL128/DECIMAL256/BINARY; collation-aware for BINARY)
 - Collated string keys:
   - original key value is preserved for output
   - normalized key (sort-key bytes) is used for hashing/equality to match collation semantics
