@@ -5,20 +5,31 @@
 #include <utility>
 #include <vector>
 
+#include <arrow/array/util.h>
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
-#include <arrow/array/concatenate.h>
-#include <arrow/array/util.h>
 #include <arrow/compute/api_aggregate.h>
 #include <arrow/compute/expression.h>
 #include <arrow/record_batch.h>
 #include <arrow/status.h>
-#include <arrow/table.h>
+#include <arrow/util/async_generator.h>
 #include <arrow/util/logging.h>
 
 #include "tiforth/engine.h"
 
 namespace tiforth {
+
+struct ArrowComputeAggTransformOp::ExecState {
+  ExecState() : input_producer(input_gen.producer()) {}
+
+  arrow::PushGenerator<std::optional<arrow::compute::ExecBatch>> input_gen;
+  arrow::PushGenerator<std::optional<arrow::compute::ExecBatch>>::Producer input_producer;
+  std::unique_ptr<arrow::RecordBatchReader> output_reader;
+  std::shared_ptr<arrow::Schema> output_schema;
+  bool input_closed = false;
+  bool output_started = false;
+  bool output_exhausted = false;
+};
 
 namespace {
 
@@ -59,48 +70,23 @@ arrow::Result<std::string> ToHashAggFunctionName(std::string_view func) {
                                        func);
 }
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> CombineBatches(
-    const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches, arrow::MemoryPool* pool) {
-  if (batches.empty()) {
-    return arrow::Status::Invalid("no batches to combine");
-  }
-  if (batches.size() == 1) {
-    return batches.front();
-  }
-
-  const auto schema = batches.front()->schema();
+arrow::Result<std::shared_ptr<arrow::Schema>> RenameKeyFields(
+    const std::shared_ptr<arrow::Schema>& schema, const std::vector<AggKey>& keys) {
   if (schema == nullptr) {
-    return arrow::Status::Invalid("batch schema must not be null");
+    return arrow::Status::Invalid("schema must not be null");
+  }
+  if (static_cast<std::size_t>(schema->num_fields()) < keys.size()) {
+    return arrow::Status::Invalid("schema is missing key fields");
   }
 
-  const int num_columns = schema->num_fields();
-  int64_t total_rows = 0;
-  for (const auto& batch : batches) {
-    if (batch == nullptr) {
-      return arrow::Status::Invalid("batch must not be null");
+  auto fields = schema->fields();
+  for (std::size_t i = 0; i < keys.size(); ++i) {
+    if (fields[i] == nullptr) {
+      return arrow::Status::Invalid("schema field must not be null");
     }
-    if (!schema->Equals(*batch->schema(), /*check_metadata=*/true)) {
-      return arrow::Status::Invalid("batch schema mismatch");
-    }
-    if (batch->num_columns() != num_columns) {
-      return arrow::Status::Invalid("batch column count mismatch");
-    }
-    total_rows += batch->num_rows();
+    fields[i] = fields[i]->WithName(keys[i].name);
   }
-
-  std::vector<std::shared_ptr<arrow::Array>> columns;
-  columns.reserve(static_cast<std::size_t>(num_columns));
-  for (int col = 0; col < num_columns; ++col) {
-    std::vector<std::shared_ptr<arrow::Array>> chunks;
-    chunks.reserve(batches.size());
-    for (const auto& batch : batches) {
-      chunks.push_back(batch->column(col));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto combined, arrow::Concatenate(chunks, pool));
-    columns.push_back(std::move(combined));
-  }
-
-  return arrow::RecordBatch::Make(schema, total_rows, std::move(columns));
+  return arrow::schema(std::move(fields), schema->metadata());
 }
 
 }  // namespace
@@ -119,12 +105,24 @@ ArrowComputeAggTransformOp::ArrowComputeAggTransformOp(const Engine* engine, std
 
 ArrowComputeAggTransformOp::~ArrowComputeAggTransformOp() = default;
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::FinalizeOutput() {
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::NextOutputBatch() {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
   if (input_schema_ == nullptr) {
     return arrow::Status::Invalid("input schema must not be null");
+  }
+  if (exec_state_ == nullptr) {
+    return arrow::Status::Invalid("exec state must not be null");
+  }
+  if (exec_state_->output_reader == nullptr) {
+    return arrow::Status::Invalid("output reader must not be null");
+  }
+  if (exec_state_->output_schema == nullptr) {
+    return arrow::Status::Invalid("output schema must not be null");
+  }
+  if (exec_state_->output_exhausted) {
+    return std::shared_ptr<arrow::RecordBatch>();
   }
 
   // MS14: keep implementation intentionally narrow. Extend to computed keys/args via an
@@ -133,66 +131,18 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::F
     return arrow::Status::NotImplemented("group-by without keys is not implemented");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches(input_schema_, buffered_));
-
-  std::vector<arrow::FieldRef> group_keys;
-  group_keys.reserve(keys_.size());
-  for (const auto& key : keys_) {
-    if (key.expr == nullptr) {
-      return arrow::Status::Invalid("group-by key expr must not be null");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto ref, ToArrowFieldRef(*key.expr));
-    group_keys.push_back(std::move(ref));
-  }
-
-  std::vector<arrow::compute::Aggregate> aggregates;
-  aggregates.reserve(aggs_.size());
-  for (const auto& agg : aggs_) {
-    ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(agg.func));
-    if (func_name == "hash_count_all") {
-      if (agg.arg != nullptr) {
-        return arrow::Status::Invalid("count_all must not have an argument expression");
-      }
-      aggregates.emplace_back(std::move(func_name), agg.name);
-      continue;
+  std::shared_ptr<arrow::RecordBatch> batch;
+  ARROW_RETURN_NOT_OK(exec_state_->output_reader->ReadNext(&batch));
+  if (batch == nullptr) {
+    exec_state_->output_exhausted = true;
+    if (exec_state_->output_started) {
+      return std::shared_ptr<arrow::RecordBatch>();
     }
 
-    if (agg.arg == nullptr) {
-      return arrow::Status::Invalid("aggregate argument expr must not be null");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto target_ref, ToArrowFieldRef(*agg.arg));
-    aggregates.emplace_back(std::move(func_name), std::move(target_ref), agg.name);
-  }
-
-  arrow::acero::Declaration plan = arrow::acero::Declaration::Sequence(
-      {{"table_source", arrow::acero::TableSourceNodeOptions(std::move(table))},
-       {"aggregate", arrow::acero::AggregateNodeOptions(std::move(aggregates),
-                                                        std::move(group_keys))}});
-
-  ARROW_ASSIGN_OR_RAISE(
-      auto out,
-      arrow::acero::DeclarationToExecBatches(std::move(plan), /*use_threads=*/false,
-                                             exec_context_.memory_pool(),
-                                             engine_->function_registry()));
-
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  batches.reserve(out.batches.size());
-  for (const auto& exec_batch : out.batches) {
-    ARROW_ASSIGN_OR_RAISE(auto batch,
-                          exec_batch.ToRecordBatch(out.schema, exec_context_.memory_pool()));
-    batches.push_back(std::move(batch));
-  }
-
-  std::shared_ptr<arrow::RecordBatch> combined;
-  if (!batches.empty()) {
-    ARROW_ASSIGN_OR_RAISE(combined, CombineBatches(batches, exec_context_.memory_pool()));
-  } else {
-    if (out.schema == nullptr) {
-      return arrow::Status::Invalid("aggregate output schema must not be null");
-    }
+    exec_state_->output_started = true;
     std::vector<std::shared_ptr<arrow::Array>> empty_columns;
-    empty_columns.reserve(static_cast<std::size_t>(out.schema->num_fields()));
-    for (const auto& field : out.schema->fields()) {
+    empty_columns.reserve(static_cast<std::size_t>(exec_state_->output_schema->num_fields()));
+    for (const auto& field : exec_state_->output_schema->fields()) {
       if (field == nullptr) {
         return arrow::Status::Invalid("aggregate output field must not be null");
       }
@@ -200,34 +150,12 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::F
                             arrow::MakeEmptyArray(field->type(), exec_context_.memory_pool()));
       empty_columns.push_back(std::move(array));
     }
-    combined =
-        arrow::RecordBatch::Make(out.schema, /*num_rows=*/0, std::move(empty_columns));
+    return arrow::RecordBatch::Make(exec_state_->output_schema, /*num_rows=*/0,
+                                    std::move(empty_columns));
   }
 
-  if (combined == nullptr) {
-    return arrow::Status::Invalid("aggregate output batch must not be null");
-  }
-
-  // Aggregate node outputs keys first. Rename key columns to match AggKey names for
-  // consistency with TiForth native hash agg APIs.
-  auto schema = combined->schema();
-  if (schema == nullptr) {
-    return arrow::Status::Invalid("aggregate output schema must not be null");
-  }
-  if (static_cast<std::size_t>(schema->num_fields()) < keys_.size()) {
-    return arrow::Status::Invalid("aggregate output schema is missing key fields");
-  }
-  auto fields = schema->fields();
-  for (std::size_t i = 0; i < keys_.size(); ++i) {
-    if (fields[i] == nullptr) {
-      return arrow::Status::Invalid("aggregate output field must not be null");
-    }
-    fields[i] = fields[i]->WithName(keys_[i].name);
-  }
-
-  auto renamed_schema = arrow::schema(std::move(fields), schema->metadata());
-  return arrow::RecordBatch::Make(std::move(renamed_schema), combined->num_rows(),
-                                  combined->columns());
+  exec_state_->output_started = true;
+  return arrow::RecordBatch::Make(exec_state_->output_schema, batch->num_rows(), batch->columns());
 }
 
 arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
@@ -245,9 +173,24 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
         return OperatorStatus::kHasOutput;
       }
 
-      ARROW_ASSIGN_OR_RAISE(*batch, FinalizeOutput());
+      if (exec_state_ == nullptr) {
+        return arrow::Status::Invalid("arrow compute agg is missing execution state");
+      }
+      if (!exec_state_->input_closed) {
+        if (!exec_state_->input_producer.Close()) {
+          return arrow::Status::Cancelled("arrow compute agg input producer closed early");
+        }
+        exec_state_->input_closed = true;
+      }
       finalized_ = true;
-      return OperatorStatus::kHasOutput;
+    }
+
+    if (exec_state_ != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(*batch, NextOutputBatch());
+      if (*batch != nullptr) {
+        return OperatorStatus::kHasOutput;
+      }
+      exec_state_.reset();
     }
     if (!eos_forwarded_) {
       eos_forwarded_ = true;
@@ -268,11 +211,68 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
     if (input_schema_ == nullptr) {
       return arrow::Status::Invalid("input schema must not be null");
     }
+    exec_state_ = std::make_unique<ExecState>();
+
+    // MS14: keep implementation intentionally narrow. Extend to computed keys/args via an
+    // explicit project node if needed.
+    if (keys_.empty()) {
+      return arrow::Status::NotImplemented("group-by without keys is not implemented");
+    }
+
+    std::vector<arrow::FieldRef> group_keys;
+    group_keys.reserve(keys_.size());
+    for (const auto& key : keys_) {
+      if (key.expr == nullptr) {
+        return arrow::Status::Invalid("group-by key expr must not be null");
+      }
+      ARROW_ASSIGN_OR_RAISE(auto ref, ToArrowFieldRef(*key.expr));
+      group_keys.push_back(std::move(ref));
+    }
+
+    std::vector<arrow::compute::Aggregate> aggregates;
+    aggregates.reserve(aggs_.size());
+    for (const auto& agg : aggs_) {
+      ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(agg.func));
+      if (func_name == "hash_count_all") {
+        if (agg.arg != nullptr) {
+          return arrow::Status::Invalid("count_all must not have an argument expression");
+        }
+        aggregates.emplace_back(std::move(func_name), agg.name);
+        continue;
+      }
+
+      if (agg.arg == nullptr) {
+        return arrow::Status::Invalid("aggregate argument expr must not be null");
+      }
+      ARROW_ASSIGN_OR_RAISE(auto target_ref, ToArrowFieldRef(*agg.arg));
+      aggregates.emplace_back(std::move(func_name), std::move(target_ref), agg.name);
+    }
+
+    arrow::acero::Declaration plan = arrow::acero::Declaration::Sequence(
+        {{"source", arrow::acero::SourceNodeOptions(input_schema_, exec_state_->input_gen)},
+         {"aggregate", arrow::acero::AggregateNodeOptions(std::move(aggregates),
+                                                          std::move(group_keys))}});
+
+    arrow::acero::QueryOptions options;
+    options.use_threads = true;
+    options.memory_pool = exec_context_.memory_pool();
+    options.function_registry = engine_->function_registry();
+    ARROW_ASSIGN_OR_RAISE(exec_state_->output_reader,
+                          arrow::acero::DeclarationToReader(std::move(plan), std::move(options)));
+    const auto output_schema = exec_state_->output_reader->schema();
+    if (output_schema == nullptr) {
+      return arrow::Status::Invalid("aggregate output schema must not be null");
+    }
+    ARROW_ASSIGN_OR_RAISE(exec_state_->output_schema, RenameKeyFields(output_schema, keys_));
   } else if (!input_schema_->Equals(*input.schema(), /*check_metadata=*/true)) {
     return arrow::Status::Invalid("arrow compute agg input schema mismatch");
   }
 
-  buffered_.push_back(std::move(*batch));
+  arrow::compute::ExecBatch exec_batch(input);
+  if (!exec_state_->input_producer.Push(
+          std::optional<arrow::compute::ExecBatch>(std::move(exec_batch)))) {
+    return arrow::Status::Cancelled("arrow compute agg input producer closed early");
+  }
   batch->reset();
   return OperatorStatus::kNeedInput;
 }

@@ -6,9 +6,11 @@
 #include <arrow/testing/gtest_util.h>
 #include <arrow/type.h>
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <map>
 #include <optional>
 #include <vector>
 
@@ -107,78 +109,123 @@ arrow::Status RunArrowComputeAggSmoke() {
     outputs.push_back(std::move(out));
   }
 
-  if (outputs.size() != 1) {
-    return arrow::Status::Invalid("expected exactly 1 output batch");
+  if (outputs.empty()) {
+    return arrow::Status::Invalid("expected at least 1 output batch");
   }
 
-  const auto& out = outputs[0];
-  if (out->num_columns() != 7 || out->num_rows() != 5) {
-    return arrow::Status::Invalid("unexpected output shape");
+  struct ExpectedAgg {
+    int64_t cnt_all;
+    int64_t cnt_v;
+    std::optional<int64_t> sum_v;
+    std::optional<int32_t> min_v;
+    std::optional<int32_t> max_v;
+    std::optional<double> mean_v;
+  };
+
+  std::map<std::optional<int32_t>, ExpectedAgg> expected;
+  expected.emplace(std::optional<int32_t>(1),
+                   ExpectedAgg{2, 1, 10, static_cast<int32_t>(10),
+                               static_cast<int32_t>(10), 10.0});
+  expected.emplace(std::optional<int32_t>(2),
+                   ExpectedAgg{2, 2, 21, static_cast<int32_t>(1),
+                               static_cast<int32_t>(20), 10.5});
+  expected.emplace(std::optional<int32_t>(),
+                   ExpectedAgg{2, 1, 7, static_cast<int32_t>(7), static_cast<int32_t>(7), 7.0});
+  expected.emplace(std::optional<int32_t>(3),
+                   ExpectedAgg{1, 1, 5, static_cast<int32_t>(5),
+                               static_cast<int32_t>(5), 5.0});
+  expected.emplace(std::optional<int32_t>(4),
+                   ExpectedAgg{1, 0, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
+
+  for (const auto& out : outputs) {
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    if (out->num_columns() != 7) {
+      return arrow::Status::Invalid("unexpected output column count");
+    }
+
+    auto actual_k = out->GetColumnByName("k");
+    auto actual_cnt_all = out->GetColumnByName("cnt_all");
+    auto actual_cnt_v = out->GetColumnByName("cnt_v");
+    auto actual_sum = out->GetColumnByName("sum_v");
+    auto actual_min = out->GetColumnByName("min_v");
+    auto actual_max = out->GetColumnByName("max_v");
+    auto actual_mean = out->GetColumnByName("mean_v");
+
+    if (actual_k == nullptr || actual_cnt_all == nullptr || actual_cnt_v == nullptr ||
+        actual_sum == nullptr || actual_min == nullptr || actual_max == nullptr ||
+        actual_mean == nullptr) {
+      return arrow::Status::Invalid("missing expected output columns");
+    }
+
+    const auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_k);
+    const auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_cnt_all);
+    const auto cnt_v_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_cnt_v);
+    const auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_sum);
+    const auto min_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_min);
+    const auto max_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_max);
+    const auto mean_array = std::dynamic_pointer_cast<arrow::DoubleArray>(actual_mean);
+    if (k_array == nullptr || cnt_all_array == nullptr || cnt_v_array == nullptr ||
+        sum_array == nullptr || min_array == nullptr || max_array == nullptr ||
+        mean_array == nullptr) {
+      return arrow::Status::Invalid("unexpected output column types");
+    }
+
+    for (int64_t i = 0; i < out->num_rows(); ++i) {
+      std::optional<int32_t> key;
+      if (!k_array->IsNull(i)) {
+        key = k_array->Value(i);
+      }
+
+      const auto it = expected.find(key);
+      if (it == expected.end()) {
+        return arrow::Status::Invalid("unexpected group key");
+      }
+      const auto exp = it->second;
+
+      if (cnt_all_array->IsNull(i) || cnt_all_array->Value(i) != exp.cnt_all) {
+        return arrow::Status::Invalid("cnt_all output mismatch");
+      }
+      if (cnt_v_array->IsNull(i) || cnt_v_array->Value(i) != exp.cnt_v) {
+        return arrow::Status::Invalid("cnt_v output mismatch");
+      }
+      if (exp.sum_v.has_value()) {
+        if (sum_array->IsNull(i) || sum_array->Value(i) != *exp.sum_v) {
+          return arrow::Status::Invalid("sum_v output mismatch");
+        }
+      } else if (!sum_array->IsNull(i)) {
+        return arrow::Status::Invalid("sum_v output mismatch");
+      }
+      if (exp.min_v.has_value()) {
+        if (min_array->IsNull(i) || min_array->Value(i) != *exp.min_v) {
+          return arrow::Status::Invalid("min_v output mismatch");
+        }
+      } else if (!min_array->IsNull(i)) {
+        return arrow::Status::Invalid("min_v output mismatch");
+      }
+      if (exp.max_v.has_value()) {
+        if (max_array->IsNull(i) || max_array->Value(i) != *exp.max_v) {
+          return arrow::Status::Invalid("max_v output mismatch");
+        }
+      } else if (!max_array->IsNull(i)) {
+        return arrow::Status::Invalid("max_v output mismatch");
+      }
+      if (exp.mean_v.has_value()) {
+        if (mean_array->IsNull(i) ||
+            std::abs(mean_array->Value(i) - *exp.mean_v) > 1e-12) {
+          return arrow::Status::Invalid("mean_v output mismatch");
+        }
+      } else if (!mean_array->IsNull(i)) {
+        return arrow::Status::Invalid("mean_v output mismatch");
+      }
+
+      expected.erase(it);
+    }
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto expected_k, MakeInt32Array({1, 2, std::nullopt, 3, 4}));
-
-  arrow::Int64Builder cnt_all_builder;
-  ARROW_RETURN_NOT_OK(cnt_all_builder.AppendValues({2, 2, 2, 1, 1}));
-  std::shared_ptr<arrow::Array> expected_cnt_all;
-  ARROW_RETURN_NOT_OK(cnt_all_builder.Finish(&expected_cnt_all));
-
-  arrow::Int64Builder cnt_v_builder;
-  ARROW_RETURN_NOT_OK(cnt_v_builder.AppendValues({1, 2, 1, 1, 0}));
-  std::shared_ptr<arrow::Array> expected_cnt_v;
-  ARROW_RETURN_NOT_OK(cnt_v_builder.Finish(&expected_cnt_v));
-
-  arrow::Int64Builder sum_builder;
-  ARROW_RETURN_NOT_OK(sum_builder.AppendValues({10, 21, 7, 5}));
-  ARROW_RETURN_NOT_OK(sum_builder.AppendNull());
-  std::shared_ptr<arrow::Array> expected_sum;
-  ARROW_RETURN_NOT_OK(sum_builder.Finish(&expected_sum));
-
-  ARROW_ASSIGN_OR_RAISE(auto expected_min, MakeInt32Array({10, 1, 7, 5, std::nullopt}));
-  ARROW_ASSIGN_OR_RAISE(auto expected_max, MakeInt32Array({10, 20, 7, 5, std::nullopt}));
-
-  arrow::DoubleBuilder mean_builder;
-  ARROW_RETURN_NOT_OK(mean_builder.Append(10.0));
-  ARROW_RETURN_NOT_OK(mean_builder.Append(10.5));
-  ARROW_RETURN_NOT_OK(mean_builder.Append(7.0));
-  ARROW_RETURN_NOT_OK(mean_builder.Append(5.0));
-  ARROW_RETURN_NOT_OK(mean_builder.AppendNull());
-  std::shared_ptr<arrow::Array> expected_mean;
-  ARROW_RETURN_NOT_OK(mean_builder.Finish(&expected_mean));
-
-  auto actual_k = out->GetColumnByName("k");
-  auto actual_cnt_all = out->GetColumnByName("cnt_all");
-  auto actual_cnt_v = out->GetColumnByName("cnt_v");
-  auto actual_sum = out->GetColumnByName("sum_v");
-  auto actual_min = out->GetColumnByName("min_v");
-  auto actual_max = out->GetColumnByName("max_v");
-  auto actual_mean = out->GetColumnByName("mean_v");
-
-  if (actual_k == nullptr || actual_cnt_all == nullptr || actual_cnt_v == nullptr || actual_sum == nullptr ||
-      actual_min == nullptr || actual_max == nullptr || actual_mean == nullptr) {
-    return arrow::Status::Invalid("missing expected output columns");
-  }
-
-  if (!actual_k->Equals(expected_k)) {
-    return arrow::Status::Invalid("k output mismatch");
-  }
-  if (!actual_cnt_all->Equals(expected_cnt_all)) {
-    return arrow::Status::Invalid("cnt_all output mismatch");
-  }
-  if (!actual_cnt_v->Equals(expected_cnt_v)) {
-    return arrow::Status::Invalid("cnt_v output mismatch");
-  }
-  if (!actual_sum->Equals(expected_sum)) {
-    return arrow::Status::Invalid("sum_v output mismatch");
-  }
-  if (!actual_min->Equals(expected_min)) {
-    return arrow::Status::Invalid("min_v output mismatch");
-  }
-  if (!actual_max->Equals(expected_max)) {
-    return arrow::Status::Invalid("max_v output mismatch");
-  }
-  if (!actual_mean->Equals(expected_mean)) {
-    return arrow::Status::Invalid("mean_v output mismatch");
+  if (!expected.empty()) {
+    return arrow::Status::Invalid("missing expected group keys");
   }
 
   return arrow::Status::OK();

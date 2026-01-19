@@ -23,13 +23,15 @@ class ArrowComputeAggTransformOp final : public TransformOp {
  public:
   ArrowComputeAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
                              std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool = nullptr);
-  ~ArrowComputeAggTransformOp() override;
+ ~ArrowComputeAggTransformOp() override;
 
  protected:
   arrow::Result<OperatorStatus> TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
 
  private:
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> FinalizeOutput();
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> NextOutputBatch();
+
+  struct ExecState;
 
   const Engine* engine_ = nullptr;
   std::vector<AggKey> keys_;
@@ -38,7 +40,7 @@ class ArrowComputeAggTransformOp final : public TransformOp {
   std::shared_ptr<arrow::Schema> input_schema_;
   arrow::compute::ExecContext exec_context_;
 
-  std::vector<std::shared_ptr<arrow::RecordBatch>> buffered_;
+  std::unique_ptr<ExecState> exec_state_;
 
   bool finalized_ = false;
   bool eos_forwarded_ = false;
