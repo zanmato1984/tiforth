@@ -77,6 +77,27 @@ arrow::Result<std::shared_ptr<arrow::Schema>> RenameKeyFields(
   return arrow::schema(std::move(fields), schema->metadata());
 }
 
+arrow::Result<std::shared_ptr<arrow::Schema>> MoveKeyFieldsToEnd(
+    const std::shared_ptr<arrow::Schema>& schema, std::size_t num_keys) {
+  if (schema == nullptr) {
+    return arrow::Status::Invalid("schema must not be null");
+  }
+  if (static_cast<std::size_t>(schema->num_fields()) < num_keys) {
+    return arrow::Status::Invalid("schema is missing key fields");
+  }
+
+  auto fields = schema->fields();
+  std::vector<std::shared_ptr<arrow::Field>> reordered;
+  reordered.reserve(fields.size());
+  for (std::size_t i = num_keys; i < fields.size(); ++i) {
+    reordered.push_back(std::move(fields[i]));
+  }
+  for (std::size_t i = 0; i < num_keys; ++i) {
+    reordered.push_back(std::move(fields[i]));
+  }
+  return arrow::schema(std::move(reordered), schema->metadata());
+}
+
 }  // namespace
 
 ArrowComputeAggTransformOp::ArrowComputeAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
@@ -141,7 +162,18 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::N
   }
 
   exec_state_->output_started = true;
-  return arrow::RecordBatch::Make(exec_state_->output_schema, batch->num_rows(), batch->columns());
+  const int32_t num_keys = static_cast<int32_t>(keys_.size());
+  auto columns = batch->columns();
+  std::vector<std::shared_ptr<arrow::Array>> reordered;
+  reordered.reserve(columns.size());
+  for (int32_t i = num_keys; i < static_cast<int32_t>(columns.size()); ++i) {
+    reordered.push_back(columns[i]);
+  }
+  for (int32_t i = 0; i < num_keys; ++i) {
+    reordered.push_back(columns[i]);
+  }
+  return arrow::RecordBatch::Make(exec_state_->output_schema, batch->num_rows(),
+                                  std::move(reordered));
 }
 
 arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
@@ -267,7 +299,9 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
     if (output_schema == nullptr) {
       return arrow::Status::Invalid("aggregate output schema must not be null");
     }
-    ARROW_ASSIGN_OR_RAISE(exec_state_->output_schema, RenameKeyFields(output_schema, keys_));
+    ARROW_ASSIGN_OR_RAISE(auto renamed_schema, RenameKeyFields(output_schema, keys_));
+    ARROW_ASSIGN_OR_RAISE(exec_state_->output_schema,
+                          MoveKeyFieldsToEnd(std::move(renamed_schema), keys_.size()));
   } else if (!input_schema_->Equals(*input.schema(), /*check_metadata=*/true)) {
     return arrow::Status::Invalid("arrow compute agg input schema mismatch");
   }
