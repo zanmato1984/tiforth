@@ -33,15 +33,52 @@ class TaskRecordBatchReader final : public arrow::RecordBatchReader {
           *batch = nullptr;
           return arrow::Status::OK();
         case TaskState::kNeedInput:
-          return arrow::Status::Invalid(
-              "unexpected TaskState::kNeedInput when input reader is configured");
+          // With an input reader configured, the task generally pulls input itself. Still, some
+          // blocked-state transitions (IO/await) may temporarily report kNeedInput, so keep driving.
+          break;
         case TaskState::kCancelled:
           return arrow::Status::Cancelled("task is cancelled");
-        case TaskState::kWaiting:
-        case TaskState::kWaitForNotify:
         case TaskState::kIOIn:
-        case TaskState::kIOOut:
-          return arrow::Status::NotImplemented("task is blocked (IO/await/notify is not wired)");
+        case TaskState::kIOOut: {
+          ARROW_ASSIGN_OR_RAISE(state, task_->ExecuteIO());
+          if (state == TaskState::kHasOutput) {
+            ARROW_ASSIGN_OR_RAISE(*batch, task_->PullOutput());
+            return arrow::Status::OK();
+          }
+          if (state == TaskState::kFinished) {
+            *batch = nullptr;
+            return arrow::Status::OK();
+          }
+          if (state == TaskState::kCancelled) {
+            return arrow::Status::Cancelled("task is cancelled");
+          }
+          if (state == TaskState::kWaitForNotify) {
+            return arrow::Status::NotImplemented("task is waiting for notify");
+          }
+          // kNeedInput / kWaiting / kIO*: continue driving.
+          break;
+        }
+        case TaskState::kWaiting: {
+          ARROW_ASSIGN_OR_RAISE(state, task_->Await());
+          if (state == TaskState::kHasOutput) {
+            ARROW_ASSIGN_OR_RAISE(*batch, task_->PullOutput());
+            return arrow::Status::OK();
+          }
+          if (state == TaskState::kFinished) {
+            *batch = nullptr;
+            return arrow::Status::OK();
+          }
+          if (state == TaskState::kCancelled) {
+            return arrow::Status::Cancelled("task is cancelled");
+          }
+          if (state == TaskState::kWaitForNotify) {
+            return arrow::Status::NotImplemented("task is waiting for notify");
+          }
+          // kNeedInput / kWaiting / kIO*: continue driving.
+          break;
+        }
+        case TaskState::kWaitForNotify:
+          return arrow::Status::NotImplemented("task is waiting for notify");
       }
     }
   }

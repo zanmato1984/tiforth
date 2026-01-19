@@ -65,6 +65,16 @@ Create a task and drive it using `Task::Step()`:
 - Provide inputs via `Task::PushInput(batch)` and then `Task::CloseInput()`.
 - Consume outputs via `Task::PullOutput()` when `Step()` reports `kHasOutput`.
 
+#### Blocked task states (IO / await / notify)
+
+`Task::Step()` may return additional states when an operator blocks:
+
+- `kIOIn` / `kIOOut`: call `Task::ExecuteIO()` to make IO progress
+- `kWaiting`: call `Task::Await()` to wait for completion (host-defined)
+- `kWaitForNotify`: call `Task::Notify()` when the external event fires
+
+These states are part of the host-driven execution contract. TiForth does not run a reactor/event-loop on its own.
+
 Important contracts:
 
 - Input schema must be stable across batches. `Task` validates schema equality (including metadata).
@@ -80,6 +90,11 @@ If you already have an input `arrow::RecordBatchReader`, you can get an output r
 - `Pipeline::MakeReader(input_reader)`
 
 This wraps a task internally and drives it until completion.
+
+Notes:
+
+- The reader adapter drives `kIOIn/kIOOut` via `ExecuteIO()` and `kWaiting` via `Await()`.
+- If the task returns `kWaitForNotify`, the reader currently returns `NotImplemented` (notify source is host-specific).
 
 ## C ABI (tiforth_capi)
 
