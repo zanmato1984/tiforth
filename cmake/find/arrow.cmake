@@ -299,7 +299,6 @@ set(ARROW_WITH_ZSTD OFF CACHE BOOL "" FORCE)
 
 include(CheckCXXCompilerFlag)
 
-set(_tiforth_saved_cxx_flags "${CMAKE_CXX_FLAGS}")
 set(_tiforth_arrow_extra_cxx_flags "")
 
 function(_tiforth_maybe_append_cxx_flag FLAG)
@@ -320,12 +319,11 @@ _tiforth_maybe_append_cxx_flag("-Wno-unused-but-set-variable")
 _tiforth_maybe_append_cxx_flag("-Wno-implicit-const-int-float-conversion")
 _tiforth_maybe_append_cxx_flag("-Wno-non-c-typedef-for-linkage")
 _tiforth_maybe_append_cxx_flag("-Wno-unused-function")
+_tiforth_maybe_append_cxx_flag("-Wno-unused-private-field")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${_tiforth_arrow_extra_cxx_flags}")
+set(ARROW_CXXFLAGS "${ARROW_CXXFLAGS} ${_tiforth_arrow_extra_cxx_flags}" CACHE STRING "" FORCE)
 
 FetchContent_MakeAvailable(arrow)
-
-set(CMAKE_CXX_FLAGS "${_tiforth_saved_cxx_flags}")
 
 set(_tiforth_arrow_cpp_source_dir "${arrow_SOURCE_DIR}")
 if(EXISTS "${_tiforth_arrow_cpp_source_dir}/cpp/src/arrow/api.h")
