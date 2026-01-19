@@ -1,6 +1,7 @@
 #include "tiforth/operators/arrow_compute_agg.h"
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@
 #include <arrow/util/async_generator.h>
 #include <arrow/util/logging.h>
 
+#include "tiforth/compiled_expr.h"
 #include "tiforth/engine.h"
 
 namespace tiforth {
@@ -32,20 +34,6 @@ struct ArrowComputeAggTransformOp::ExecState {
 };
 
 namespace {
-
-arrow::Result<arrow::FieldRef> ToArrowFieldRef(const Expr& expr) {
-  const auto* field_ref = std::get_if<FieldRef>(&expr.node);
-  if (field_ref == nullptr) {
-    return arrow::Status::NotImplemented("only field_ref expressions are supported");
-  }
-  if (field_ref->index >= 0) {
-    return arrow::FieldRef(field_ref->index);
-  }
-  if (!field_ref->name.empty()) {
-    return arrow::FieldRef(field_ref->name);
-  }
-  return arrow::Status::Invalid("field_ref must have a name or index");
-}
 
 arrow::Result<std::string> ToHashAggFunctionName(std::string_view func) {
   if (func == "count_all" || func == "hash_count_all") {
@@ -125,8 +113,6 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::N
     return std::shared_ptr<arrow::RecordBatch>();
   }
 
-  // MS14: keep implementation intentionally narrow. Extend to computed keys/args via an
-  // explicit project node if needed.
   if (keys_.empty()) {
     return arrow::Status::NotImplemented("group-by without keys is not implemented");
   }
@@ -213,24 +199,34 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
     }
     exec_state_ = std::make_unique<ExecState>();
 
-    // MS14: keep implementation intentionally narrow. Extend to computed keys/args via an
-    // explicit project node if needed.
     if (keys_.empty()) {
       return arrow::Status::NotImplemented("group-by without keys is not implemented");
     }
 
-    std::vector<arrow::FieldRef> group_keys;
-    group_keys.reserve(keys_.size());
+    std::vector<arrow::compute::Expression> project_exprs;
+    std::vector<std::string> project_names;
+    project_exprs.reserve(keys_.size() + aggs_.size());
+    project_names.reserve(keys_.size() + aggs_.size());
+
     for (const auto& key : keys_) {
       if (key.expr == nullptr) {
         return arrow::Status::Invalid("group-by key expr must not be null");
       }
-      ARROW_ASSIGN_OR_RAISE(auto ref, ToArrowFieldRef(*key.expr));
-      group_keys.push_back(std::move(ref));
+      ARROW_ASSIGN_OR_RAISE(auto compiled,
+                            CompileExpr(input_schema_, *key.expr, engine_, &exec_context_));
+      project_exprs.push_back(std::move(compiled.bound));
+      project_names.push_back(key.name);
+    }
+
+    std::vector<arrow::FieldRef> group_keys;
+    group_keys.reserve(keys_.size());
+    for (int32_t i = 0; i < static_cast<int32_t>(keys_.size()); ++i) {
+      group_keys.emplace_back(i);
     }
 
     std::vector<arrow::compute::Aggregate> aggregates;
     aggregates.reserve(aggs_.size());
+    int32_t arg_columns = 0;
     for (const auto& agg : aggs_) {
       ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(agg.func));
       if (func_name == "hash_count_all") {
@@ -244,12 +240,20 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
       if (agg.arg == nullptr) {
         return arrow::Status::Invalid("aggregate argument expr must not be null");
       }
-      ARROW_ASSIGN_OR_RAISE(auto target_ref, ToArrowFieldRef(*agg.arg));
-      aggregates.emplace_back(std::move(func_name), std::move(target_ref), agg.name);
+      const int32_t target_index = static_cast<int32_t>(keys_.size()) + arg_columns;
+      const std::string arg_name = "__tiforth_agg_arg" + std::to_string(arg_columns);
+      ARROW_ASSIGN_OR_RAISE(auto compiled,
+                            CompileExpr(input_schema_, *agg.arg, engine_, &exec_context_));
+      project_exprs.push_back(std::move(compiled.bound));
+      project_names.push_back(arg_name);
+      aggregates.emplace_back(std::move(func_name), arrow::FieldRef(target_index), agg.name);
+      ++arg_columns;
     }
 
     arrow::acero::Declaration plan = arrow::acero::Declaration::Sequence(
         {{"source", arrow::acero::SourceNodeOptions(input_schema_, exec_state_->input_gen)},
+         {"project", arrow::acero::ProjectNodeOptions(std::move(project_exprs),
+                                                      std::move(project_names))},
          {"aggregate", arrow::acero::AggregateNodeOptions(std::move(aggregates),
                                                           std::move(group_keys))}});
 

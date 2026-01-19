@@ -12,6 +12,9 @@
 #include <memory>
 #include <map>
 #include <optional>
+#include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -41,7 +44,7 @@ arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
   return array;
 }
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeInt32Batch(
     const std::vector<std::optional<int32_t>>& keys,
     const std::vector<std::optional<int32_t>>& values) {
   if (keys.size() != values.size()) {
@@ -55,18 +58,57 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
   return arrow::RecordBatch::Make(schema, static_cast<int64_t>(keys.size()), {k_array, v_array});
 }
 
-arrow::Status RunArrowComputeAggSmoke() {
+arrow::Result<std::shared_ptr<arrow::Array>> MakeStringArray(
+    const std::vector<std::optional<std::string>>& values) {
+  arrow::StringBuilder builder;
+  for (const auto& value : values) {
+    if (value.has_value()) {
+      ARROW_RETURN_NOT_OK(builder.Append(*value));
+    } else {
+      ARROW_RETURN_NOT_OK(builder.AppendNull());
+    }
+  }
+  std::shared_ptr<arrow::Array> array;
+  ARROW_RETURN_NOT_OK(builder.Finish(&array));
+  return array;
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeStringKeyBatch(
+    const std::vector<std::optional<std::string>>& keys,
+    const std::vector<std::optional<int32_t>>& values) {
+  if (keys.size() != values.size()) {
+    return arrow::Status::Invalid("keys and values must have the same length");
+  }
+
+  auto schema =
+      arrow::schema({arrow::field("s", arrow::utf8()), arrow::field("v", arrow::int32())});
+  ARROW_ASSIGN_OR_RAISE(auto s_array, MakeStringArray(keys));
+  ARROW_ASSIGN_OR_RAISE(auto v_array, MakeInt32Array(values));
+  return arrow::RecordBatch::Make(schema, static_cast<int64_t>(keys.size()), {s_array, v_array});
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeMultiKeyBatch(
+    const std::vector<std::optional<int32_t>>& k_values,
+    const std::vector<std::optional<std::string>>& s_values,
+    const std::vector<std::optional<int32_t>>& v_values) {
+  if (k_values.size() != s_values.size() || k_values.size() != v_values.size()) {
+    return arrow::Status::Invalid("batch columns must have the same length");
+  }
+
+  auto schema = arrow::schema({arrow::field("k", arrow::int32()), arrow::field("s", arrow::utf8()),
+                               arrow::field("v", arrow::int32())});
+  ARROW_ASSIGN_OR_RAISE(auto k_array, MakeInt32Array(k_values));
+  ARROW_ASSIGN_OR_RAISE(auto s_array, MakeStringArray(s_values));
+  ARROW_ASSIGN_OR_RAISE(auto v_array, MakeInt32Array(v_values));
+  return arrow::RecordBatch::Make(schema, static_cast<int64_t>(k_values.size()),
+                                  {k_array, s_array, v_array});
+}
+
+arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
+    const std::vector<std::shared_ptr<arrow::RecordBatch>>& inputs, const std::vector<AggKey>& keys,
+    const std::vector<AggFunc>& aggs) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
-
-  std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}};
-  std::vector<AggFunc> aggs;
-  aggs.push_back({"cnt_all", "count_all", nullptr});
-  aggs.push_back({"cnt_v", "count", MakeFieldRef("v")});
-  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
-  aggs.push_back({"min_v", "min", MakeFieldRef("v")});
-  aggs.push_back({"max_v", "max", MakeFieldRef("v")});
-  aggs.push_back({"mean_v", "mean", MakeFieldRef("v")});
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
@@ -81,12 +123,12 @@ arrow::Status RunArrowComputeAggSmoke() {
     return arrow::Status::Invalid("expected TaskState::kNeedInput");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({1, 2, 1, std::nullopt}, {10, 20, std::nullopt, 7}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
-  ARROW_ASSIGN_OR_RAISE(
-      auto batch1,
-      MakeBatch({2, 3, std::nullopt, 4}, {1, 5, std::nullopt, std::nullopt}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch1));
+  for (const auto& batch : inputs) {
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("input batch must not be null");
+    }
+    ARROW_RETURN_NOT_OK(task->PushInput(batch));
+  }
   ARROW_RETURN_NOT_OK(task->CloseInput());
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
@@ -108,6 +150,25 @@ arrow::Status RunArrowComputeAggSmoke() {
     }
     outputs.push_back(std::move(out));
   }
+  return outputs;
+}
+
+arrow::Status RunArrowComputeAggSmoke() {
+  std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"cnt_v", "count", MakeFieldRef("v")});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
+  aggs.push_back({"min_v", "min", MakeFieldRef("v")});
+  aggs.push_back({"max_v", "max", MakeFieldRef("v")});
+  aggs.push_back({"mean_v", "mean", MakeFieldRef("v")});
+
+  ARROW_ASSIGN_OR_RAISE(auto batch0,
+                        MakeInt32Batch({1, 2, 1, std::nullopt}, {10, 20, std::nullopt, 7}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch1, MakeInt32Batch({2, 3, std::nullopt, 4}, {1, 5, std::nullopt, std::nullopt}));
+
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   if (outputs.empty()) {
     return arrow::Status::Invalid("expected at least 1 output batch");
@@ -231,8 +292,223 @@ arrow::Status RunArrowComputeAggSmoke() {
   return arrow::Status::OK();
 }
 
+arrow::Status RunArrowComputeAggComputedExpr() {
+  auto plus_one = [](ExprPtr arg) {
+    return MakeCall("add", {std::move(arg), MakeLiteral(std::make_shared<arrow::Int32Scalar>(1))});
+  };
+
+  std::vector<AggKey> keys = {{"k_plus_1", plus_one(MakeFieldRef("k"))}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"sum_v_plus_1", "sum", plus_one(MakeFieldRef("v"))});
+
+  ARROW_ASSIGN_OR_RAISE(auto batch0,
+                        MakeInt32Batch({1, 2, 1, std::nullopt}, {10, 20, std::nullopt, 7}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch1, MakeInt32Batch({2, 3, std::nullopt, 4}, {1, 5, std::nullopt, std::nullopt}));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
+
+  struct Expected {
+    int64_t cnt_all;
+    std::optional<int64_t> sum_v;
+  };
+  std::map<std::optional<int32_t>, Expected> expected;
+  expected.emplace(std::optional<int32_t>(2), Expected{2, 11});
+  expected.emplace(std::optional<int32_t>(3), Expected{2, 23});
+  expected.emplace(std::optional<int32_t>(), Expected{2, 8});
+  expected.emplace(std::optional<int32_t>(4), Expected{1, 6});
+  expected.emplace(std::optional<int32_t>(5), Expected{1, std::nullopt});
+
+  for (const auto& out : outputs) {
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k_plus_1"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v_plus_1"));
+    if (k_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
+      return arrow::Status::Invalid("unexpected output types for computed expr test");
+    }
+
+    for (int64_t i = 0; i < out->num_rows(); ++i) {
+      std::optional<int32_t> key;
+      if (!k_array->IsNull(i)) {
+        key = k_array->Value(i);
+      }
+
+      const auto it = expected.find(key);
+      if (it == expected.end()) {
+        return arrow::Status::Invalid("unexpected group key in computed expr test");
+      }
+      const auto exp = it->second;
+
+      if (cnt_all_array->IsNull(i) || cnt_all_array->Value(i) != exp.cnt_all) {
+        return arrow::Status::Invalid("cnt_all output mismatch");
+      }
+      if (exp.sum_v.has_value()) {
+        if (sum_array->IsNull(i) || sum_array->Value(i) != *exp.sum_v) {
+          return arrow::Status::Invalid("sum_v output mismatch");
+        }
+      } else if (!sum_array->IsNull(i)) {
+        return arrow::Status::Invalid("sum_v output mismatch");
+      }
+
+      expected.erase(it);
+    }
+  }
+
+  if (!expected.empty()) {
+    return arrow::Status::Invalid("missing expected group keys in computed expr test");
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status RunArrowComputeAggStringKey() {
+  std::vector<AggKey> keys = {{"s", MakeFieldRef("s")}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
+
+  ARROW_ASSIGN_OR_RAISE(auto batch0,
+                        MakeStringKeyBatch({"a", "b", "a", std::nullopt}, {1, 2, 3, 4}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch1, MakeStringKeyBatch({"b", "c", std::nullopt, "a"}, {std::nullopt, 5, 6, std::nullopt}));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
+
+  struct Expected {
+    int64_t cnt_all;
+    std::optional<int64_t> sum_v;
+  };
+  std::map<std::optional<std::string>, Expected> expected;
+  expected.emplace(std::optional<std::string>("a"), Expected{3, 4});
+  expected.emplace(std::optional<std::string>("b"), Expected{2, 2});
+  expected.emplace(std::optional<std::string>("c"), Expected{1, 5});
+  expected.emplace(std::optional<std::string>(), Expected{2, 10});
+
+  for (const auto& out : outputs) {
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
+    if (s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
+      return arrow::Status::Invalid("unexpected output types for string key test");
+    }
+
+    for (int64_t i = 0; i < out->num_rows(); ++i) {
+      std::optional<std::string> key;
+      if (!s_array->IsNull(i)) {
+        key = s_array->GetString(i);
+      }
+
+      const auto it = expected.find(key);
+      if (it == expected.end()) {
+        return arrow::Status::Invalid("unexpected group key in string key test");
+      }
+      const auto exp = it->second;
+
+      if (cnt_all_array->IsNull(i) || cnt_all_array->Value(i) != exp.cnt_all) {
+        return arrow::Status::Invalid("cnt_all output mismatch");
+      }
+      if (exp.sum_v.has_value()) {
+        if (sum_array->IsNull(i) || sum_array->Value(i) != *exp.sum_v) {
+          return arrow::Status::Invalid("sum_v output mismatch");
+        }
+      } else if (!sum_array->IsNull(i)) {
+        return arrow::Status::Invalid("sum_v output mismatch");
+      }
+      expected.erase(it);
+    }
+  }
+
+  if (!expected.empty()) {
+    return arrow::Status::Invalid("missing expected group keys in string key test");
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status RunArrowComputeAggMultiKey() {
+  std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}, {"s", MakeFieldRef("s")}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch0, MakeMultiKeyBatch({1, 1, 2, std::nullopt}, {"a", "b", "a", "a"},
+                                     {10, 20, 30, 40}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch1, MakeMultiKeyBatch({1, 2, 2, std::nullopt}, {"a", "a", std::nullopt, "a"},
+                                     {1, 2, 3, 4}));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
+
+  struct Expected {
+    int64_t cnt_all;
+    std::optional<int64_t> sum_v;
+  };
+  using GroupKey = std::tuple<std::optional<int32_t>, std::optional<std::string>>;
+  std::map<GroupKey, Expected> expected;
+  expected.emplace(GroupKey{std::optional<int32_t>(1), std::optional<std::string>("a")}, Expected{2, 11});
+  expected.emplace(GroupKey{std::optional<int32_t>(1), std::optional<std::string>("b")}, Expected{1, 20});
+  expected.emplace(GroupKey{std::optional<int32_t>(2), std::optional<std::string>("a")}, Expected{2, 32});
+  expected.emplace(GroupKey{std::optional<int32_t>(2), std::optional<std::string>()}, Expected{1, 3});
+  expected.emplace(GroupKey{std::optional<int32_t>(), std::optional<std::string>("a")}, Expected{2, 44});
+
+  for (const auto& out : outputs) {
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k"));
+    auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
+    if (k_array == nullptr || s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
+      return arrow::Status::Invalid("unexpected output types for multi-key test");
+    }
+
+    for (int64_t i = 0; i < out->num_rows(); ++i) {
+      std::optional<int32_t> k;
+      if (!k_array->IsNull(i)) {
+        k = k_array->Value(i);
+      }
+      std::optional<std::string> s;
+      if (!s_array->IsNull(i)) {
+        s = s_array->GetString(i);
+      }
+      GroupKey key{k, s};
+
+      const auto it = expected.find(key);
+      if (it == expected.end()) {
+        return arrow::Status::Invalid("unexpected group key in multi-key test");
+      }
+      const auto exp = it->second;
+
+      if (cnt_all_array->IsNull(i) || cnt_all_array->Value(i) != exp.cnt_all) {
+        return arrow::Status::Invalid("cnt_all output mismatch");
+      }
+      if (exp.sum_v.has_value()) {
+        if (sum_array->IsNull(i) || sum_array->Value(i) != *exp.sum_v) {
+          return arrow::Status::Invalid("sum_v output mismatch");
+        }
+      } else if (!sum_array->IsNull(i)) {
+        return arrow::Status::Invalid("sum_v output mismatch");
+      }
+
+      expected.erase(it);
+    }
+  }
+
+  if (!expected.empty()) {
+    return arrow::Status::Invalid("missing expected group keys in multi-key test");
+  }
+  return arrow::Status::OK();
+}
+
 }  // namespace
 
 TEST(TiForthArrowComputeAggTest, GroupByAndAggregates) { ASSERT_OK(RunArrowComputeAggSmoke()); }
+TEST(TiForthArrowComputeAggTest, ComputedKeyAndArg) { ASSERT_OK(RunArrowComputeAggComputedExpr()); }
+TEST(TiForthArrowComputeAggTest, StringKey) { ASSERT_OK(RunArrowComputeAggStringKey()); }
+TEST(TiForthArrowComputeAggTest, MultiKey) { ASSERT_OK(RunArrowComputeAggMultiKey()); }
 
 }  // namespace tiforth
