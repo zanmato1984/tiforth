@@ -106,13 +106,13 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeMultiKeyBatch(
 
 arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
     const std::vector<std::shared_ptr<arrow::RecordBatch>>& inputs, const std::vector<AggKey>& keys,
-    const std::vector<AggFunc>& aggs) {
+    const std::vector<AggFunc>& aggs, ArrowComputeAggOptions options = {}) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<ArrowComputeAggTransformOp>(engine_ptr, keys, aggs);
+      [engine_ptr = engine.get(), keys, aggs, options]() -> arrow::Result<TransformOpPtr> {
+        return std::make_unique<ArrowComputeAggTransformOp>(engine_ptr, keys, aggs, options);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -428,6 +428,74 @@ arrow::Status RunArrowComputeAggStringKey() {
   return arrow::Status::OK();
 }
 
+arrow::Status RunArrowComputeAggStringKeyStableDict() {
+  std::vector<AggKey> keys = {{"s", MakeFieldRef("s")}};
+  std::vector<AggFunc> aggs;
+  aggs.push_back({"cnt_all", "count_all", nullptr});
+  aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch0, MakeStringKeyBatch({"a", "b", "a", std::nullopt}, {10, 20, std::nullopt, 7}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch1, MakeStringKeyBatch({"b", "c", std::nullopt, "a"}, {1, 5, std::nullopt, std::nullopt}));
+
+  ArrowComputeAggOptions options;
+  options.stable_dictionary_encode_binary_keys = true;
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs, options));
+
+  struct Expected {
+    int64_t cnt_all;
+    std::optional<int64_t> sum_v;
+  };
+  std::map<std::optional<std::string>, Expected> expected;
+  expected.emplace(std::optional<std::string>("a"), Expected{3, 10});
+  expected.emplace(std::optional<std::string>("b"), Expected{2, 21});
+  expected.emplace(std::optional<std::string>("c"), Expected{1, 5});
+  expected.emplace(std::optional<std::string>(), Expected{2, 7});
+
+  for (const auto& out : outputs) {
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
+    auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
+    if (s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
+      return arrow::Status::Invalid("unexpected output types for stable dict string key test");
+    }
+
+    for (int64_t i = 0; i < out->num_rows(); ++i) {
+      std::optional<std::string> key;
+      if (!s_array->IsNull(i)) {
+        key = s_array->GetString(i);
+      }
+
+      const auto it = expected.find(key);
+      if (it == expected.end()) {
+        return arrow::Status::Invalid("unexpected group key in stable dict string key test");
+      }
+      const auto exp = it->second;
+
+      if (cnt_all_array->IsNull(i) || cnt_all_array->Value(i) != exp.cnt_all) {
+        return arrow::Status::Invalid("cnt_all output mismatch");
+      }
+      if (exp.sum_v.has_value()) {
+        if (sum_array->IsNull(i) || sum_array->Value(i) != *exp.sum_v) {
+          return arrow::Status::Invalid("sum_v output mismatch");
+        }
+      } else if (!sum_array->IsNull(i)) {
+        return arrow::Status::Invalid("sum_v output mismatch");
+      }
+      expected.erase(it);
+    }
+  }
+
+  if (!expected.empty()) {
+    return arrow::Status::Invalid("missing expected group keys in stable dict string key test");
+  }
+  return arrow::Status::OK();
+}
+
 arrow::Status RunArrowComputeAggMultiKey() {
   std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}, {"s", MakeFieldRef("s")}};
   std::vector<AggFunc> aggs;
@@ -509,6 +577,9 @@ arrow::Status RunArrowComputeAggMultiKey() {
 TEST(TiForthArrowComputeAggTest, GroupByAndAggregates) { ASSERT_OK(RunArrowComputeAggSmoke()); }
 TEST(TiForthArrowComputeAggTest, ComputedKeyAndArg) { ASSERT_OK(RunArrowComputeAggComputedExpr()); }
 TEST(TiForthArrowComputeAggTest, StringKey) { ASSERT_OK(RunArrowComputeAggStringKey()); }
+TEST(TiForthArrowComputeAggTest, StringKeyStableDict) {
+  ASSERT_OK(RunArrowComputeAggStringKeyStableDict());
+}
 TEST(TiForthArrowComputeAggTest, MultiKey) { ASSERT_OK(RunArrowComputeAggMultiKey()); }
 
 }  // namespace tiforth
