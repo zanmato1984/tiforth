@@ -12,6 +12,8 @@ arrow::Status RegisterScalarLogicalFunctions(arrow::compute::FunctionRegistry* r
                                              arrow::compute::FunctionRegistry* fallback_registry);
 arrow::Status RegisterScalarTemporalFunctions(arrow::compute::FunctionRegistry* registry,
                                               arrow::compute::FunctionRegistry* fallback_registry);
+arrow::Status RegisterHashAggregateFunctions(arrow::compute::FunctionRegistry* registry,
+                                             arrow::compute::FunctionRegistry* fallback_registry);
 
 arrow::Status RegisterTiforthFunctions(arrow::compute::FunctionRegistry* registry,
                                        arrow::compute::FunctionRegistry* fallback_registry) {
@@ -26,6 +28,7 @@ arrow::Status RegisterTiforthFunctions(arrow::compute::FunctionRegistry* registr
   ARROW_RETURN_NOT_OK(RegisterScalarComparisonFunctions(registry, fallback_registry));
   ARROW_RETURN_NOT_OK(RegisterScalarLogicalFunctions(registry, fallback_registry));
   ARROW_RETURN_NOT_OK(RegisterScalarTemporalFunctions(registry, fallback_registry));
+  ARROW_RETURN_NOT_OK(RegisterHashAggregateFunctions(registry, fallback_registry));
   return arrow::Status::OK();
 }
 

@@ -54,7 +54,8 @@ arrow::Result<std::string> ToHashAggFunctionName(std::string_view func) {
   return arrow::Status::NotImplemented("arrow grouped hash aggregation is not supported: ", func);
 }
 
-std::optional<int> FieldRefIndex(const ExprPtr& expr) {
+std::optional<int> FieldRefIndex(const ExprPtr& expr,
+                                 const std::shared_ptr<arrow::Schema>& schema) {
   if (expr == nullptr) {
     return std::nullopt;
   }
@@ -62,6 +63,12 @@ std::optional<int> FieldRefIndex(const ExprPtr& expr) {
     const auto& ref = std::get<FieldRef>(expr->node);
     if (ref.index >= 0) {
       return ref.index;
+    }
+    if (schema != nullptr && !ref.name.empty()) {
+      const int idx = schema->GetFieldIndex(ref.name);
+      if (idx >= 0) {
+        return idx;
+      }
     }
   }
   return std::nullopt;
@@ -361,13 +368,30 @@ arrow::Status ArrowHashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& ba
       ARROW_ASSIGN_OR_RAISE(auto type_holder,
                             agg_kernels_[i]->signature->out_type().Resolve(&kernel_ctx,
                                                                            aggr_in_types));
-      out_fields.push_back(arrow::field(aggs_[i].name, type_holder.GetSharedPtr()));
+      bool nullable = true;
+      if (aggregates_[i].function == "hash_count_all" || aggregates_[i].function == "hash_count") {
+        nullable = false;
+      } else if (input_schema_ != nullptr) {
+        const auto maybe_index = FieldRefIndex(aggs_[i].arg, input_schema_);
+        if (maybe_index.has_value()) {
+          const int idx = *maybe_index;
+          if (idx < 0 || idx >= input_schema_->num_fields()) {
+            return arrow::Status::Invalid("aggregate argument field index out of range");
+          }
+          const auto& in_field = input_schema_->field(idx);
+          if (in_field == nullptr) {
+            return arrow::Status::Invalid("input field must not be null");
+          }
+          nullable = in_field->nullable();
+        }
+      }
+      out_fields.push_back(arrow::field(aggs_[i].name, type_holder.GetSharedPtr(), nullable));
     }
 
     for (std::size_t i = 0; i < keys_.size(); ++i) {
       std::shared_ptr<arrow::Field> field;
       if (input_schema_ != nullptr) {
-        const auto maybe_index = FieldRefIndex(keys_[i].expr);
+        const auto maybe_index = FieldRefIndex(keys_[i].expr, input_schema_);
         if (maybe_index.has_value()) {
           const int idx = *maybe_index;
           if (idx < 0 || idx >= input_schema_->num_fields()) {
