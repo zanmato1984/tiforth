@@ -174,8 +174,8 @@ arrow::Status RunArrowHashAggSmoke() {
   }
 
   struct ExpectedAgg {
-    int64_t cnt_all;
-    int64_t cnt_v;
+    uint64_t cnt_all;
+    uint64_t cnt_v;
     std::optional<int64_t> sum_v;
     std::optional<int32_t> min_v;
     std::optional<int32_t> max_v;
@@ -200,8 +200,8 @@ arrow::Status RunArrowHashAggSmoke() {
     }
 
     auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
-    auto cnt_v_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_v"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_v_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_v"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     auto min_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("min_v"));
     auto max_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("max_v"));
@@ -287,7 +287,7 @@ arrow::Status RunArrowHashAggComputedExpr() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<int32_t>, Expected> expected;
@@ -302,7 +302,7 @@ arrow::Status RunArrowHashAggComputedExpr() {
       return arrow::Status::Invalid("expected non-null output batch");
     }
     auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k_plus_1"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v_plus_1"));
     if (k_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for computed expr test");
@@ -354,7 +354,7 @@ arrow::Status RunArrowHashAggStringKey() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<std::string>, Expected> expected;
@@ -368,7 +368,7 @@ arrow::Status RunArrowHashAggStringKey() {
       return arrow::Status::Invalid("expected non-null output batch");
     }
     auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     if (s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for string key test");
@@ -421,7 +421,7 @@ arrow::Status RunArrowHashAggMultiKey() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   using GroupKey = std::tuple<std::optional<int32_t>, std::optional<std::string>>;
@@ -438,7 +438,7 @@ arrow::Status RunArrowHashAggMultiKey() {
     }
     auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k"));
     auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     if (k_array == nullptr || s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for multi-key test");

@@ -153,7 +153,7 @@ arrow::Status RunHashAggSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -243,7 +243,7 @@ arrow::Status RunHashAggTwoKeySmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -350,7 +350,7 @@ arrow::Status RunHashAggGeneralCiStringKeySmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -444,7 +444,7 @@ arrow::Status RunHashAggUnicode0900StringKeySmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -542,7 +542,7 @@ arrow::Status RunHashAggCountMinMaxSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -646,7 +646,7 @@ arrow::Status RunHashAggGlobalEmptyInputSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -733,7 +733,7 @@ arrow::Status RunHashAggAvgSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -804,7 +804,7 @@ arrow::Status RunHashAggSumDoubleSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -879,7 +879,7 @@ arrow::Status RunHashAggSumFloatSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -954,7 +954,7 @@ arrow::Status RunHashAggSumDecimal128Smoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -1028,7 +1028,7 @@ arrow::Status RunHashAggSumDecimal256Smoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -1103,7 +1103,7 @@ arrow::Status RunHashAggAvgDecimalSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -1182,7 +1182,7 @@ arrow::Status RunHashAggMinMaxFloatSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -1264,7 +1264,7 @@ arrow::Status RunHashAggMinMaxDecimal128Smoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -1340,7 +1340,7 @@ arrow::Status RunHashAggMinMaxDecimal256Smoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -1420,7 +1420,7 @@ arrow::Status RunHashAggMinMaxDoubleSmoke() {
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform(
       [engine_ptr = engine.get(), keys, aggs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashAggTransformOp>(engine_ptr, keys, aggs);
+        return std::make_unique<LegacyHashAggTransformOp>(engine_ptr, keys, aggs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());

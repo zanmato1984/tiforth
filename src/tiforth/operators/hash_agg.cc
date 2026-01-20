@@ -3159,13 +3159,14 @@ arrow::Result<OperatorStatus> HashAggConvergentSourceOp::ReadImpl(
   return OperatorStatus::kHasOutput;
 }
 
-HashAggTransformOp::~HashAggTransformOp() = default;
+LegacyHashAggTransformOp::~LegacyHashAggTransformOp() = default;
 
-HashAggTransformOp::HashAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
-                                       std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool)
+LegacyHashAggTransformOp::LegacyHashAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
+                                                   std::vector<AggFunc> aggs,
+                                                   arrow::MemoryPool* memory_pool)
     : context_(std::make_shared<HashAggContext>(engine, std::move(keys), std::move(aggs), memory_pool)) {}
 
-arrow::Result<OperatorStatus> HashAggTransformOp::TransformImpl(
+arrow::Result<OperatorStatus> LegacyHashAggTransformOp::TransformImpl(
     std::shared_ptr<arrow::RecordBatch>* batch) {
   if (context_ == nullptr) {
     return arrow::Status::Invalid("hash agg context must not be null");

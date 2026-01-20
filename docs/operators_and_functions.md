@@ -64,7 +64,13 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Hash aggregation (group-by)
 
-- `tiforth::HashAggTransformOp` (`hash_agg.h`)
+- Default: `tiforth::ArrowHashAggTransformOp` (`arrow_hash_agg.h`)
+- Driven by Arrow `Grouper` + grouped `hash_*` kernels (no Acero).
+- Current limitations:
+  - group-by without keys is not implemented
+  - collation semantics for string keys are not implemented (binary semantics only)
+
+- Legacy: `tiforth::LegacyHashAggTransformOp` (`hash_agg.h`)
 - Current limitations (common path):
   - supports up to 8 group keys
   - supported key physical types:
@@ -95,9 +101,11 @@ Public headers live under `include/tiforth/operators/`.
 - Collated string keys:
   - original key value is preserved for output
   - normalized key (sort-key bytes) is used for hashing/equality to match collation semantics
-- Memory:
-  - scratch key encoding uses a reusable Arrow-pool-backed buffer (`detail::ScratchBytes`)
-  - variable-length output keys (`binary`) are stored as arena slices (`detail::ByteSlice`)
+  - Memory:
+    - scratch key encoding uses a reusable Arrow-pool-backed buffer (`detail::ScratchBytes`)
+    - variable-length output keys (`binary`) are stored as arena slices (`detail::ByteSlice`)
+
+- Compatibility: `tiforth::HashAggTransformOp` is a temporary alias to `tiforth::LegacyHashAggTransformOp`.
 
 ### Hash join (inner join)
 

@@ -175,8 +175,8 @@ arrow::Status RunArrowComputeAggSmoke() {
   }
 
   struct ExpectedAgg {
-    int64_t cnt_all;
-    int64_t cnt_v;
+    uint64_t cnt_all;
+    uint64_t cnt_v;
     std::optional<int64_t> sum_v;
     std::optional<int32_t> min_v;
     std::optional<int32_t> max_v;
@@ -221,8 +221,8 @@ arrow::Status RunArrowComputeAggSmoke() {
     }
 
     const auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_k);
-    const auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_cnt_all);
-    const auto cnt_v_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_cnt_v);
+    const auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(actual_cnt_all);
+    const auto cnt_v_array = std::dynamic_pointer_cast<arrow::UInt64Array>(actual_cnt_v);
     const auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_sum);
     const auto min_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_min);
     const auto max_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_max);
@@ -309,7 +309,7 @@ arrow::Status RunArrowComputeAggComputedExpr() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<int32_t>, Expected> expected;
@@ -324,7 +324,7 @@ arrow::Status RunArrowComputeAggComputedExpr() {
       return arrow::Status::Invalid("expected non-null output batch");
     }
     auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k_plus_1"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v_plus_1"));
     if (k_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for computed expr test");
@@ -376,7 +376,7 @@ arrow::Status RunArrowComputeAggStringKey() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<std::string>, Expected> expected;
@@ -390,7 +390,7 @@ arrow::Status RunArrowComputeAggStringKey() {
       return arrow::Status::Invalid("expected non-null output batch");
     }
     auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     if (s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for string key test");
@@ -444,7 +444,7 @@ arrow::Status RunArrowComputeAggStringKeyStableDict() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs, options));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<std::string>, Expected> expected;
@@ -458,7 +458,7 @@ arrow::Status RunArrowComputeAggStringKeyStableDict() {
       return arrow::Status::Invalid("expected non-null output batch");
     }
     auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     if (s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for stable dict string key test");
@@ -511,7 +511,7 @@ arrow::Status RunArrowComputeAggMultiKey() {
   ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
 
   struct Expected {
-    int64_t cnt_all;
+    uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   using GroupKey = std::tuple<std::optional<int32_t>, std::optional<std::string>>;
@@ -528,7 +528,7 @@ arrow::Status RunArrowComputeAggMultiKey() {
     }
     auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k"));
     auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     if (k_array == nullptr || s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types for multi-key test");

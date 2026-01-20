@@ -11,6 +11,7 @@ add_tiforth_test(tiforth_hash_agg_breaker_test "${CMAKE_CURRENT_SOURCE_DIR}/tifo
 add_tiforth_test(tiforth_hash_join_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_hash_join_test.cpp")
 add_tiforth_test(tiforth_key_hash_table_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_key_hash_table_test.cpp")
 add_tiforth_test(tiforth_fixed_key_hash_table_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_fixed_key_hash_table_test.cpp")
+add_tiforth_test(tiforth_small_string_single_key_grouper_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_small_string_single_key_grouper_test.cpp")
 add_tiforth_test(tiforth_capi_smoke_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_capi_smoke_test.cpp")
 target_link_libraries(tiforth_capi_smoke_test PRIVATE tiforth::tiforth_capi)
 add_tiforth_test(tiforth_collation_compare_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_collation_compare_test.cpp")

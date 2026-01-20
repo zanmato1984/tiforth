@@ -153,11 +153,11 @@ class HashAggConvergentSourceOp final : public SourceOp {
   int64_t max_output_rows_ = 65536;
 };
 
-class HashAggTransformOp final : public TransformOp {
+class LegacyHashAggTransformOp final : public TransformOp {
  public:
-  HashAggTransformOp(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
-                     arrow::MemoryPool* memory_pool = nullptr);
-  ~HashAggTransformOp() override;
+  LegacyHashAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
+                           std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool = nullptr);
+  ~LegacyHashAggTransformOp() override;
 
  protected:
   arrow::Result<OperatorStatus> TransformImpl(
@@ -168,5 +168,7 @@ class HashAggTransformOp final : public TransformOp {
   bool finalized_ = false;
   bool eos_forwarded_ = false;
 };
+
+using HashAggTransformOp = LegacyHashAggTransformOp;
 
 }  // namespace tiforth

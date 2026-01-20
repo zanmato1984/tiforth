@@ -20,6 +20,7 @@
 
 #include "tiforth/compiled_expr.h"
 #include "tiforth/detail/arrow_compute.h"
+#include "tiforth/detail/small_string_single_key_grouper.h"
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
 
@@ -162,6 +163,25 @@ arrow::Result<std::vector<std::unique_ptr<arrow::compute::KernelState>>> InitKer
     ARROW_ASSIGN_OR_RAISE(states[i], InitKernel(kernels[i], ctx, aggregates[i], in_types[i]));
   }
   return states;
+}
+
+arrow::Result<std::unique_ptr<arrow::compute::Grouper>> MakeDefaultGrouper(
+    const std::vector<arrow::TypeHolder>& key_types, arrow::compute::ExecContext* exec_context) {
+  if (exec_context == nullptr) {
+    return arrow::Status::Invalid("exec context must not be null");
+  }
+  if (key_types.size() == 1) {
+    const auto id = key_types[0].id();
+    if (id == arrow::Type::BINARY || id == arrow::Type::STRING) {
+      auto key_type = key_types[0].GetSharedPtr();
+      if (key_type == nullptr) {
+        return arrow::Status::Invalid("key type must not be null");
+      }
+      return std::make_unique<detail::SmallStringSingleKeyGrouper>(std::move(key_type),
+                                                                   exec_context);
+    }
+  }
+  return arrow::compute::Grouper::Make(key_types, exec_context);
 }
 
 }  // namespace
@@ -326,7 +346,7 @@ arrow::Status ArrowHashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& ba
     if (grouper_factory_) {
       ARROW_ASSIGN_OR_RAISE(grouper_, grouper_factory_(key_types, &exec_context_));
     } else {
-      ARROW_ASSIGN_OR_RAISE(grouper_, arrow::compute::Grouper::Make(key_types, &exec_context_));
+      ARROW_ASSIGN_OR_RAISE(grouper_, MakeDefaultGrouper(key_types, &exec_context_));
     }
     if (grouper_ == nullptr) {
       return arrow::Status::Invalid("grouper must not be null");

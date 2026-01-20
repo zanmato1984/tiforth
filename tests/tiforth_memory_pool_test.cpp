@@ -253,7 +253,7 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
   aggs.push_back(AggFunc{.name = "cnt", .func = "count_all", .arg = nullptr});
 
   ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, aggs, eng]() -> arrow::Result<TransformOpPtr> {
-    return std::make_unique<HashAggTransformOp>(eng, keys, aggs);
+    return std::make_unique<LegacyHashAggTransformOp>(eng, keys, aggs);
   }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
