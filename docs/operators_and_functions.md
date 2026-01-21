@@ -64,48 +64,19 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Hash aggregation (group-by)
 
-- Default: `tiforth::ArrowHashAggTransformOp` (`arrow_hash_agg.h`)
+- `tiforth::HashAggTransformOp` / `tiforth::HashAggMergeSinkOp` / `tiforth::HashAggResultSourceOp` (`hash_agg.h`)
 - Driven by Arrow `Grouper` + grouped `hash_*` kernels (no Acero).
+- Breaker plan shape:
+  - `HashAggTransformOp`: partial aggregation (local grouper + per-agg kernel states)
+  - `HashAggContext`: merges partial states and finalizes output
+  - `HashAggMergeSinkOp`: finalize trigger (EOS-only sink)
+  - `HashAggResultSourceOp`: emits finalized output batches
 - Current limitations:
   - group-by without keys is not implemented
-  - collation semantics for string keys are not implemented (binary semantics only)
-
-- Legacy: `tiforth::LegacyHashAggTransformOp` (`hash_agg.h`)
-- Current limitations (common path):
-  - supports up to 8 group keys
-  - supported key physical types:
-    - `bool`
-    - signed integers: `int8` / `int16` / `int32` / `int64`
-    - unsigned integers: `uint8` / `uint16` / `uint32` / `uint64`
-    - `float` / `double` (canonicalized bits for hashing/equality; `-0 == 0`, NaNs canonicalized)
-    - `decimal128` / `decimal256` (compared by raw fixed-size bytes)
-    - `binary` (with `tiforth.logical_type=string` and supported `collation_id` for normalization)
-  - supported aggregate funcs:
-    - `count_all`
-    - `count` (non-null)
-    - `sum`:
-      - BOOL/UINT* -> output `uint64`, nullable
-      - INT* -> output `int64`, nullable
-      - FLOAT/DOUBLE -> output `float64`, nullable
-      - DECIMAL128/DECIMAL256 -> output decimal with TiFlash inference:
-        - precision `min(input_precision + 22, 65)`
-        - scale `input_scale`
-        - output physical type is `decimal128` if precision <= 38 else `decimal256`
-    - `avg`:
-      - BOOL/INT*/UINT*/FLOAT/DOUBLE -> output `float64`, nullable
-      - DECIMAL128/DECIMAL256 -> output decimal with TiFlash inference:
-        - precision `min(input_precision + 4, 65)`
-        - scale `min(input_scale + 4, 30)`
-        - output physical type is `decimal128` if precision <= 38 else `decimal256`
-    - `min` / `max` (INT*/UINT*/FLOAT/DOUBLE/DECIMAL128/DECIMAL256/BINARY; collation-aware for BINARY)
-- Collated string keys:
-  - original key value is preserved for output
-  - normalized key (sort-key bytes) is used for hashing/equality to match collation semantics
-  - Memory:
-    - scratch key encoding uses a reusable Arrow-pool-backed buffer (`detail::ScratchBytes`)
-    - variable-length output keys (`binary`) are stored as arena slices (`detail::ByteSlice`)
-
-- Compatibility: `tiforth::HashAggTransformOp` is a temporary alias to `tiforth::LegacyHashAggTransformOp`.
+  - string keys:
+    - default is binary semantics
+    - single-key grouping can be collation-aware when the key field has `tiforth.string.collation_id` metadata
+    - multi-key collation grouping is not implemented
 
 ### Hash join (inner join)
 

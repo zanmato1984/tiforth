@@ -18,6 +18,7 @@
 #include "tiforth/operators/hash_agg.h"
 #include "tiforth/operators/hash_join.h"
 #include "tiforth/operators/sort.h"
+#include "tiforth/plan.h"
 #include "tiforth/pipeline.h"
 #include "tiforth/task.h"
 #include "tiforth/type_metadata.h"
@@ -245,19 +246,42 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
   EngineOptions options;
   options.memory_pool = &pool;
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(options));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
-  const auto* eng = engine.get();
+  ARROW_ASSIGN_OR_RAISE(auto builder, PlanBuilder::Create(engine.get()));
 
   std::vector<AggKey> keys = {AggKey{.name = "x", .expr = MakeFieldRef("x")}};
   std::vector<AggFunc> aggs;
   aggs.push_back(AggFunc{.name = "cnt", .func = "count_all", .arg = nullptr});
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, aggs, eng]() -> arrow::Result<TransformOpPtr> {
-    return std::make_unique<LegacyHashAggTransformOp>(eng, keys, aggs);
-  }));
+  const Engine* engine_ptr = engine.get();
+  ARROW_ASSIGN_OR_RAISE(
+      const auto ctx_id,
+      builder->AddBreakerState<HashAggContext>(
+          [engine_ptr, keys, aggs]() -> arrow::Result<std::shared_ptr<HashAggContext>> {
+            return std::make_shared<HashAggContext>(engine_ptr, keys, aggs);
+          }));
 
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+  ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
+  ARROW_RETURN_NOT_OK(builder->AppendTransform(
+      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<TransformOpPtr> {
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
+        return std::make_unique<HashAggTransformOp>(std::move(agg_ctx));
+      }));
+  ARROW_RETURN_NOT_OK(builder->SetStageSink(
+      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<SinkOpPtr> {
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
+        return std::make_unique<HashAggMergeSinkOp>(std::move(agg_ctx));
+      }));
+
+  ARROW_ASSIGN_OR_RAISE(const auto result_stage, builder->AddStage());
+  ARROW_RETURN_NOT_OK(builder->SetStageSource(
+      result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<SourceOpPtr> {
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
+        return std::make_unique<HashAggResultSourceOp>(std::move(agg_ctx), /*max_output_rows=*/1 << 30);
+      }));
+  ARROW_RETURN_NOT_OK(builder->AddDependency(build_stage, result_stage));
+
+  ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, plan->CreateTask());
 
   ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
   if (initial_state != TaskState::kNeedInput) {

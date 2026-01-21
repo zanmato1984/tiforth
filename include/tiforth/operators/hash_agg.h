@@ -1,138 +1,136 @@
 #pragma once
 
-#include <array>
-#include <cstdint>
+#include <functional>
 #include <memory>
-#include <memory_resource>
 #include <string>
-#include <string_view>
-#include <variant>
 #include <vector>
 
+#include <arrow/compute/api_aggregate.h>
 #include <arrow/compute/exec.h>
+#include <arrow/compute/kernel.h>
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
+#include <arrow/type_fwd.h>
 
-#include "tiforth/expr.h"
 #include "tiforth/operators.h"
 #include "tiforth/operators/agg_defs.h"
-#include "tiforth/detail/aggregate_function.h"
-#include "tiforth/detail/arena.h"
-#include "tiforth/detail/key_hash_table.h"
-#include "tiforth/detail/scratch_bytes.h"
 
 namespace arrow {
-class Array;
-class DataType;
 class MemoryPool;
-class Schema;
+namespace compute {
+class Grouper;
+}  // namespace compute
 }  // namespace arrow
 
 namespace tiforth {
 
+class Engine;
+
+class HashAggContext;
+
+// A TiForth-native hash aggregation operator driven by Arrow's Grouper + grouped hash_* kernels.
+//
+// This intentionally does not depend on Arrow Acero ExecPlan. It is the building block for:
+// - pluggable Grouper implementations (collation / short-string optimization),
+// - grouped hash_* parity tests against TiFlash native aggregation.
+//
+// MS20+: implemented as a breaker-style hash aggregation (partial TransformOp + merge SinkOp + result SourceOp).
+class HashAggTransformOp final : public TransformOp {
+ public:
+  using GrouperFactory =
+      std::function<arrow::Result<std::unique_ptr<arrow::compute::Grouper>>(
+          const std::vector<arrow::TypeHolder>& key_types,
+          arrow::compute::ExecContext* exec_context)>;
+
+  explicit HashAggTransformOp(std::shared_ptr<HashAggContext> context);
+  ~HashAggTransformOp() override;
+
+ protected:
+  arrow::Result<OperatorStatus> TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
+
+ private:
+  arrow::Status InitIfNeededAndConsume(const arrow::RecordBatch& batch);
+  arrow::Status ConsumeBatch(const arrow::RecordBatch& batch);
+
+  std::shared_ptr<HashAggContext> context_;
+  const Engine* engine_ = nullptr;
+
+  std::shared_ptr<arrow::Schema> input_schema_;
+  arrow::compute::ExecContext exec_context_;
+
+  struct Compiled;
+  std::unique_ptr<Compiled> compiled_;
+
+  std::vector<arrow::TypeHolder> key_types_;
+  std::unique_ptr<arrow::compute::Grouper> grouper_;
+  std::vector<arrow::compute::Aggregate> aggregates_;
+  std::vector<std::vector<arrow::TypeHolder>> agg_in_types_;
+  std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
+  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states_;
+
+  bool sealed_ = false;
+};
+
 class HashAggContext final {
  public:
+  using GrouperFactory = HashAggTransformOp::GrouperFactory;
+
+  struct PartialState {
+    std::shared_ptr<arrow::Schema> input_schema;
+    std::vector<arrow::TypeHolder> key_types;
+    std::unique_ptr<arrow::compute::Grouper> grouper;
+    std::vector<std::vector<arrow::TypeHolder>> agg_in_types;
+    std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
+  };
+
   HashAggContext(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
-                 arrow::MemoryPool* memory_pool = nullptr);
+                 GrouperFactory grouper_factory = {}, arrow::MemoryPool* memory_pool = nullptr);
 
   HashAggContext(const HashAggContext&) = delete;
   HashAggContext& operator=(const HashAggContext&) = delete;
 
   ~HashAggContext();
 
-  arrow::Status ConsumeBatch(const arrow::RecordBatch& input);
-  arrow::Status FinishBuild();
+  const Engine* engine() const { return engine_; }
+  const std::vector<AggKey>& keys() const { return keys_; }
+  const std::vector<AggFunc>& aggs() const { return aggs_; }
+  const GrouperFactory& grouper_factory() const { return grouper_factory_; }
+
+  arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
+
+  arrow::Status MergePartial(PartialState partial);
+  arrow::Status Finalize();
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> ReadNextOutputBatch(int64_t max_rows);
 
  private:
-  static constexpr std::size_t kMaxKeys = 8;
-
-  using Decimal128Bytes = std::array<uint8_t, 16>;
-  using Decimal256Bytes = std::array<uint8_t, 32>;
-  using KeyValue =
-      std::variant<int64_t, uint64_t, Decimal128Bytes, Decimal256Bytes, detail::ByteSlice>;
-
-  struct KeyPart {
-    bool is_null = false;
-    KeyValue value;
-  };
-
-  struct OutputKey {
-    uint8_t key_count = 0;
-    std::array<KeyPart, kMaxKeys> parts;
-  };
-
-  arrow::Result<uint32_t> InsertNewGroup(OutputKey output_key);
-  arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema() const;
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> FinalizeOutput();
-
-  struct AggState {
-    enum class Kind {
-      kUnsupported,
-      kCountAll,
-      kCount,
-      kSum,
-      kAvg,
-      kMin,
-      kMax,
-    };
-
-    enum class SumKind {
-      kUnresolved,
-      kInt64,
-      kUInt64,
-      kDouble,
-      kDecimal128,
-      kDecimal256,
-    };
-
-    std::string name;
-    std::string func;
-    Kind kind;
-    ExprPtr arg;
-    SumKind sum_kind = SumKind::kUnresolved;
-    std::shared_ptr<arrow::DataType> arg_type;
-
-    std::unique_ptr<detail::AggregateFunction> fn;
-    int64_t state_offset = 0;
-  };
-
-  struct Compiled;
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> NextOutputBatch(int64_t max_rows);
+  arrow::Status InitIfNeeded(const PartialState& partial);
 
   const Engine* engine_ = nullptr;
   std::vector<AggKey> keys_;
-  std::vector<AggState> aggs_;
+  std::vector<AggFunc> aggs_;
+  GrouperFactory grouper_factory_;
 
-  std::shared_ptr<arrow::Schema> output_schema_;
-  std::vector<std::shared_ptr<arrow::Field>> output_key_fields_;
-  std::vector<std::shared_ptr<arrow::Field>> output_agg_fields_;
-
-  arrow::MemoryPool* memory_pool_ = nullptr;
-  detail::Arena group_key_arena_;
-  detail::Arena agg_state_arena_;
-  detail::KeyHashTable key_to_group_id_;
-  // Owns the memory_resource used by PMR containers in the hash agg state so the allocator stays
-  // valid for the lifetime of the hash table/key storage.
-  std::unique_ptr<std::pmr::memory_resource> pmr_resource_;
-  detail::ScratchBytes scratch_normalized_key_;
-  detail::ScratchBytes scratch_sort_key_;
-  std::unique_ptr<Compiled> compiled_;
+  std::shared_ptr<arrow::Schema> input_schema_;
   arrow::compute::ExecContext exec_context_;
 
-  std::pmr::vector<OutputKey> group_keys_;
-  std::pmr::vector<uint8_t*> group_agg_states_;
-  int64_t agg_state_row_size_ = 0;
-  int64_t agg_state_row_alignment_ = 1;
-  bool agg_state_layout_ready_ = false;
+  std::vector<arrow::compute::Aggregate> aggregates_;
+  std::vector<std::vector<arrow::TypeHolder>> agg_in_types_;
+  std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
+  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states_;
 
-  bool build_finished_ = false;
-  std::shared_ptr<arrow::RecordBatch> output_all_;
-  int64_t next_output_row_ = 0;
+  std::unique_ptr<arrow::compute::Grouper> grouper_;
+
+  std::shared_ptr<arrow::Schema> output_schema_;
+  std::shared_ptr<arrow::RecordBatch> output_batch_;
+  int64_t output_offset_ = 0;
+  bool output_started_ = false;
+  bool finalized_ = false;
 };
 
-class HashAggBuildSinkOp final : public SinkOp {
+class HashAggMergeSinkOp final : public SinkOp {
  public:
-  explicit HashAggBuildSinkOp(std::shared_ptr<HashAggContext> context);
+  explicit HashAggMergeSinkOp(std::shared_ptr<HashAggContext> context);
 
  protected:
   arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override;
@@ -141,9 +139,9 @@ class HashAggBuildSinkOp final : public SinkOp {
   std::shared_ptr<HashAggContext> context_;
 };
 
-class HashAggConvergentSourceOp final : public SourceOp {
+class HashAggResultSourceOp final : public SourceOp {
  public:
-  HashAggConvergentSourceOp(std::shared_ptr<HashAggContext> context, int64_t max_output_rows = 65536);
+  HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t max_output_rows = 65536);
 
  protected:
   arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
@@ -152,23 +150,5 @@ class HashAggConvergentSourceOp final : public SourceOp {
   std::shared_ptr<HashAggContext> context_;
   int64_t max_output_rows_ = 65536;
 };
-
-class LegacyHashAggTransformOp final : public TransformOp {
- public:
-  LegacyHashAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
-                           std::vector<AggFunc> aggs, arrow::MemoryPool* memory_pool = nullptr);
-  ~LegacyHashAggTransformOp() override;
-
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(
-      std::shared_ptr<arrow::RecordBatch>* batch) override;
-
- private:
-  std::shared_ptr<HashAggContext> context_;
-  bool finalized_ = false;
-  bool eos_forwarded_ = false;
-};
-
-using HashAggTransformOp = LegacyHashAggTransformOp;
 
 }  // namespace tiforth
