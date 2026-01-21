@@ -1,9 +1,7 @@
 #pragma once
 
-#include <atomic>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -30,6 +28,21 @@ class Engine;
 
 class HashAggContext;
 
+struct HashAggPartialState {
+  HashAggPartialState() = default;
+  HashAggPartialState(const HashAggPartialState&) = delete;
+  HashAggPartialState& operator=(const HashAggPartialState&) = delete;
+  HashAggPartialState(HashAggPartialState&&);
+  HashAggPartialState& operator=(HashAggPartialState&&);
+  ~HashAggPartialState();
+
+  std::shared_ptr<arrow::Schema> input_schema;
+  std::vector<arrow::TypeHolder> key_types;
+  std::unique_ptr<arrow::compute::Grouper> grouper;
+  std::vector<std::vector<arrow::TypeHolder>> agg_in_types;
+  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
+};
+
 // A TiForth-native hash aggregation operator driven by Arrow's Grouper + grouped hash_* kernels.
 //
 // This intentionally does not depend on Arrow Acero ExecPlan. It is the building block for:
@@ -45,6 +58,8 @@ class HashAggTransformOp final : public TransformOp {
           arrow::compute::ExecContext* exec_context)>;
 
   explicit HashAggTransformOp(std::shared_ptr<HashAggContext> context);
+  HashAggTransformOp(std::shared_ptr<HashAggContext> context,
+                     std::function<arrow::Status(HashAggPartialState)> on_partial_sealed);
   ~HashAggTransformOp() override;
 
  protected:
@@ -70,20 +85,14 @@ class HashAggTransformOp final : public TransformOp {
   std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
   std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states_;
 
+  std::function<arrow::Status(HashAggPartialState)> on_partial_sealed_;
   bool sealed_ = false;
 };
 
 class HashAggContext final {
  public:
   using GrouperFactory = HashAggTransformOp::GrouperFactory;
-
-  struct PartialState {
-    std::shared_ptr<arrow::Schema> input_schema;
-    std::vector<arrow::TypeHolder> key_types;
-    std::unique_ptr<arrow::compute::Grouper> grouper;
-    std::vector<std::vector<arrow::TypeHolder>> agg_in_types;
-    std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
-  };
+  using PartialState = HashAggPartialState;
 
   HashAggContext(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
                  GrouperFactory grouper_factory = {}, arrow::MemoryPool* memory_pool = nullptr);
@@ -100,20 +109,11 @@ class HashAggContext final {
 
   arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
 
-  // Configure how many HashAggMergeSinkOp instances (i.e. pipeline build tasks) are expected to
-  // send end-of-stream. This enables parallel build pipelines where multiple tasks share the same
-  // HashAggContext and only the last merge sink triggers Finalize().
-  arrow::Status SetExpectedMergeSinkCount(int64_t expected_merge_sinks);
-
   arrow::Status MergePartial(PartialState partial);
   arrow::Status Finalize();
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> ReadNextOutputBatch(int64_t max_rows);
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> OutputBatch();
 
  private:
-  friend class HashAggMergeSinkOp;
-
-  arrow::Result<std::shared_ptr<arrow::RecordBatch>> NextOutputBatch(int64_t max_rows);
-  arrow::Status FinalizeLocked();
   arrow::Status InitIfNeeded(const PartialState& partial);
 
   const Engine* engine_ = nullptr;
@@ -133,14 +133,7 @@ class HashAggContext final {
 
   std::shared_ptr<arrow::Schema> output_schema_;
   std::shared_ptr<arrow::RecordBatch> output_batch_;
-  int64_t output_offset_ = 0;
-  bool output_started_ = false;
   bool finalized_ = false;
-
-  std::atomic<int64_t> expected_merge_sinks_{1};
-  std::atomic<int64_t> remaining_merge_sinks_{1};
-
-  mutable std::mutex mutex_;
 };
 
 class HashAggMergeSinkOp final : public SinkOp {
@@ -157,12 +150,18 @@ class HashAggMergeSinkOp final : public SinkOp {
 class HashAggResultSourceOp final : public SourceOp {
  public:
   HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t max_output_rows = 65536);
+  HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t start_row, int64_t end_row,
+                        int64_t max_output_rows = 65536);
 
  protected:
   arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
 
  private:
   std::shared_ptr<HashAggContext> context_;
+  int64_t start_row_ = 0;
+  int64_t end_row_ = -1;
+  int64_t next_row_ = 0;
+  bool emitted_empty_ = false;
   int64_t max_output_rows_ = 65536;
 };
 

@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <utility>
@@ -55,30 +54,91 @@ class VectorSourceOp final : public SourceOp {
   std::size_t offset_ = 0;
 };
 
-struct CollectState {
-  std::mutex mu;
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+class EosSourceOp final : public SourceOp {
+ protected:
+  arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override {
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("batch output must not be null");
+    }
+    *batch = nullptr;
+    return OperatorStatus::kFinished;
+  }
 };
 
-class CollectSinkOp final : public SinkOp {
+class FinishOnEosSinkOp final : public SinkOp {
  public:
-  explicit CollectSinkOp(std::shared_ptr<CollectState> state) : state_(std::move(state)) {}
+  FinishOnEosSinkOp() = default;
 
  protected:
   arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override {
-    if (state_ == nullptr) {
-      return arrow::Status::Invalid("collect state must not be null");
+    if (batch != nullptr) {
+      return arrow::Status::Invalid("expected EOS only");
+    }
+    return OperatorStatus::kFinished;
+  }
+};
+
+class MergePartialsTransformOp final : public TransformOp {
+ public:
+  MergePartialsTransformOp(std::shared_ptr<HashAggContext> context,
+                           std::shared_ptr<std::vector<std::optional<HashAggPartialState>>> partials)
+      : context_(std::move(context)), partials_(std::move(partials)) {}
+
+ protected:
+  arrow::Result<OperatorStatus> TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) override {
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("batch must not be null");
+    }
+    if (context_ == nullptr) {
+      return arrow::Status::Invalid("hash agg context must not be null");
+    }
+    if (partials_ == nullptr) {
+      return arrow::Status::Invalid("partials must not be null");
+    }
+    if (*batch != nullptr) {
+      return arrow::Status::Invalid("expected EOS only");
+    }
+    if (merged_) {
+      batch->reset();
+      return OperatorStatus::kHasOutput;
+    }
+
+    for (auto& maybe_partial : *partials_) {
+      if (!maybe_partial.has_value()) {
+        continue;
+      }
+      ARROW_RETURN_NOT_OK(context_->MergePartial(std::move(*maybe_partial)));
+      maybe_partial.reset();
+    }
+    merged_ = true;
+    batch->reset();
+    return OperatorStatus::kHasOutput;
+  }
+
+ private:
+  std::shared_ptr<HashAggContext> context_;
+  std::shared_ptr<std::vector<std::optional<HashAggPartialState>>> partials_;
+  bool merged_ = false;
+};
+
+class SlotCollectSinkOp final : public SinkOp {
+ public:
+  explicit SlotCollectSinkOp(std::vector<std::shared_ptr<arrow::RecordBatch>>* out) : out_(out) {}
+
+ protected:
+  arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override {
+    if (out_ == nullptr) {
+      return arrow::Status::Invalid("output slot must not be null");
     }
     if (batch == nullptr) {
       return OperatorStatus::kFinished;
     }
-    std::lock_guard<std::mutex> lock(state_->mu);
-    state_->batches.push_back(std::move(batch));
+    out_->push_back(std::move(batch));
     return OperatorStatus::kNeedInput;
   }
 
  private:
-  std::shared_ptr<CollectState> state_;
+  std::vector<std::shared_ptr<arrow::RecordBatch>>* out_ = nullptr;
 };
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -119,7 +179,6 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
   std::vector<AggFunc> aggs = {{"sum_v", "sum", MakeFieldRef("v")}};
 
   auto agg_ctx = std::make_shared<HashAggContext>(engine.get(), keys, aggs);
-  ARROW_RETURN_NOT_OK(agg_ctx->SetExpectedMergeSinkCount(kBuildParallelism));
 
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeInt32Batch({1, 2}, {10, 20}));
   ARROW_ASSIGN_OR_RAISE(auto batch1, MakeInt32Batch({1, 3}, {5, 7}));
@@ -136,36 +195,78 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
     (*partitions)[i % kBuildParallelism].push_back(inputs[i]);
   }
 
-  auto collect_state = std::make_shared<CollectState>();
+  auto partials =
+      std::make_shared<std::vector<std::optional<HashAggPartialState>>>(kBuildParallelism);
+  auto outputs_by_task =
+      std::make_shared<std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>>(
+          kResultParallelism);
 
   test::PipelineRunner runner;
+
   test::PipelineStageSpec build_spec;
   build_spec.name = "hash_agg_build";
   build_spec.num_tasks = kBuildParallelism;
   build_spec.task_factory =
-      [agg_ctx, partitions](int task_id) -> arrow::Result<std::unique_ptr<PipelineExec>> {
+      [agg_ctx, partitions, partials](int task_id) -> arrow::Result<std::unique_ptr<PipelineExec>> {
     if (task_id < 0 || static_cast<std::size_t>(task_id) >= partitions->size()) {
       return arrow::Status::Invalid("task_id out of range");
+    }
+    const std::size_t slot = static_cast<std::size_t>(task_id);
+    if (slot >= partials->size()) {
+      return arrow::Status::Invalid("partial slot out of range");
     }
 
     PipelineExecBuilder builder;
     builder.SetSourceOp(
         std::make_unique<VectorSourceOp>((*partitions)[static_cast<std::size_t>(task_id)]));
-    builder.AppendTransformOp(std::make_unique<HashAggTransformOp>(agg_ctx));
-    builder.SetSinkOp(std::make_unique<HashAggMergeSinkOp>(agg_ctx));
+    builder.AppendTransformOp(std::make_unique<HashAggTransformOp>(
+        agg_ctx, [partials, slot](HashAggPartialState partial) -> arrow::Status {
+          (*partials)[slot] = std::move(partial);
+          return arrow::Status::OK();
+        }));
+    builder.SetSinkOp(std::make_unique<FinishOnEosSinkOp>());
     return builder.Build();
   };
   ARROW_ASSIGN_OR_RAISE(const auto build_stage, runner.AddStage(std::move(build_spec)));
+
+  test::PipelineStageSpec merge_spec;
+  merge_spec.name = "hash_agg_merge";
+  merge_spec.num_tasks = 1;
+  merge_spec.task_factory =
+      [agg_ctx, partials](int /*task_id*/) -> arrow::Result<std::unique_ptr<PipelineExec>> {
+    PipelineExecBuilder builder;
+    builder.SetSourceOp(std::make_unique<EosSourceOp>());
+    builder.AppendTransformOp(std::make_unique<MergePartialsTransformOp>(agg_ctx, partials));
+    builder.SetSinkOp(std::make_unique<HashAggMergeSinkOp>(agg_ctx));
+    return builder.Build();
+  };
+  ARROW_ASSIGN_OR_RAISE(const auto merge_stage, runner.AddStage(std::move(merge_spec)));
 
   const Engine* engine_ptr = engine.get();
   test::PipelineStageSpec result_spec;
   result_spec.name = "hash_agg_result";
   result_spec.num_tasks = kResultParallelism;
   result_spec.task_factory =
-      [agg_ctx, engine_ptr,
-       collect_state](int /*task_id*/) -> arrow::Result<std::unique_ptr<PipelineExec>> {
+      [agg_ctx, engine_ptr, outputs_by_task,
+       kResultParallelism](int task_id) -> arrow::Result<std::unique_ptr<PipelineExec>> {
+    if (task_id < 0 || static_cast<std::size_t>(task_id) >= outputs_by_task->size()) {
+      return arrow::Status::Invalid("task_id out of range");
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto out, agg_ctx->OutputBatch());
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null hash agg output");
+    }
+    const int64_t total_rows = out->num_rows();
+    if (total_rows < 0) {
+      return arrow::Status::Invalid("negative output row count");
+    }
+    const int64_t start = (static_cast<int64_t>(task_id) * total_rows) / kResultParallelism;
+    const int64_t end = (static_cast<int64_t>(task_id + 1) * total_rows) / kResultParallelism;
+
     PipelineExecBuilder builder;
-    builder.SetSourceOp(std::make_unique<HashAggResultSourceOp>(agg_ctx, /*max_output_rows=*/1));
+    builder.SetSourceOp(std::make_unique<HashAggResultSourceOp>(agg_ctx, start, end,
+                                                                /*max_output_rows=*/1));
 
     std::vector<ProjectionExpr> exprs;
     exprs.push_back({"k", MakeFieldRef("k")});
@@ -175,18 +276,22 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
     builder.AppendTransformOp(
         std::make_unique<ProjectionTransformOp>(engine_ptr, std::move(exprs)));
 
-    builder.SetSinkOp(std::make_unique<CollectSinkOp>(collect_state));
+    auto* slot = &(*outputs_by_task)[static_cast<std::size_t>(task_id)];
+    builder.SetSinkOp(std::make_unique<SlotCollectSinkOp>(slot));
     return builder.Build();
   };
   ARROW_ASSIGN_OR_RAISE(const auto result_stage, runner.AddStage(std::move(result_spec)));
 
-  ARROW_RETURN_NOT_OK(runner.AddDependency(build_stage, result_stage));
+  ARROW_RETURN_NOT_OK(runner.AddDependency(build_stage, merge_stage));
+  ARROW_RETURN_NOT_OK(runner.AddDependency(merge_stage, result_stage));
   ARROW_RETURN_NOT_OK(runner.Run());
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
-  {
-    std::lock_guard<std::mutex> lock(collect_state->mu);
-    outputs = collect_state->batches;
+  outputs.reserve(32);
+  for (auto& task_outputs : *outputs_by_task) {
+    for (auto& batch : task_outputs) {
+      outputs.push_back(std::move(batch));
+    }
   }
   if (outputs.empty()) {
     return arrow::Status::Invalid("expected non-empty output");
