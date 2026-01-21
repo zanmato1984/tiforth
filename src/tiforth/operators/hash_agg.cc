@@ -232,6 +232,22 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
 
 HashAggContext::~HashAggContext() = default;
 
+arrow::Status HashAggContext::SetExpectedMergeSinkCount(int64_t expected_merge_sinks) {
+  if (expected_merge_sinks <= 0) {
+    return arrow::Status::Invalid("expected_merge_sinks must be positive");
+  }
+
+  const int64_t current_expected = expected_merge_sinks_.load();
+  const int64_t current_remaining = remaining_merge_sinks_.load();
+  if (current_remaining != current_expected) {
+    return arrow::Status::Invalid("cannot change expected merge sink count after build started");
+  }
+
+  expected_merge_sinks_.store(expected_merge_sinks);
+  remaining_merge_sinks_.store(expected_merge_sinks);
+  return arrow::Status::OK();
+}
+
 HashAggTransformOp::HashAggTransformOp(std::shared_ptr<HashAggContext> context)
     : context_(std::move(context)),
       engine_(context_ != nullptr ? context_->engine() : nullptr),
@@ -592,6 +608,7 @@ arrow::Status HashAggContext::InitIfNeeded(const PartialState& partial) {
 }
 
 arrow::Status HashAggContext::MergePartial(PartialState partial) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (finalized_) {
     return arrow::Status::Invalid("hash agg context is finalized");
   }
@@ -658,7 +675,7 @@ arrow::Status HashAggContext::MergePartial(PartialState partial) {
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggContext::Finalize() {
+arrow::Status HashAggContext::FinalizeLocked() {
   if (finalized_) {
     return arrow::Status::OK();
   }
@@ -728,6 +745,11 @@ arrow::Status HashAggContext::Finalize() {
   return arrow::Status::OK();
 }
 
+arrow::Status HashAggContext::Finalize() {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return FinalizeLocked();
+}
+
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::NextOutputBatch(
     int64_t max_rows) {
   if (max_rows <= 0) {
@@ -762,7 +784,8 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::NextOutputBat
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::ReadNextOutputBatch(
     int64_t max_rows) {
-  ARROW_RETURN_NOT_OK(Finalize());
+  std::lock_guard<std::mutex> lock(mutex_);
+  ARROW_RETURN_NOT_OK(FinalizeLocked());
   ARROW_ASSIGN_OR_RAISE(auto out, NextOutputBatch(max_rows));
   if (out == nullptr) {
     output_batch_.reset();
@@ -781,7 +804,14 @@ arrow::Result<OperatorStatus> HashAggMergeSinkOp::WriteImpl(
   if (batch != nullptr) {
     return arrow::Status::Invalid("hash agg merge sink expects EOS only");
   }
-  ARROW_RETURN_NOT_OK(context_->Finalize());
+
+  const int64_t prev = context_->remaining_merge_sinks_.fetch_sub(1);
+  if (prev <= 0) {
+    return arrow::Status::Invalid("hash agg merge sink received too many EOS signals");
+  }
+  if (prev == 1) {
+    ARROW_RETURN_NOT_OK(context_->Finalize());
+  }
   return OperatorStatus::kFinished;
 }
 

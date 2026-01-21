@@ -6,6 +6,7 @@ add_tiforth_test(tiforth_pass_through_reader_test "${CMAKE_CURRENT_SOURCE_DIR}/t
 add_tiforth_test(tiforth_task_blocked_state_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_task_blocked_state_test.cpp")
 add_tiforth_test(tiforth_filter_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_filter_test.cpp")
 add_tiforth_test(tiforth_hash_agg_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_hash_agg_test.cpp")
+add_tiforth_test(tiforth_parallel_hash_agg_pipeline_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_parallel_hash_agg_pipeline_test.cpp")
 add_tiforth_test(tiforth_hash_join_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_hash_join_test.cpp")
 add_tiforth_test(tiforth_key_hash_table_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_key_hash_table_test.cpp")
 add_tiforth_test(tiforth_fixed_key_hash_table_test "${CMAKE_CURRENT_SOURCE_DIR}/tiforth_fixed_key_hash_table_test.cpp")

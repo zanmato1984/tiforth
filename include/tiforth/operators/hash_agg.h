@@ -1,7 +1,9 @@
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -98,12 +100,20 @@ class HashAggContext final {
 
   arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
 
+  // Configure how many HashAggMergeSinkOp instances (i.e. pipeline build tasks) are expected to
+  // send end-of-stream. This enables parallel build pipelines where multiple tasks share the same
+  // HashAggContext and only the last merge sink triggers Finalize().
+  arrow::Status SetExpectedMergeSinkCount(int64_t expected_merge_sinks);
+
   arrow::Status MergePartial(PartialState partial);
   arrow::Status Finalize();
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> ReadNextOutputBatch(int64_t max_rows);
 
  private:
+  friend class HashAggMergeSinkOp;
+
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> NextOutputBatch(int64_t max_rows);
+  arrow::Status FinalizeLocked();
   arrow::Status InitIfNeeded(const PartialState& partial);
 
   const Engine* engine_ = nullptr;
@@ -126,6 +136,11 @@ class HashAggContext final {
   int64_t output_offset_ = 0;
   bool output_started_ = false;
   bool finalized_ = false;
+
+  std::atomic<int64_t> expected_merge_sinks_{1};
+  std::atomic<int64_t> remaining_merge_sinks_{1};
+
+  mutable std::mutex mutex_;
 };
 
 class HashAggMergeSinkOp final : public SinkOp {
