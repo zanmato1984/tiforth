@@ -36,6 +36,10 @@ struct HashAggPartialState {
   HashAggPartialState& operator=(HashAggPartialState&&);
   ~HashAggPartialState();
 
+  // Keepalive for Arrow compute objects (Grouper / KernelState) which may store a raw pointer to
+  // ExecContext.
+  std::shared_ptr<arrow::compute::ExecContext> exec_context;
+
   std::shared_ptr<arrow::Schema> input_schema;
   std::vector<arrow::TypeHolder> key_types;
   std::unique_ptr<arrow::compute::Grouper> grouper;
@@ -73,7 +77,7 @@ class HashAggTransformOp final : public TransformOp {
   const Engine* engine_ = nullptr;
 
   std::shared_ptr<arrow::Schema> input_schema_;
-  arrow::compute::ExecContext exec_context_;
+  std::shared_ptr<arrow::compute::ExecContext> exec_context_;
 
   struct Compiled;
   std::unique_ptr<Compiled> compiled_;

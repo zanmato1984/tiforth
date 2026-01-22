@@ -244,11 +244,11 @@ HashAggTransformOp::HashAggTransformOp(
     std::function<arrow::Status(HashAggPartialState)> on_partial_sealed)
     : context_(std::move(context)),
       engine_(context_ != nullptr ? context_->engine() : nullptr),
-      exec_context_(context_ != nullptr ? context_->memory_pool()
-                                        : (engine_ != nullptr ? engine_->memory_pool()
-                                                              : arrow::default_memory_pool()),
-                    /*executor=*/nullptr,
-                    engine_ != nullptr ? engine_->function_registry() : nullptr),
+      exec_context_(std::make_shared<arrow::compute::ExecContext>(
+          context_ != nullptr ? context_->memory_pool()
+                              : (engine_ != nullptr ? engine_->memory_pool()
+                                                    : arrow::default_memory_pool()),
+          /*executor=*/nullptr, engine_ != nullptr ? engine_->function_registry() : nullptr)),
       on_partial_sealed_(std::move(on_partial_sealed)) {
   ARROW_DCHECK(context_ != nullptr);
 }
@@ -288,7 +288,7 @@ arrow::Status HashAggTransformOp::InitIfNeededAndConsume(const arrow::RecordBatc
         return arrow::Status::Invalid("group-by key expr must not be null");
       }
       ARROW_ASSIGN_OR_RAISE(auto compiled_key,
-                            CompileExpr(input_schema_, *key.expr, engine_, &exec_context_));
+                            CompileExpr(input_schema_, *key.expr, engine_, exec_context_.get()));
       compiled_->keys.push_back(std::move(compiled_key));
     }
 
@@ -309,7 +309,7 @@ arrow::Status HashAggTransformOp::InitIfNeededAndConsume(const arrow::RecordBatc
         return arrow::Status::Invalid("aggregate argument expr must not be null");
       }
       ARROW_ASSIGN_OR_RAISE(auto compiled_arg,
-                            CompileExpr(input_schema_, *agg.arg, engine_, &exec_context_));
+                            CompileExpr(input_schema_, *agg.arg, engine_, exec_context_.get()));
       compiled_->agg_args[i] = std::move(compiled_arg);
     }
   }
@@ -336,7 +336,8 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
   std::vector<std::shared_ptr<arrow::Array>> key_arrays;
   key_arrays.reserve(compiled_->keys.size());
   for (const auto& compiled_key : compiled_->keys) {
-    ARROW_ASSIGN_OR_RAISE(auto array, ExecuteExprAsArray(compiled_key, batch, &exec_context_));
+    ARROW_ASSIGN_OR_RAISE(auto array,
+                          ExecuteExprAsArray(compiled_key, batch, exec_context_.get()));
     if (array == nullptr) {
       return arrow::Status::Invalid("key array must not be null");
     }
@@ -353,7 +354,7 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
       continue;
     }
     ARROW_ASSIGN_OR_RAISE(auto array,
-                          ExecuteExprAsArray(*compiled_->agg_args[i], batch, &exec_context_));
+                          ExecuteExprAsArray(*compiled_->agg_args[i], batch, exec_context_.get()));
     if (array == nullptr) {
       return arrow::Status::Invalid("aggregate argument array must not be null");
     }
@@ -374,11 +375,12 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
     }
 
     if (context_->grouper_factory()) {
-      ARROW_ASSIGN_OR_RAISE(grouper_, context_->grouper_factory()(key_types_, &exec_context_));
+      ARROW_ASSIGN_OR_RAISE(grouper_,
+                            context_->grouper_factory()(key_types_, exec_context_.get()));
     } else {
       ARROW_ASSIGN_OR_RAISE(grouper_,
                             MakeDefaultGrouper(key_types_, input_schema_, context_->keys(),
-                                               &exec_context_));
+                                               exec_context_.get()));
     }
     if (grouper_ == nullptr) {
       return arrow::Status::Invalid("grouper must not be null");
@@ -403,12 +405,13 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
         }
         in_types.emplace_back(agg_arg_arrays[i]->type().get());
       }
-      agg_in_types_.push_back(std::move(in_types));
-    }
+    agg_in_types_.push_back(std::move(in_types));
+  }
 
-    ARROW_ASSIGN_OR_RAISE(agg_kernels_, GetKernels(&exec_context_, aggregates_, agg_in_types_));
-    ARROW_ASSIGN_OR_RAISE(agg_states_,
-                          InitKernels(agg_kernels_, &exec_context_, aggregates_, agg_in_types_));
+    ARROW_ASSIGN_OR_RAISE(agg_kernels_,
+                          GetKernels(exec_context_.get(), aggregates_, agg_in_types_));
+    ARROW_ASSIGN_OR_RAISE(agg_states_, InitKernels(agg_kernels_, exec_context_.get(), aggregates_,
+                                                   agg_in_types_));
   }
 
   std::vector<arrow::Datum> key_values;
@@ -424,7 +427,7 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
   }
 
   for (std::size_t i = 0; i < agg_kernels_.size(); ++i) {
-    arrow::compute::KernelContext kernel_ctx{&exec_context_};
+    arrow::compute::KernelContext kernel_ctx{exec_context_.get()};
     kernel_ctx.SetState(agg_states_[i].get());
 
     std::vector<arrow::Datum> values;
@@ -461,6 +464,7 @@ arrow::Result<OperatorStatus> HashAggTransformOp::TransformImpl(
   if (*batch == nullptr) {
     if (!sealed_ && input_schema_ != nullptr) {
       HashAggContext::PartialState partial;
+      partial.exec_context = exec_context_;
       partial.input_schema = input_schema_;
       partial.key_types = std::move(key_types_);
       partial.grouper = std::move(grouper_);

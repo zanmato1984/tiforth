@@ -8,8 +8,7 @@
 #include <arrow/record_batch.h>
 
 #include "tiforth/operators.h"
-#include "tiforth/pipeline/pipeline_context.h"
-#include "tiforth/task/task_context.h"
+#include "tiforth/pipeline_exec.h"
 
 namespace tiforth {
 
@@ -53,7 +52,6 @@ class Task {
 
   class InputSourceOp;
   class OutputSinkOp;
-  struct Stage;
 
   arrow::Status Init(TransformOps transforms);
   arrow::Status InitPlan(const Plan& plan);
@@ -66,15 +64,8 @@ class Task {
   bool input_closed_ = false;
 
   std::unique_ptr<PlanTaskContext> plan_task_context_;
-  std::vector<std::unique_ptr<Stage>> stages_;
-  std::size_t current_stage_index_ = 0;
-
-  pipeline::PipelineContext pipeline_context_;
-  task::TaskContext task_context_;
-
-  bool need_input_ = false;
-  task::ResumerPtr input_resumer_;
-  task::ResumerPtr blocked_resumer_;
+  std::vector<std::unique_ptr<PipelineExec>> execs_;
+  std::size_t current_exec_index_ = 0;
 
   friend class Plan;
 };
