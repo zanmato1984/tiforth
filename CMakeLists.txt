@@ -31,10 +31,16 @@ if(NOT TIFORTH_IS_TOP_LEVEL AND TIFORTH_BUILD_TESTS)
   message(FATAL_ERROR "TIFORTH_BUILD_TESTS must be OFF when tiforth is included as a subproject")
 endif()
 
+option(TIFORTH_BUILD_CAPI "Build TiForth C API (experimental)" OFF)
+
 include(cmake/find/arrow.cmake)
 
 add_subdirectory(src/tiforth)
-add_subdirectory(src/tiforth_capi)
+if(TIFORTH_BUILD_CAPI)
+  message(
+    FATAL_ERROR
+    "TIFORTH_BUILD_CAPI is temporarily disabled: MS26 removed legacy Pipeline/Task wrappers; C ABI redesign is a follow-up milestone")
+endif()
 
 if(TIFORTH_BUILD_TESTS)
   include(cmake/testing/testing.cmake)
@@ -50,6 +56,12 @@ install(TARGETS tiforth EXPORT tiforthTargets
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
         PATTERN "arrow_compute.h" EXCLUDE
         PATTERN "expr_compiler.h" EXCLUDE
+        REGEX "/tiforth/pipeline\\.h$" EXCLUDE
+        REGEX "/tiforth/plan\\.h$" EXCLUDE
+        REGEX "/tiforth/task\\.h$" EXCLUDE
+        REGEX "/tiforth/pipeline/physical_pipeline\\.h$" EXCLUDE
+        REGEX "/tiforth/pipeline/pipeline_task\\.h$" EXCLUDE
+        REGEX "/tiforth/operators/pilot\\.h$" EXCLUDE
         PATTERN "stash" EXCLUDE
         PATTERN "stash/*" EXCLUDE)
 

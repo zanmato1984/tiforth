@@ -23,8 +23,11 @@
 #include "tiforth/expr.h"
 #include "tiforth/operators/arrow_compute_agg.h"
 #include "tiforth/pipeline/op/op.h"
-#include "tiforth/plan.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -109,51 +112,41 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
     const std::vector<std::shared_ptr<arrow::RecordBatch>>& inputs, const std::vector<AggKey>& keys,
     const std::vector<AggFunc>& aggs, ArrowComputeAggOptions options = {}) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PlanBuilder::Create(engine.get()));
-  ARROW_ASSIGN_OR_RAISE(const auto stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      stage,
-      [engine_ptr = engine.get(), keys, aggs, options](PlanTaskContext*)
-          -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<ArrowComputeAggPipeOp>(engine_ptr, keys, aggs, options);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, plan->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
-
   for (const auto& batch : inputs) {
     if (batch == nullptr) {
       return arrow::Status::Invalid("input batch must not be null");
     }
-    ARROW_RETURN_NOT_OK(task->PushInput(batch));
   }
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("expected TaskState::kHasOutput/kNeedInput/kFinished");
-    }
+  auto source_op = std::make_unique<test::VectorSourceOp>(inputs);
 
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    if (out == nullptr) {
-      return arrow::Status::Invalid("expected non-null output batch");
-    }
-    outputs.push_back(std::move(out));
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(
+      std::make_unique<ArrowComputeAggPipeOp>(engine.get(), keys, aggs, options));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
-  return outputs;
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "ArrowComputeAgg",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  return test::FlattenOutputs(std::move(outputs_by_thread));
 }
 
 arrow::Status RunArrowComputeAggSmoke() {

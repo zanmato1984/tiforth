@@ -33,12 +33,11 @@ class HashAggSinkOp final : public pipeline::SinkOp {
   explicit HashAggSinkOp(std::shared_ptr<HashAggState> state);
 
   pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override;
-  std::optional<task::TaskGroup> Backend(const pipeline::PipelineContext&) override;
+  task::TaskGroups Frontend(const pipeline::PipelineContext&) override;
   std::unique_ptr<pipeline::SourceOp> ImplicitSource(const pipeline::PipelineContext&) override;
 
  private:
   std::shared_ptr<HashAggState> state_;
-  bool backend_done_ = false;
 };
 
 class HashAggResultSourceOp final : public pipeline::SourceOp {
@@ -118,4 +117,3 @@ class HashAggState final {
 };
 
 }  // namespace tiforth
-

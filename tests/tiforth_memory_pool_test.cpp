@@ -18,11 +18,12 @@
 #include "tiforth/operators/hash_agg.h"
 #include "tiforth/operators/hash_join.h"
 #include "tiforth/operators/sort.h"
-#include "tiforth/pipeline/op/op.h"
-#include "tiforth/plan.h"
-#include "tiforth/pipeline.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
 #include "tiforth/type_metadata.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -98,43 +99,40 @@ arrow::Status RunMemoryPoolSmoke() {
   EngineOptions options;
   options.memory_pool = &pool;
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(options));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "x", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<SortPipeOp>(eng, keys);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({3, 1}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
   ARROW_ASSIGN_OR_RAISE(auto batch1, MakeBatch({std::nullopt, 2}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch1));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("unexpected task state");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    (void)out;
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0, batch1});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<SortPipeOp>(eng, std::move(keys)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "MemoryPoolSort",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
 
   if (pool.num_allocations() <= 0 || pool.total_bytes_allocated() <= 0) {
     return arrow::Status::Invalid("expected allocations to go through the provided memory pool");
@@ -148,22 +146,9 @@ arrow::Result<int64_t> RunCollatedSortBytesAllocated(int32_t collation_id) {
   EngineOptions options;
   options.memory_pool = &pool;
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(options));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "x", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<SortPipeOp>(eng, keys);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   std::vector<std::optional<std::string>> values;
   values.reserve(128);
@@ -171,23 +156,34 @@ arrow::Result<int64_t> RunCollatedSortBytesAllocated(int32_t collation_id) {
     values.push_back(std::string(64, static_cast<char>('a' + (i % 26))));
   }
   ARROW_ASSIGN_OR_RAISE(auto batch, MakeBinaryBatch(collation_id, values));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("unexpected task state");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    (void)out;
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<SortPipeOp>(eng, std::move(keys)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "CollatedSortBytesAllocated",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
 
   return pool.total_bytes_allocated();
 }
@@ -198,44 +194,42 @@ arrow::Status RunHashJoinMemoryPoolSmoke() {
   EngineOptions options;
   options.memory_pool = &pool;
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(options));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
   const auto* eng = engine.get();
 
   ARROW_ASSIGN_OR_RAISE(auto build,
                         MakeBatch2("k", "bv", {1, 2, 2, std::nullopt}, {100, 200, 201, 999}));
   std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches = {std::move(build)};
   JoinKey key{.left = {"k"}, .right = {"k"}};
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [eng, build_batches, key]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<HashJoinPipeOp>(eng, build_batches, key);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   ARROW_ASSIGN_OR_RAISE(auto probe, MakeBatch2("k", "pv", {2, 1, 3, std::nullopt}, {20, 10, 30, 0}));
-  ARROW_RETURN_NOT_OK(task->PushInput(probe));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("unexpected task state");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    (void)out;
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{probe});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<HashJoinPipeOp>(eng, std::move(build_batches), key));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "MemoryPoolHashJoin",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
 
   if (pool.num_allocations() <= 0 || pool.total_bytes_allocated() <= 0) {
     return arrow::Status::Invalid("expected allocations to go through the provided memory pool");
@@ -249,42 +243,11 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
   EngineOptions options;
   options.memory_pool = &pool;
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(options));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PlanBuilder::Create(engine.get()));
 
   std::vector<AggKey> keys = {AggKey{.name = "x", .expr = MakeFieldRef("x")}};
   std::vector<AggFunc> aggs;
   aggs.push_back(AggFunc{.name = "cnt", .func = "count_all", .arg = nullptr});
-
-  const Engine* engine_ptr = engine.get();
-  ARROW_ASSIGN_OR_RAISE(
-      const auto ctx_id,
-      builder->AddBreakerState<HashAggState>(
-          [engine_ptr, keys, aggs]() -> arrow::Result<std::shared_ptr<HashAggState>> {
-            return std::make_shared<HashAggState>(engine_ptr, keys, aggs);
-          }));
-
-  ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->SetStageSink(
-      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
-        return std::make_unique<HashAggSinkOp>(std::move(agg_ctx));
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(const auto result_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->SetStageSource(
-      result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
-        return std::make_unique<HashAggResultSourceOp>(std::move(agg_ctx), /*max_output_rows=*/1 << 30);
-      }));
-  ARROW_RETURN_NOT_OK(builder->AddDependency(build_stage, result_stage));
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, plan->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
+  auto agg_state = std::make_shared<HashAggState>(engine.get(), keys, aggs);
 
   std::vector<std::optional<std::string>> values;
   values.reserve(4096);
@@ -296,22 +259,51 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
     values.push_back(std::move(s));
   }
   ARROW_ASSIGN_OR_RAISE(auto batch, MakeBinaryBatch(collation_id, values));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("unexpected task state");
-    }
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    (void)out;
+  // Build stage.
+  {
+    auto source_op = std::make_unique<test::VectorSourceOp>(
+        std::vector<std::shared_ptr<arrow::RecordBatch>>{batch});
+    auto sink_op = std::make_unique<HashAggSinkOp>(agg_state);
+
+    pipeline::LogicalPipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
+
+    pipeline::LogicalPipeline logical_pipeline{
+        "HashAggBuildBytes",
+        std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline,
+                                                        /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+  }
+
+  // Result stage (force output materialization).
+  {
+    auto source_op = std::make_unique<HashAggResultSourceOp>(agg_state, /*max_output_rows=*/1 << 30);
+
+    test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+    auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+    pipeline::LogicalPipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
+
+    pipeline::LogicalPipeline logical_pipeline{
+        "HashAggResultBytes",
+        std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline,
+                                                        /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+    (void)test::FlattenOutputs(std::move(outputs_by_thread));
   }
 
   return pool.total_bytes_allocated();

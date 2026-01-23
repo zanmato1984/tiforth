@@ -11,8 +11,11 @@
 #include <memory>
 
 #include "tiforth/engine.h"
-#include "tiforth/plan.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -80,36 +83,9 @@ class EmitCountSourceOp final : public pipeline::SourceOp {
 
 arrow::Status RunBreakerPlanSmoke() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PlanBuilder::Create(engine.get()));
+  (void)engine;
 
-  ARROW_ASSIGN_OR_RAISE(const auto counter_id,
-                        builder->AddBreakerState<CounterState>([]() -> arrow::Result<std::shared_ptr<CounterState>> {
-                          return std::make_shared<CounterState>();
-                        }));
-
-  ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->SetStageSink(
-      build_stage, [counter_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto state, ctx->GetBreakerState<CounterState>(counter_id));
-        return std::make_unique<CountingSinkOp>(std::move(state));
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(const auto convergent_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->SetStageSource(
-      convergent_stage, [counter_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto state, ctx->GetBreakerState<CounterState>(counter_id));
-        return std::make_unique<EmitCountSourceOp>(std::move(state));
-      }));
-
-  ARROW_RETURN_NOT_OK(builder->AddDependency(build_stage, convergent_stage));
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, plan->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(const auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
+  auto counter_state = std::make_shared<CounterState>();
 
   auto schema = arrow::schema({arrow::field("x", arrow::int32())});
   arrow::Int32Builder values;
@@ -118,27 +94,61 @@ arrow::Status RunBreakerPlanSmoke() {
   ARROW_RETURN_NOT_OK(values.Finish(&array));
   auto batch = arrow::RecordBatch::Make(schema, /*num_rows=*/3, {array});
 
-  ARROW_RETURN_NOT_OK(task->PushInput(batch));
+  // Build stage: count rows.
+  {
+    auto source_op = std::make_unique<test::VectorSourceOp>(
+        std::vector<std::shared_ptr<arrow::RecordBatch>>{batch});
+    auto sink_op = std::make_unique<CountingSinkOp>(counter_state);
 
-  ARROW_ASSIGN_OR_RAISE(const auto after_push_state, task->Step());
-  if (after_push_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput after build stage consumes input");
+    pipeline::LogicalPipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
+
+    pipeline::LogicalPipeline logical_pipeline{
+        "BreakerBuild",
+        std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline,
+                                                        /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
   }
 
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  // Convergent stage: emit count as a batch.
+  std::shared_ptr<arrow::RecordBatch> out;
+  {
+    auto source_op = std::make_unique<EmitCountSourceOp>(counter_state);
 
-  TaskState state = TaskState::kNeedInput;
-  while (state == TaskState::kNeedInput) {
-    ARROW_ASSIGN_OR_RAISE(state, task->Step());
-  }
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected TaskState::kHasOutput after build finishes");
+    test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+    auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+    pipeline::LogicalPipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
+
+    pipeline::LogicalPipeline logical_pipeline{
+        "BreakerConvergent",
+        std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline,
+                                                        /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+    auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+    if (outputs.size() != 1) {
+      return arrow::Status::Invalid("expected exactly 1 output batch");
+    }
+    out = std::move(outputs[0]);
+    if (out == nullptr) {
+      return arrow::Status::Invalid("expected non-null output batch");
+    }
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-  if (out == nullptr) {
-    return arrow::Status::Invalid("expected non-null output batch");
-  }
   if (out->num_columns() != 1 || out->num_rows() != 1) {
     return arrow::Status::Invalid("unexpected output shape");
   }
@@ -151,11 +161,6 @@ arrow::Status RunBreakerPlanSmoke() {
   }
   if (rows_array->IsNull(0) || rows_array->Value(0) != 3) {
     return arrow::Status::Invalid("unexpected output value");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(const auto final_state, task->Step());
-  if (final_state != TaskState::kFinished) {
-    return arrow::Status::Invalid("expected TaskState::kFinished after draining output");
   }
 
   return arrow::Status::OK();

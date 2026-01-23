@@ -23,9 +23,12 @@
 #include "tiforth/expr.h"
 #include "tiforth/operators/hash_agg.h"
 #include "tiforth/pipeline/op/op.h"
-#include "tiforth/plan.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
 #include "tiforth/type_metadata.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -129,67 +132,58 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPlan(
     const std::vector<std::shared_ptr<arrow::RecordBatch>>& inputs, const std::vector<AggKey>& keys,
     const std::vector<AggFunc>& aggs) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PlanBuilder::Create(engine.get()));
-
-  const Engine* engine_ptr = engine.get();
-  ARROW_ASSIGN_OR_RAISE(const auto ctx_id,
-                        builder->AddBreakerState<HashAggState>(
-                            [engine_ptr, keys, aggs]()
-                                -> arrow::Result<std::shared_ptr<HashAggState>> {
-                              return std::make_shared<HashAggState>(engine_ptr, keys, aggs);
-                            }));
-
-  ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->SetStageSink(
-      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
-        return std::make_unique<HashAggSinkOp>(std::move(agg_ctx));
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(const auto result_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->SetStageSource(
-      result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
-        return std::make_unique<HashAggResultSourceOp>(std::move(agg_ctx));
-      }));
-  ARROW_RETURN_NOT_OK(builder->AddDependency(build_stage, result_stage));
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, plan->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
-
   for (const auto& batch : inputs) {
     if (batch == nullptr) {
       return arrow::Status::Invalid("input batch must not be null");
     }
-    ARROW_RETURN_NOT_OK(task->PushInput(batch));
   }
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("expected TaskState::kHasOutput/kNeedInput/kFinished");
-    }
+  auto agg_state = std::make_shared<HashAggState>(engine.get(), keys, aggs);
 
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    if (out == nullptr) {
-      return arrow::Status::Invalid("expected non-null output batch");
-    }
-    outputs.push_back(std::move(out));
+  // Build stage: consume all input into HashAggState.
+  {
+    auto source_op = std::make_unique<test::VectorSourceOp>(inputs);
+    auto sink_op = std::make_unique<HashAggSinkOp>(agg_state);
+
+    pipeline::LogicalPipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
+
+    pipeline::LogicalPipeline logical_pipeline{
+        "HashAggBuild",
+        std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline,
+                                                        /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
   }
-  return outputs;
+
+  // Result stage: stream finalized output batches.
+  {
+    auto source_op = std::make_unique<HashAggResultSourceOp>(agg_state);
+
+    test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+    auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+    pipeline::LogicalPipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
+
+    pipeline::LogicalPipeline logical_pipeline{
+        "HashAggResult",
+        std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline,
+                                                        /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+    return test::FlattenOutputs(std::move(outputs_by_thread));
+  }
 }
 
 arrow::Status RunHashAggSmoke() {

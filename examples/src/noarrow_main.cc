@@ -2,29 +2,55 @@
 #include <arrow/status.h>
 
 #include <iostream>
+#include <optional>
+#include <vector>
 
 #include "tiforth/tiforth.h"
+#include "task_group_runner.h"
 
 namespace {
 
+class EmptySourceOp final : public tiforth::pipeline::SourceOp {
+ public:
+  tiforth::pipeline::PipelineSource Source(const tiforth::pipeline::PipelineContext&) override {
+    return [](const tiforth::pipeline::PipelineContext&, const tiforth::task::TaskContext&,
+              tiforth::pipeline::ThreadId) -> tiforth::pipeline::OpResult {
+      return tiforth::pipeline::OpOutput::Finished();
+    };
+  }
+};
+
+class NullSinkOp final : public tiforth::pipeline::SinkOp {
+ public:
+  tiforth::pipeline::PipelineSink Sink(const tiforth::pipeline::PipelineContext&) override {
+    return [](const tiforth::pipeline::PipelineContext&, const tiforth::task::TaskContext&,
+              tiforth::pipeline::ThreadId, std::optional<tiforth::pipeline::Batch>)
+               -> tiforth::pipeline::OpResult { return tiforth::pipeline::OpOutput::PipeSinkNeedsMore(); };
+  }
+};
+
 arrow::Status RunTiForthSmoke() {
   ARROW_ASSIGN_OR_RAISE(auto engine, tiforth::Engine::Create(tiforth::EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, tiforth::PipelineBuilder::Create(engine.get()));
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+  (void)engine;
 
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != tiforth::TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
+  EmptySourceOp source_op;
+  NullSinkOp sink_op;
 
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  tiforth::pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = &source_op;
+  channel.pipe_ops = {};
 
-  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
-  if (final_state != tiforth::TaskState::kFinished) {
-    return arrow::Status::Invalid("expected TaskState::kFinished");
-  }
-  return arrow::Status::OK();
+  tiforth::pipeline::LogicalPipeline logical_pipeline{
+      "NoArrowSmoke",
+      std::vector<tiforth::pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      &sink_op};
+
+  ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                        tiforth::pipeline::CompileToTaskGroups(tiforth::pipeline::PipelineContext{},
+                                                              logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = tiforth_example::MakeTaskContext();
+  return tiforth_example::RunTaskGroupsToCompletion(task_groups, task_ctx);
 }
 
 }  // namespace

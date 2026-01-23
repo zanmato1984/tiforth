@@ -9,7 +9,7 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/stash/operators.h"
-#include "tiforth/task.h"
+#include "tiforth/stash/task.h"
 
 namespace tiforth {
 

@@ -11,10 +11,10 @@ This document describes the main moving pieces and how they fit together. For ho
 ### Data model: `arrow::RecordBatch`
 
 - **Unit of exchange**: TiForth operators process `arrow::RecordBatch` objects.
-- **Schema stability**: a `tiforth::Task` validates that all input batches have the same schema
-  (including field metadata).
+- **Schema stability**: operators generally assume stable schemas across batches (including field
+  metadata) and return `Status::Invalid` on mismatches.
 - **End-of-stream (EOS)**: EOS is signaled by the upstream `pipeline::SourceOp` returning
-  `pipeline::OpOutput::Finished()`. Hosts should not push `nullptr` batches; use `Task::CloseInput()`.
+  `pipeline::OpOutput::Finished()`.
 
 ### Engine: host integration point
 
@@ -27,28 +27,27 @@ An `Engine` is the “host context” for execution. It owns/points to:
 - `arrow::compute::FunctionRegistry`: an engine-local registry overlay where TiForth registers its
   semantics-sensitive kernels (collation-aware string comparisons, decimal add parity, packed-MyTime helpers).
 
-### Pipeline + Task: composing and running operators
+### Logical pipeline + task groups: composing and running operators
 
 Public APIs:
 
-- `tiforth::PipelineBuilder` / `tiforth::Pipeline` (`include/tiforth/pipeline.h`)
-- `tiforth::Task` (`include/tiforth/task.h`)
+- `tiforth::pipeline::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/pipeline/op/op.h`)
+- `tiforth::pipeline::LogicalPipeline` (`include/tiforth/pipeline/logical_pipeline.h`)
+- `tiforth::pipeline::CompileToTaskGroups(...)` (`include/tiforth/pipeline/task_groups.h`)
+- `tiforth::task::{Task,TaskGroup,TaskContext,TaskStatus}` (`include/tiforth/task/*`)
 
 Model:
 
-- A `Pipeline` is an immutable sequence of **pipe operators** (`pipeline::PipeOp`).
-- A `Task` is a single executable instance of that sequence with internal input/output queues.
+- A `LogicalPipeline` describes operator wiring (N channels → 1 sink).
+- TiForth compiles a `LogicalPipeline` into an ordered list of `task::TaskGroup`.
+- Hosts schedule/execute the returned task groups using their own threading/executor.
 
-Execution is **incremental** and driven by `Task::Step()`:
+Execution is **host-driven** and incremental:
 
-- `kNeedInput`: provide more input (push a batch, or close input).
-- `kHasOutput`: consume outputs via `Task::PullOutput()`.
-- `kFinished`: no more outputs will be produced.
-- `kIOIn` / `kIOOut` / `kWaiting` / `kWaitForNotify`: the task is blocked on a host-driven event
-  (IO/await/notify), exposed via a `task::BlockedResumer`.
-
-Internally, `Task` wraps a `pipeline::PipelineTask` (ara-style) and operators communicate using
-`pipeline::OpOutput`. Pipes can flush buffered output in `PipeOp::Drain()` after the source finishes.
+- A `task::Task` is a callable invoked as `task(task_ctx, task_id) -> task::TaskStatus`.
+- `TaskStatus` can be `Continue`, `Yield`, `Finished`, `Cancelled`, or `Blocked` (with an `Awaiter`).
+- TiForth does not provide a scheduler/reactor; it only provides `TaskGroup` boundaries and
+  `BlockedResumer` helpers for common blocking patterns (IO/await/notify).
 
 ### Operator abstraction
 
@@ -62,6 +61,15 @@ Key points:
 
 TiForth ships a small set of built-in transform operators (filter/projection/join/agg/sort); see
 `operators_and_functions.md`.
+
+### Breakers / multi-stage execution
+
+Breaker-style operators (e.g. HashAgg) are expressed using explicit `TaskGroup` boundaries:
+
+- the build pipeline runs as a normal `PipelineTask` group (optionally parallel by `dop`)
+- the breaker `SinkOp::Frontend()` provides a single-task barrier group for merge/finalize
+- results are typically exposed by a host-constructed downstream pipeline using a source operator that reads
+  from breaker state (often created by `SinkOp::ImplicitSource()`)
 
 ### Expressions and functions
 

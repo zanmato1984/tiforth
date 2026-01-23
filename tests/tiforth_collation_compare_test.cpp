@@ -10,9 +10,12 @@
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
 #include "tiforth/operators/filter.h"
-#include "tiforth/pipeline.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
 #include "tiforth/type_metadata.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -61,29 +64,45 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeLargeBinaryBatch(
 arrow::Status RunFilterEquals(int32_t collation_id, const std::vector<std::string>& values,
                               const std::string& literal, int64_t expected_rows) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeCall(
       "equal",
       {MakeFieldRef("s"), MakeLiteral(std::make_shared<arrow::BinaryScalar>(literal))});
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
   ARROW_ASSIGN_OR_RAISE(auto input, MakeBinaryBatch(collation_id, values));
-  ARROW_RETURN_NOT_OK(task->PushInput(input));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected output");
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{input});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  pipeline::LogicalPipeline logical_pipeline{
+      "CollationCompareBinary",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  const auto& out = outputs[0];
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }
@@ -96,29 +115,45 @@ arrow::Status RunFilterEquals(int32_t collation_id, const std::vector<std::strin
 arrow::Status RunFilterEqualsLargeBinary(int32_t collation_id, const std::vector<std::string>& values,
                                         const std::string& literal, int64_t expected_rows) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeCall(
       "equal", {MakeFieldRef("s"),
                 MakeLiteral(std::make_shared<arrow::LargeBinaryScalar>(literal))});
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
   ARROW_ASSIGN_OR_RAISE(auto input, MakeLargeBinaryBatch(collation_id, values));
-  ARROW_RETURN_NOT_OK(task->PushInput(input));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected output");
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{input});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  pipeline::LogicalPipeline logical_pipeline{
+      "CollationCompareLargeBinary",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  const auto& out = outputs[0];
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }
@@ -174,27 +209,43 @@ arrow::Status RunFilterEqualsFields(std::pair<std::string, int32_t> lhs_col,
                                    const std::vector<std::string>& rhs_values,
                                    int64_t expected_rows) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeCall("equal", {MakeFieldRef(lhs_col.first), MakeFieldRef(rhs_col.first)});
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
   ARROW_ASSIGN_OR_RAISE(auto input, MakeBinaryBatch2(lhs_col, rhs_col, lhs_values, rhs_values));
-  ARROW_RETURN_NOT_OK(task->PushInput(input));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected output");
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{input});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  pipeline::LogicalPipeline logical_pipeline{
+      "CollationCompareFields",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  const auto& out = outputs[0];
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }

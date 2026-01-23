@@ -14,9 +14,12 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/operators/sort.h"
-#include "tiforth/pipeline.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
 #include "tiforth/type_metadata.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -52,50 +55,43 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
 
 arrow::Status RunSortSmoke() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "x", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<SortPipeOp>(eng, keys);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   // Concatenated input: x=[3,1,null,2], y=[30,10,99,20]
   // Sorted (ASC, nulls last): x=[1,2,3,null], y=[10,20,30,99]
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({3, 1}, {30, 10}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
   ARROW_ASSIGN_OR_RAISE(auto batch1, MakeBatch({std::nullopt, 2}, {99, 20}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch1));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0, batch1});
 
-  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("unexpected task state");
-    }
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<SortPipeOp>(eng, std::move(keys)));
 
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    if (out == nullptr) {
-      return arrow::Status::Invalid("expected non-null output batch");
-    }
-    outputs.push_back(std::move(out));
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "SortSmoke",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
 
   if (outputs.size() != 1) {
     return arrow::Status::Invalid("expected exactly 1 output batch");
@@ -156,53 +152,46 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeStringSortBatch(
 
 arrow::Status RunStringSort(int32_t collation_id, const std::vector<int32_t>& expected_vs) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "s", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<SortPipeOp>(eng, keys);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   // Input (2 batches): [("a ",1), ("b",3)], [("a",2), (null,4)].
   ARROW_ASSIGN_OR_RAISE(
       auto batch0,
       MakeStringSortBatch(collation_id, {std::string("a "), std::string("b")}, {1, 3}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
   ARROW_ASSIGN_OR_RAISE(
       auto batch1,
       MakeStringSortBatch(collation_id, {std::string("a"), std::nullopt}, {2, 4}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch1));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0, batch1});
 
-  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state == TaskState::kNeedInput) {
-      continue;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("unexpected task state");
-    }
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<SortPipeOp>(eng, std::move(keys)));
 
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-    if (out == nullptr) {
-      return arrow::Status::Invalid("expected non-null output batch");
-    }
-    outputs.push_back(std::move(out));
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "StringSort",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
 
   if (outputs.size() != 1) {
     return arrow::Status::Invalid("expected exactly 1 output batch");

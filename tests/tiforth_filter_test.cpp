@@ -15,8 +15,11 @@
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
 #include "tiforth/operators/filter.h"
-#include "tiforth/pipeline.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -80,43 +83,50 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeStringBatch(
 
 arrow::Status RunFilterGreaterThan() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeCall("greater",
                             {MakeFieldRef("x"),
                              MakeLiteral(std::make_shared<arrow::Int32Scalar>(2))});
-  ARROW_RETURN_NOT_OK(
-      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
-                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({1, 2, 3}, {10, 20, 30}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
   ARROW_ASSIGN_OR_RAISE(auto batch1, MakeBatch({4}, {40}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch1));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0, batch1});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
+  }
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "FilterGreater",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+
+  if (outputs.size() != 2) {
+    return arrow::Status::Invalid("expected 2 output batches");
+  }
 
   std::shared_ptr<arrow::Schema> seen_schema;
-  std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-    if (state == TaskState::kFinished) {
-      break;
-    }
-    if (state != TaskState::kHasOutput) {
-      return arrow::Status::Invalid("expected TaskState::kHasOutput or kFinished");
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  for (const auto& out : outputs) {
     if (out == nullptr) {
       return arrow::Status::Invalid("expected non-null output batch");
     }
@@ -125,11 +135,6 @@ arrow::Status RunFilterGreaterThan() {
     } else if (out->schema().get() != seen_schema.get()) {
       return arrow::Status::Invalid("expected stable shared output schema");
     }
-    outputs.push_back(std::move(out));
-  }
-
-  if (outputs.size() != 2) {
-    return arrow::Status::Invalid("expected 2 output batches");
   }
 
   ARROW_ASSIGN_OR_RAISE(auto expect_x0, MakeInt32Array({3}));
@@ -155,37 +160,48 @@ arrow::Status RunFilterGreaterThan() {
 
 arrow::Status RunFilterDropsNullPredicate() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeCall("greater",
                             {MakeFieldRef("x"),
                              MakeLiteral(std::make_shared<arrow::Int32Scalar>(1))});
-  ARROW_RETURN_NOT_OK(
-      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
-                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   // x = [1, null, 3], predicate: x > 1 => [false, null, true]
   // SQL WHERE semantics => keep only the last row (true).
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({1, std::nullopt, 3}, {10, 20, 30}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0});
+
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  pipeline::LogicalPipeline logical_pipeline{
+      "FilterNullPredicate",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  auto out = outputs[0];
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }
@@ -198,44 +214,49 @@ arrow::Status RunFilterDropsNullPredicate() {
   if (!expect_x->Equals(*out->column(0)) || !expect_y->Equals(*out->column(1))) {
     return arrow::Status::Invalid("unexpected filtered output values");
   }
-
-  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
-  if (final_state != TaskState::kFinished) {
-    return arrow::Status::Invalid("expected TaskState::kFinished");
-  }
   return arrow::Status::OK();
 }
 
 arrow::Status RunFilterTruthyInt32() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeFieldRef("x");
-  ARROW_RETURN_NOT_OK(
-      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
-                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   // x truthiness => keep non-zero, drop 0 and null.
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeBatch({0, 1, std::nullopt, -1, 2}, {10, 11, 12, 13, 14}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0});
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  pipeline::LogicalPipeline logical_pipeline{
+      "FilterTruthyInt32",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  auto out = outputs[0];
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }
@@ -248,32 +269,13 @@ arrow::Status RunFilterTruthyInt32() {
   if (!expect_x->Equals(*out->column(0)) || !expect_y->Equals(*out->column(1))) {
     return arrow::Status::Invalid("unexpected filtered output values");
   }
-
-  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
-  if (final_state != TaskState::kFinished) {
-    return arrow::Status::Invalid("expected TaskState::kFinished");
-  }
   return arrow::Status::OK();
 }
 
 arrow::Status RunFilterTruthyString() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeFieldRef("s");
-  ARROW_RETURN_NOT_OK(
-      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
-                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   // "1" and "-1" are truthy; "0", "", "a", and null are falsy.
   ARROW_ASSIGN_OR_RAISE(
@@ -281,15 +283,39 @@ arrow::Status RunFilterTruthyString() {
       MakeStringBatch({std::string(""), std::string("a"), std::string("1"), std::string("0"),
                        std::string("-1"), std::nullopt},
                       {10, 11, 12, 13, 14, 15}));
-  ARROW_RETURN_NOT_OK(task->PushInput(batch0));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0});
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<FilterPipeOp>(engine.get(), std::move(predicate)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
+  pipeline::LogicalPipeline logical_pipeline{
+      "FilterTruthyString",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  auto out = outputs[0];
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }
@@ -301,11 +327,6 @@ arrow::Status RunFilterTruthyString() {
   }
   if (!expect_s->Equals(*out->column(0)) || !expect_y->Equals(*out->column(1))) {
     return arrow::Status::Invalid("unexpected filtered output values");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
-  if (final_state != TaskState::kFinished) {
-    return arrow::Status::Invalid("expected TaskState::kFinished");
   }
   return arrow::Status::OK();
 }

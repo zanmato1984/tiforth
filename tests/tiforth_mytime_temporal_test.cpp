@@ -12,9 +12,12 @@
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
 #include "tiforth/operators/projection.h"
-#include "tiforth/pipeline.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/task_groups.h"
 #include "tiforth/type_metadata.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -31,34 +34,46 @@ uint64_t PackMyDateTime(uint16_t year, uint8_t month, uint8_t day, uint16_t hour
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> RunProjection(
     std::shared_ptr<arrow::RecordBatch> input, std::vector<ProjectionExpr> exprs) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
-
-  ARROW_RETURN_NOT_OK(
-      builder->AppendPipe([engine_ptr = engine.get(), exprs = std::move(exprs)]() mutable
-                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<ProjectionPipeOp>(engine_ptr, std::move(exprs));
-      }));
-
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
+  if (input == nullptr) {
+    return arrow::Status::Invalid("input must not be null");
   }
 
-  ARROW_RETURN_NOT_OK(task->PushInput(std::move(input)));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{input});
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.push_back(std::make_unique<ProjectionPipeOp>(engine.get(), std::move(exprs)));
+
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops.reserve(pipe_ops.size());
+  for (auto& op : pipe_ops) {
+    channel.pipe_ops.push_back(op.get());
   }
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-  if (out == nullptr) {
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "MyTimeProjection",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
+  }
+  if (outputs[0] == nullptr) {
     return arrow::Status::Invalid("expected non-null output batch");
   }
-  return out;
+  return outputs[0];
 }
 
 arrow::Status RunPackedMyTimeExtractSmoke() {

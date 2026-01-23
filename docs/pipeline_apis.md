@@ -2,8 +2,12 @@
 
 TiForth exposes a small set of stable “host APIs” for building and executing pipelines:
 
-- C++ API (`tiforth::Engine`, `tiforth::Pipeline`, `tiforth::Task`)
-- C ABI (`tiforth_engine_t`, `tiforth_pipeline_t`, `tiforth_task_t`)
+- C++ API:
+  - `tiforth::Engine`
+  - `tiforth::pipeline::{SourceOp,PipeOp,SinkOp,LogicalPipeline}`
+  - `tiforth::pipeline::CompileToTaskGroups(...) -> tiforth::task::TaskGroups`
+  - `tiforth::task::{Task,TaskGroup,TaskContext,TaskStatus,Awaiter,Resumer}`
+- C ABI (experimental): temporarily disabled after MS26; redesign is a follow-up milestone.
 
 This doc focuses on the execution model and API contracts. For operator details, see
 `operators_and_functions.md`.
@@ -25,86 +29,75 @@ Include:
 
 On creation, the engine registers TiForth functions into its registry.
 
-### Building a pipeline
+### Building a logical pipeline
 
-Use `tiforth::PipelineBuilder` to append pipe factories, then finalize into an immutable `Pipeline`.
+A `tiforth::pipeline::LogicalPipeline` is composed of:
 
-Example (filter + projection):
+- N **channels** (`LogicalPipeline::Channel`), each with:
+  - a `pipeline::SourceOp*`
+  - zero or more `pipeline::PipeOp*` in order
+- One `pipeline::SinkOp*` shared by all channels.
+
+The host owns all operator objects. The pipeline stores raw pointers, so the host must keep the
+operators alive while running the pipeline.
+
+Example (filter + projection; 1 channel):
 
 ```cpp
 auto engine = tiforth::Engine::Create({}).ValueOrDie();
 
-auto builder = tiforth::PipelineBuilder::Create(engine.get()).ValueOrDie();
-builder->AppendPipe([&] {
-  return arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>>(
-      std::make_unique<tiforth::FilterPipeOp>(
-          engine.get(),
-          tiforth::MakeCall("less", {tiforth::MakeFieldRef("a"),
-                                     tiforth::MakeLiteral(std::make_shared<arrow::Int32Scalar>(10))})));
-});
-builder->AppendPipe([&] {
-  std::vector<tiforth::ProjectionExpr> exprs;
-  exprs.push_back({"b", tiforth::MakeFieldRef("b")});
-  return arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>>(
-      std::make_unique<tiforth::ProjectionPipeOp>(engine.get(), std::move(exprs)));
-});
+auto source_op = /* host-defined SourceOp */;
 
-auto pipeline = builder->Finalize().ValueOrDie();
+std::vector<std::unique_ptr<tiforth::pipeline::PipeOp>> pipe_ops;
+pipe_ops.push_back(std::make_unique<tiforth::FilterPipeOp>(
+    engine.get(),
+    tiforth::MakeCall("less", {tiforth::MakeFieldRef("a"),
+                               tiforth::MakeLiteral(std::make_shared<arrow::Int32Scalar>(10))})));
+pipe_ops.push_back(std::make_unique<tiforth::ProjectionPipeOp>(
+    engine.get(), std::vector<tiforth::ProjectionExpr>{{"b", tiforth::MakeFieldRef("b")}}));
+
+auto sink_op = /* host-defined SinkOp */;
+
+tiforth::pipeline::LogicalPipeline::Channel channel;
+channel.source_op = source_op.get();
+for (auto& op : pipe_ops) channel.pipe_ops.push_back(op.get());
+
+tiforth::pipeline::LogicalPipeline logical_pipeline{
+    "FilterProjection", {std::move(channel)}, sink_op.get()};
 ```
 
-Notes:
+### Compilation: `LogicalPipeline -> TaskGroups`
 
-- A pipe factory is invoked once per task instance (`Pipeline::CreateTask()`), so pipes can keep
-  task-local state.
-- End-of-stream is signaled by the upstream source finishing. Pipes should flush any buffered output in `Drain()`.
+`tiforth::pipeline::CompileToTaskGroups(...)` compiles a `LogicalPipeline` into an *ordered list of*
+`tiforth::task::TaskGroup`.
 
-### Running a task (push/pull)
+The host is responsible for:
 
-Create a task and drive it using `Task::Step()`:
+- choosing `dop` (degree of parallelism) and constructing operators accordingly
+- executing task groups in order; running tasks within a group in parallel if desired
+- providing a `tiforth::task::TaskContext` with resumer/awaiter factories.
 
-- Provide inputs via `Task::PushInput(batch)` and then `Task::CloseInput()`.
-- Consume outputs via `Task::PullOutput()` when `Step()` reports `kHasOutput`.
+Minimal sketch:
 
-#### Blocked task states (IO / await / notify)
+```cpp
+auto groups = tiforth::pipeline::CompileToTaskGroups(
+    tiforth::pipeline::PipelineContext{}, logical_pipeline, /*dop=*/4).ValueOrDie();
 
-`Task::Step()` may return additional states when an operator blocks:
-
-- `kIOIn` / `kIOOut`: call `Task::ExecuteIO()` to make IO progress
-- `kWaiting`: call `Task::Await()` to wait for completion (host-defined)
-- `kWaitForNotify`: call `Task::Notify()` when the external event fires
-
-These states are part of the host-driven execution contract. TiForth does not run a reactor/event-loop on its own.
-
-Important contracts:
-
-- Input schema must be stable across batches. `Task` validates schema equality (including metadata).
-- End-of-stream is internal: do not push `nullptr` batches. Use `CloseInput()`.
-- `PullOutput()` returns:
-  - a batch when available
-  - `nullptr` after the task has finished and all output has been drained
-
-### Running as an `arrow::RecordBatchReader`
-
-If you already have an input `arrow::RecordBatchReader`, you can get an output reader:
-
-- `Pipeline::MakeReader(input_reader)`
-
-This wraps a task internally and drives it until completion.
-
-Notes:
-
-- The reader adapter drives `kIOIn/kIOOut` via `ExecuteIO()` and `kWaiting` via `Await()`.
-- If the task returns `kWaitForNotify`, the reader currently returns `NotImplemented` (notify source is host-specific).
+// task_ctx.resumer_factory = ...
+// task_ctx.any_awaiter_factory = ...
+for (const auto& group : groups) {
+  // schedule group.GetTask()(task_ctx, task_id) for task_id in [0..group.NumTasks)
+  // handle TaskStatus::Continue/Yield/Blocked/Finished
+  // run optional group continuation; then group.NotifyFinish(task_ctx)
+}
+```
 
 ## C ABI (tiforth_capi)
 
 C header: `include/tiforth_c/tiforth.h`.
 
-The C ABI mirrors the C++ concepts:
-
-- engine: `tiforth_engine_t`
-- pipeline: `tiforth_pipeline_t`
-- task: `tiforth_task_t`
+The C ABI is experimental and currently disabled while the public C++ API stabilizes around
+`LogicalPipeline + TaskGroups` (MS26). A redesigned C ABI is a follow-up milestone.
 
 ### Expressions (C)
 
@@ -128,11 +121,7 @@ Ownership is explicit in the header comments:
 - “push” APIs consume (`move`) the provided schema/array/stream
 - “pull/export” APIs produce owned outputs that the caller must release
 
-### Minimal pipeline coverage (C)
+### Status
 
-The C pipeline builder currently exposes:
-
-- filter: `tiforth_pipeline_append_filter`
-- projection: `tiforth_pipeline_append_projection`
-
-Other operators are available through the C++ API.
+- The old pipeline/task C ABI was tied to removed `Pipeline/Task` wrappers.
+- Once the new C ABI is designed, it will mirror the `LogicalPipeline -> TaskGroups` model.

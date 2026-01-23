@@ -9,8 +9,12 @@
 #include <gtest/gtest.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/pipeline.h"
-#include "tiforth/task.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/pipeline_context.h"
+#include "tiforth/pipeline/task_groups.h"
+
+#include "test_pipeline_ops.h"
+#include "test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -18,14 +22,6 @@ namespace {
 
 arrow::Status RunSmoke() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
-
-  ARROW_ASSIGN_OR_RAISE(auto initial_state, task->Step());
-  if (initial_state != TaskState::kNeedInput) {
-    return arrow::Status::Invalid("expected TaskState::kNeedInput");
-  }
 
   auto schema = arrow::schema({arrow::field("x", arrow::int32())});
   arrow::Int32Builder values;
@@ -34,22 +30,32 @@ arrow::Status RunSmoke() {
   ARROW_RETURN_NOT_OK(values.Finish(&array));
 
   auto batch = arrow::RecordBatch::Make(schema, /*num_rows=*/3, {array});
-  ARROW_RETURN_NOT_OK(task->PushInput(batch));
-  ARROW_RETURN_NOT_OK(task->CloseInput());
+  auto source_op = std::make_unique<test::VectorSourceOp>(
+      std::vector<std::shared_ptr<arrow::RecordBatch>>{batch});
 
-  ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
-  if (state != TaskState::kHasOutput) {
-    return arrow::Status::Invalid("expected TaskState::kHasOutput");
+  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops = {};
+
+  pipeline::LogicalPipeline logical_pipeline{
+      "Smoke", std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)}, sink_op.get()};
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto task_groups,
+      pipeline::CompileToTaskGroups(pipeline::PipelineContext{}, logical_pipeline, /*dop=*/1));
+
+  auto task_ctx = test::MakeTestTaskContext();
+  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+
+  auto outputs = test::FlattenOutputs(std::move(outputs_by_thread));
+  if (outputs.size() != 1) {
+    return arrow::Status::Invalid("expected exactly 1 output batch");
   }
-
-  ARROW_ASSIGN_OR_RAISE(auto out, task->PullOutput());
-  if (out.get() != batch.get()) {
+  if (outputs[0].get() != batch.get()) {
     return arrow::Status::Invalid("expected pass-through output batch");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto final_state, task->Step());
-  if (final_state != TaskState::kFinished) {
-    return arrow::Status::Invalid("expected TaskState::kFinished after draining output");
   }
 
   return arrow::Status::OK();

@@ -665,24 +665,21 @@ pipeline::PipelineSink HashAggSinkOp::Sink(const pipeline::PipelineContext&) {
   };
 }
 
-std::optional<task::TaskGroup> HashAggSinkOp::Backend(const pipeline::PipelineContext&) {
-  task::Task finalize_task{
+task::TaskGroups HashAggSinkOp::Frontend(const pipeline::PipelineContext&) {
+  task::Task merge_finalize{
       "HashAggMergeFinalize",
-      [this](const task::TaskContext&, task::TaskId) -> task::TaskResult {
-        if (state_ == nullptr) {
+      [state = state_](const task::TaskContext&, task::TaskId) -> task::TaskResult {
+        if (state == nullptr) {
           return arrow::Status::Invalid("hash agg state must not be null");
         }
-        if (backend_done_) {
-          return task::TaskStatus::Finished();
-        }
-        backend_done_ = true;
-        ARROW_RETURN_NOT_OK(state_->MergeAndFinalize());
+        ARROW_RETURN_NOT_OK(state->MergeAndFinalize());
         return task::TaskStatus::Finished();
       }};
-
-  return task::TaskGroup{"HashAggMergeFinalize", std::move(finalize_task), /*num_tasks=*/1,
-                         /*continuation=*/std::nullopt,
-                         /*notify_finish=*/{}};
+  task::TaskGroups groups;
+  groups.emplace_back("HashAggMergeFinalize", std::move(merge_finalize), /*num_tasks=*/1,
+                      /*continuation=*/std::nullopt,
+                      /*notify_finish=*/task::TaskGroup::NotifyFinishFunc{});
+  return groups;
 }
 
 std::unique_ptr<pipeline::SourceOp> HashAggSinkOp::ImplicitSource(const pipeline::PipelineContext&) {
