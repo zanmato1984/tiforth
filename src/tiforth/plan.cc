@@ -31,6 +31,7 @@ arrow::Status PlanBuilder::SetStageSourceTaskInput(std::size_t stage_id) {
   auto& stage = stages_[stage_id];
   stage.source_kind = PlanStageSourceKind::kTaskInput;
   stage.source_factory = {};
+  stage.pipeline_source_factory = {};
   return arrow::Status::OK();
 }
 
@@ -44,6 +45,21 @@ arrow::Status PlanBuilder::SetStageSource(std::size_t stage_id, PlanSourceFactor
   auto& stage = stages_[stage_id];
   stage.source_kind = PlanStageSourceKind::kCustom;
   stage.source_factory = std::move(factory);
+  stage.pipeline_source_factory = {};
+  return arrow::Status::OK();
+}
+
+arrow::Status PlanBuilder::SetStageSource(std::size_t stage_id, PlanPipelineSourceFactory factory) {
+  if (stage_id >= stages_.size()) {
+    return arrow::Status::Invalid("stage_id out of range");
+  }
+  if (!factory) {
+    return arrow::Status::Invalid("pipeline source factory must not be empty");
+  }
+  auto& stage = stages_[stage_id];
+  stage.source_kind = PlanStageSourceKind::kCustom;
+  stage.pipeline_source_factory = std::move(factory);
+  stage.source_factory = {};
   return arrow::Status::OK();
 }
 
@@ -58,6 +74,17 @@ arrow::Status PlanBuilder::AppendTransform(std::size_t stage_id, PlanTransformFa
   return arrow::Status::OK();
 }
 
+arrow::Status PlanBuilder::AppendPipe(std::size_t stage_id, PlanPipelinePipeFactory factory) {
+  if (stage_id >= stages_.size()) {
+    return arrow::Status::Invalid("stage_id out of range");
+  }
+  if (!factory) {
+    return arrow::Status::Invalid("pipe factory must not be empty");
+  }
+  stages_[stage_id].pipe_factories.push_back(std::move(factory));
+  return arrow::Status::OK();
+}
+
 arrow::Status PlanBuilder::SetStageSinkTaskOutput(std::size_t stage_id) {
   if (stage_id >= stages_.size()) {
     return arrow::Status::Invalid("stage_id out of range");
@@ -65,6 +92,7 @@ arrow::Status PlanBuilder::SetStageSinkTaskOutput(std::size_t stage_id) {
   auto& stage = stages_[stage_id];
   stage.sink_kind = PlanStageSinkKind::kTaskOutput;
   stage.sink_factory = {};
+  stage.pipeline_sink_factory = {};
   return arrow::Status::OK();
 }
 
@@ -78,6 +106,21 @@ arrow::Status PlanBuilder::SetStageSink(std::size_t stage_id, PlanSinkFactory fa
   auto& stage = stages_[stage_id];
   stage.sink_kind = PlanStageSinkKind::kCustom;
   stage.sink_factory = std::move(factory);
+  stage.pipeline_sink_factory = {};
+  return arrow::Status::OK();
+}
+
+arrow::Status PlanBuilder::SetStageSink(std::size_t stage_id, PlanPipelineSinkFactory factory) {
+  if (stage_id >= stages_.size()) {
+    return arrow::Status::Invalid("stage_id out of range");
+  }
+  if (!factory) {
+    return arrow::Status::Invalid("pipeline sink factory must not be empty");
+  }
+  auto& stage = stages_[stage_id];
+  stage.sink_kind = PlanStageSinkKind::kCustom;
+  stage.pipeline_sink_factory = std::move(factory);
+  stage.sink_factory = {};
   return arrow::Status::OK();
 }
 
@@ -104,15 +147,30 @@ arrow::Result<std::unique_ptr<Plan>> PlanBuilder::Finalize() {
   std::size_t task_output_sinks = 0;
 
   for (const auto& stage : stages_) {
-    if (stage.source_kind == PlanStageSourceKind::kCustom && !stage.source_factory) {
-      return arrow::Status::Invalid("custom stage source factory must not be empty");
+    if (stage.source_kind == PlanStageSourceKind::kCustom) {
+      const bool has_legacy = static_cast<bool>(stage.source_factory);
+      const bool has_pipeline = static_cast<bool>(stage.pipeline_source_factory);
+      if (has_legacy == has_pipeline) {
+        return arrow::Status::Invalid(
+            "custom stage source must have exactly one factory (legacy or pipeline)");
+      }
     }
-    if (stage.sink_kind == PlanStageSinkKind::kCustom && !stage.sink_factory) {
-      return arrow::Status::Invalid("custom stage sink factory must not be empty");
+    if (stage.sink_kind == PlanStageSinkKind::kCustom) {
+      const bool has_legacy = static_cast<bool>(stage.sink_factory);
+      const bool has_pipeline = static_cast<bool>(stage.pipeline_sink_factory);
+      if (has_legacy == has_pipeline) {
+        return arrow::Status::Invalid(
+            "custom stage sink must have exactly one factory (legacy or pipeline)");
+      }
     }
     for (const auto& transform_factory : stage.transform_factories) {
       if (!transform_factory) {
         return arrow::Status::Invalid("transform factory must not be empty");
+      }
+    }
+    for (const auto& pipe_factory : stage.pipe_factories) {
+      if (!pipe_factory) {
+        return arrow::Status::Invalid("pipe factory must not be empty");
       }
     }
     if (stage.source_kind == PlanStageSourceKind::kTaskInput) {
@@ -187,4 +245,3 @@ arrow::Result<std::unique_ptr<Task>> Plan::CreateTask() const {
 }
 
 }  // namespace tiforth
-

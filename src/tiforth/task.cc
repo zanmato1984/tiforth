@@ -661,6 +661,15 @@ arrow::Status Task::InitPlan(const Plan& plan) {
         stage_exec->source_op = std::make_unique<InputSourceOp>(this);
         break;
       case PlanStageSourceKind::kCustom: {
+        if (stage.pipeline_source_factory) {
+          ARROW_ASSIGN_OR_RAISE(auto source,
+                                stage.pipeline_source_factory(plan_task_context_.get()));
+          if (source == nullptr) {
+            return arrow::Status::Invalid("custom stage pipeline source factory returned null");
+          }
+          stage_exec->source_op = std::move(source);
+          break;
+        }
         if (!stage.source_factory) {
           return arrow::Status::Invalid("custom stage source factory must not be empty");
         }
@@ -673,7 +682,7 @@ arrow::Status Task::InitPlan(const Plan& plan) {
       }
     }
 
-    stage_exec->pipe_ops.reserve(stage.transform_factories.size());
+    stage_exec->pipe_ops.reserve(stage.transform_factories.size() + stage.pipe_factories.size());
     for (const auto& transform_factory : stage.transform_factories) {
       if (!transform_factory) {
         return arrow::Status::Invalid("transform factory must not be empty");
@@ -684,12 +693,30 @@ arrow::Status Task::InitPlan(const Plan& plan) {
       }
       stage_exec->pipe_ops.push_back(std::make_unique<LegacyTransformPipeOp>(std::move(transform)));
     }
+    for (const auto& pipe_factory : stage.pipe_factories) {
+      if (!pipe_factory) {
+        return arrow::Status::Invalid("pipe factory must not be empty");
+      }
+      ARROW_ASSIGN_OR_RAISE(auto pipe, pipe_factory(plan_task_context_.get()));
+      if (pipe == nullptr) {
+        return arrow::Status::Invalid("pipe factory returned null");
+      }
+      stage_exec->pipe_ops.push_back(std::move(pipe));
+    }
 
     switch (stage.sink_kind) {
       case PlanStageSinkKind::kTaskOutput:
         stage_exec->sink_op = std::make_unique<OutputSinkOp>(this);
         break;
       case PlanStageSinkKind::kCustom: {
+        if (stage.pipeline_sink_factory) {
+          ARROW_ASSIGN_OR_RAISE(auto sink, stage.pipeline_sink_factory(plan_task_context_.get()));
+          if (sink == nullptr) {
+            return arrow::Status::Invalid("custom stage pipeline sink factory returned null");
+          }
+          stage_exec->sink_op = std::move(sink);
+          break;
+        }
         if (!stage.sink_factory) {
           return arrow::Status::Invalid("custom stage sink factory must not be empty");
         }

@@ -241,7 +241,7 @@ HashAggTransformOp::HashAggTransformOp(std::shared_ptr<HashAggContext> context)
 
 HashAggTransformOp::HashAggTransformOp(
     std::shared_ptr<HashAggContext> context,
-    std::function<arrow::Status(HashAggPartialState)> on_partial_sealed)
+    std::function<arrow::Status(HashAggPartialState, pipeline::ThreadId)> on_partial_sealed)
     : context_(std::move(context)),
       engine_(context_ != nullptr ? context_->engine() : nullptr),
       exec_context_(std::make_shared<arrow::compute::ExecContext>(
@@ -254,6 +254,70 @@ HashAggTransformOp::HashAggTransformOp(
 }
 
 HashAggTransformOp::~HashAggTransformOp() = default;
+
+pipeline::PipelinePipe HashAggTransformOp::Pipe(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                pipeline::ThreadId, std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (context_ == nullptr) {
+      return arrow::Status::Invalid("hash agg context must not be null");
+    }
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("hash agg input batch must not be null");
+    }
+    if (sealed_) {
+      return arrow::Status::Invalid("hash agg received input after seal");
+    }
+
+    ARROW_RETURN_NOT_OK(InitIfNeededAndConsume(*batch));
+    return pipeline::OpOutput::PipeSinkNeedsMore();
+  };
+}
+
+pipeline::PipelineDrain HashAggTransformOp::Drain(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                pipeline::ThreadId thread_id) -> pipeline::OpResult {
+    ARROW_RETURN_NOT_OK(SealPartial(thread_id));
+    return pipeline::OpOutput::Finished();
+  };
+}
+
+arrow::Status HashAggTransformOp::SealPartial(pipeline::ThreadId thread_id) {
+  if (sealed_) {
+    return arrow::Status::OK();
+  }
+  if (engine_ == nullptr) {
+    return arrow::Status::Invalid("hash agg engine must not be null");
+  }
+  if (context_ == nullptr) {
+    return arrow::Status::Invalid("hash agg context must not be null");
+  }
+  if (input_schema_ == nullptr) {
+    sealed_ = true;
+    return arrow::Status::OK();
+  }
+
+  HashAggContext::PartialState partial;
+  partial.exec_context = exec_context_;
+  partial.input_schema = input_schema_;
+  partial.key_types = std::move(key_types_);
+  partial.grouper = std::move(grouper_);
+  partial.agg_in_types = std::move(agg_in_types_);
+  partial.agg_states = std::move(agg_states_);
+  if (on_partial_sealed_) {
+    ARROW_RETURN_NOT_OK(on_partial_sealed_(std::move(partial), thread_id));
+  } else {
+    ARROW_RETURN_NOT_OK(context_->MergePartial(std::move(partial)));
+  }
+  agg_kernels_.clear();
+  aggregates_.clear();
+  compiled_.reset();
+  sealed_ = true;
+  return arrow::Status::OK();
+}
 
 arrow::Status HashAggTransformOp::InitIfNeededAndConsume(const arrow::RecordBatch& batch) {
   if (engine_ == nullptr) {
@@ -449,49 +513,7 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
   return arrow::Status::OK();
 }
 
-arrow::Result<OperatorStatus> HashAggTransformOp::TransformImpl(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
-  if (batch == nullptr) {
-    return arrow::Status::Invalid("batch must not be null");
-  }
-  if (engine_ == nullptr) {
-    return arrow::Status::Invalid("hash agg engine must not be null");
-  }
-  if (context_ == nullptr) {
-    return arrow::Status::Invalid("hash agg context must not be null");
-  }
-
-  if (*batch == nullptr) {
-    if (!sealed_ && input_schema_ != nullptr) {
-      HashAggContext::PartialState partial;
-      partial.exec_context = exec_context_;
-      partial.input_schema = input_schema_;
-      partial.key_types = std::move(key_types_);
-      partial.grouper = std::move(grouper_);
-      partial.agg_in_types = std::move(agg_in_types_);
-      partial.agg_states = std::move(agg_states_);
-      if (on_partial_sealed_) {
-        ARROW_RETURN_NOT_OK(on_partial_sealed_(std::move(partial)));
-      } else {
-        ARROW_RETURN_NOT_OK(context_->MergePartial(std::move(partial)));
-      }
-      agg_kernels_.clear();
-      aggregates_.clear();
-      compiled_.reset();
-      sealed_ = true;
-    }
-    batch->reset();
-    return OperatorStatus::kHasOutput;
-  }
-
-  if (sealed_) {
-    return arrow::Status::Invalid("hash agg received input after seal");
-  }
-
-  ARROW_RETURN_NOT_OK(InitIfNeededAndConsume(**batch));
-  batch->reset();
-  return OperatorStatus::kNeedInput;
-}
+// Legacy TransformOp surface removed in MS24; HashAgg is driven via pipeline::PipeOp (Pipe/Drain).
 
 arrow::Status HashAggContext::InitIfNeeded(const PartialState& partial) {
   if (engine_ == nullptr) {
@@ -752,16 +774,37 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::OutputBatch()
 HashAggMergeSinkOp::HashAggMergeSinkOp(std::shared_ptr<HashAggContext> context)
     : context_(std::move(context)) {}
 
-arrow::Result<OperatorStatus> HashAggMergeSinkOp::WriteImpl(
-    std::shared_ptr<arrow::RecordBatch> batch) {
-  if (context_ == nullptr) {
-    return arrow::Status::Invalid("hash agg context must not be null");
-  }
-  if (batch != nullptr) {
-    return arrow::Status::Invalid("hash agg merge sink expects EOS only");
-  }
-  ARROW_RETURN_NOT_OK(context_->Finalize());
-  return OperatorStatus::kFinished;
+pipeline::PipelineSink HashAggMergeSinkOp::Sink(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (context_ == nullptr) {
+      return arrow::Status::Invalid("hash agg context must not be null");
+    }
+    if (input.has_value() && *input != nullptr) {
+      return arrow::Status::Invalid("hash agg merge sink expects no input batches");
+    }
+    return pipeline::OpOutput::PipeSinkNeedsMore();
+  };
+}
+
+std::optional<task::TaskGroup> HashAggMergeSinkOp::Backend(const pipeline::PipelineContext&) {
+  task::Task finalize_task{
+      "HashAggFinalize",
+      [this](const task::TaskContext&, task::TaskId) -> task::TaskResult {
+        if (context_ == nullptr) {
+          return arrow::Status::Invalid("hash agg context must not be null");
+        }
+        if (finalized_) {
+          return task::TaskStatus::Finished();
+        }
+        ARROW_RETURN_NOT_OK(context_->Finalize());
+        finalized_ = true;
+        return task::TaskStatus::Finished();
+      }};
+
+  return task::TaskGroup{"HashAggFinalize", std::move(finalize_task), /*num_tasks=*/1,
+                         /*continuation=*/std::nullopt,
+                         /*notify_finish=*/{}};
 }
 
 HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggContext> context,
@@ -781,64 +824,59 @@ HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggContext> con
       next_row_(start_row),
       max_output_rows_(max_output_rows) {}
 
-arrow::Result<OperatorStatus> HashAggResultSourceOp::ReadImpl(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
-  if (batch == nullptr) {
-    return arrow::Status::Invalid("batch output must not be null");
-  }
-  if (context_ == nullptr) {
-    return arrow::Status::Invalid("hash agg context must not be null");
-  }
-  if (max_output_rows_ <= 0) {
-    return arrow::Status::Invalid("max_output_rows must be positive");
-  }
-  if (start_row_ < 0) {
-    return arrow::Status::Invalid("start_row must be non-negative");
-  }
-  if (end_row_ < -1) {
-    return arrow::Status::Invalid("end_row must be -1 or non-negative");
-  }
-  if (end_row_ >= 0 && end_row_ < start_row_) {
-    return arrow::Status::Invalid("end_row must be >= start_row");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto output, context_->OutputBatch());
-  if (output == nullptr) {
-    *batch = nullptr;
-    return OperatorStatus::kFinished;
-  }
-
-  const int64_t total_rows = output->num_rows();
-  if (total_rows < 0) {
-    return arrow::Status::Invalid("negative output row count");
-  }
-
-  if (total_rows == 0) {
-    if (emitted_empty_) {
-      *batch = nullptr;
-      return OperatorStatus::kFinished;
+pipeline::PipelineSource HashAggResultSourceOp::Source(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                pipeline::ThreadId) -> pipeline::OpResult {
+    if (context_ == nullptr) {
+      return arrow::Status::Invalid("hash agg context must not be null");
     }
-    emitted_empty_ = true;
-    *batch = output;
-    return OperatorStatus::kHasOutput;
-  }
+    if (max_output_rows_ <= 0) {
+      return arrow::Status::Invalid("max_output_rows must be positive");
+    }
+    if (start_row_ < 0) {
+      return arrow::Status::Invalid("start_row must be non-negative");
+    }
+    if (end_row_ < -1) {
+      return arrow::Status::Invalid("end_row must be -1 or non-negative");
+    }
+    if (end_row_ >= 0 && end_row_ < start_row_) {
+      return arrow::Status::Invalid("end_row must be >= start_row");
+    }
 
-  const int64_t effective_end = (end_row_ < 0 || end_row_ > total_rows) ? total_rows : end_row_;
-  if (next_row_ >= effective_end || next_row_ >= total_rows) {
-    *batch = nullptr;
-    return OperatorStatus::kFinished;
-  }
+    ARROW_ASSIGN_OR_RAISE(auto output, context_->OutputBatch());
+    if (output == nullptr) {
+      return pipeline::OpOutput::Finished();
+    }
 
-  const int64_t remaining = effective_end - next_row_;
-  const int64_t length = std::min(max_output_rows_, remaining);
-  if (length <= 0) {
-    *batch = nullptr;
-    return OperatorStatus::kFinished;
-  }
+    const int64_t total_rows = output->num_rows();
+    if (total_rows < 0) {
+      return arrow::Status::Invalid("negative output row count");
+    }
 
-  *batch = output->Slice(next_row_, length);
-  next_row_ += length;
-  return OperatorStatus::kHasOutput;
+    if (total_rows == 0) {
+      if (emitted_empty_) {
+        return pipeline::OpOutput::Finished();
+      }
+      emitted_empty_ = true;
+      return pipeline::OpOutput::SourcePipeHasMore(std::move(output));
+    }
+
+    const int64_t effective_end =
+        (end_row_ < 0 || end_row_ > total_rows) ? total_rows : end_row_;
+    if (next_row_ >= effective_end || next_row_ >= total_rows) {
+      return pipeline::OpOutput::Finished();
+    }
+
+    const int64_t remaining = effective_end - next_row_;
+    const int64_t length = std::min(max_output_rows_, remaining);
+    if (length <= 0) {
+      return pipeline::OpOutput::Finished();
+    }
+
+    auto slice = output->Slice(next_row_, length);
+    next_row_ += length;
+    return pipeline::OpOutput::SourcePipeHasMore(std::move(slice));
+  };
 }
 
 }  // namespace tiforth

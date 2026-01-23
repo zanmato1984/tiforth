@@ -12,8 +12,8 @@
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
 
-#include "tiforth/operators.h"
 #include "tiforth/operators/agg_defs.h"
+#include "tiforth/pipeline/op/op.h"
 
 namespace arrow {
 class MemoryPool;
@@ -54,7 +54,7 @@ struct HashAggPartialState {
 // - grouped hash_* parity tests against TiFlash native aggregation.
 //
 // MS20+: implemented as a breaker-style hash aggregation (partial TransformOp + merge SinkOp + result SourceOp).
-class HashAggTransformOp final : public TransformOp {
+class HashAggTransformOp final : public pipeline::PipeOp {
  public:
   using GrouperFactory =
       std::function<arrow::Result<std::unique_ptr<arrow::compute::Grouper>>(
@@ -63,13 +63,15 @@ class HashAggTransformOp final : public TransformOp {
 
   explicit HashAggTransformOp(std::shared_ptr<HashAggContext> context);
   HashAggTransformOp(std::shared_ptr<HashAggContext> context,
-                     std::function<arrow::Status(HashAggPartialState)> on_partial_sealed);
+                     std::function<arrow::Status(HashAggPartialState, pipeline::ThreadId)>
+                         on_partial_sealed);
   ~HashAggTransformOp() override;
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
+  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
 
  private:
+  arrow::Status SealPartial(pipeline::ThreadId thread_id);
   arrow::Status InitIfNeededAndConsume(const arrow::RecordBatch& batch);
   arrow::Status ConsumeBatch(const arrow::RecordBatch& batch);
 
@@ -89,7 +91,7 @@ class HashAggTransformOp final : public TransformOp {
   std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
   std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states_;
 
-  std::function<arrow::Status(HashAggPartialState)> on_partial_sealed_;
+  std::function<arrow::Status(HashAggPartialState, pipeline::ThreadId)> on_partial_sealed_;
   bool sealed_ = false;
 };
 
@@ -140,25 +142,25 @@ class HashAggContext final {
   bool finalized_ = false;
 };
 
-class HashAggMergeSinkOp final : public SinkOp {
+class HashAggMergeSinkOp final : public pipeline::SinkOp {
  public:
   explicit HashAggMergeSinkOp(std::shared_ptr<HashAggContext> context);
 
- protected:
-  arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override;
+  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override;
+  std::optional<task::TaskGroup> Backend(const pipeline::PipelineContext&) override;
 
  private:
   std::shared_ptr<HashAggContext> context_;
+  bool finalized_ = false;
 };
 
-class HashAggResultSourceOp final : public SourceOp {
+class HashAggResultSourceOp final : public pipeline::SourceOp {
  public:
   HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t max_output_rows = 65536);
   HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t start_row, int64_t end_row,
                         int64_t max_output_rows = 65536);
 
- protected:
-  arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override;
 
  private:
   std::shared_ptr<HashAggContext> context_;

@@ -8,8 +8,8 @@
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 
-#include "tiforth/operators.h"
 #include "tiforth/operators/agg_defs.h"
+#include "tiforth/pipeline/op/op.h"
 
 namespace arrow {
 class MemoryPool;
@@ -28,19 +28,21 @@ struct ArrowComputeAggOptions {
   bool stable_dictionary_encode_binary_keys = false;
 };
 
-class ArrowComputeAggTransformOp final : public TransformOp {
+class ArrowComputeAggTransformOp final : public pipeline::PipeOp {
  public:
   ArrowComputeAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
                              std::vector<AggFunc> aggs, ArrowComputeAggOptions options = {},
                              arrow::MemoryPool* memory_pool = nullptr);
  ~ArrowComputeAggTransformOp() override;
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
+  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
 
  private:
+  arrow::Status ConsumeBatch(std::shared_ptr<arrow::RecordBatch> batch);
+  arrow::Status ConsumeBatchStableDictionary(std::shared_ptr<arrow::RecordBatch> batch);
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> NextOutputBatch();
-  arrow::Result<OperatorStatus> TransformImplStableDictionary(std::shared_ptr<arrow::RecordBatch>* batch);
+  arrow::Status FinalizeIfNeeded();
 
   struct ExecState;
   struct DictState;
@@ -57,7 +59,6 @@ class ArrowComputeAggTransformOp final : public TransformOp {
   std::unique_ptr<DictState> dict_state_;
 
   bool finalized_ = false;
-  bool eos_forwarded_ = false;
 };
 
 }  // namespace tiforth

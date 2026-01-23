@@ -22,7 +22,8 @@
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
 #include "tiforth/operators/arrow_compute_agg.h"
-#include "tiforth/pipeline.h"
+#include "tiforth/pipeline/op/op.h"
+#include "tiforth/plan.h"
 #include "tiforth/task.h"
 
 namespace tiforth {
@@ -108,15 +109,17 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
     const std::vector<std::shared_ptr<arrow::RecordBatch>>& inputs, const std::vector<AggKey>& keys,
     const std::vector<AggFunc>& aggs, ArrowComputeAggOptions options = {}) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
-  ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
-
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), keys, aggs, options]() -> arrow::Result<TransformOpPtr> {
+  ARROW_ASSIGN_OR_RAISE(auto builder, PlanBuilder::Create(engine.get()));
+  ARROW_ASSIGN_OR_RAISE(const auto stage, builder->AddStage());
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      stage,
+      [engine_ptr = engine.get(), keys, aggs, options](PlanTaskContext*)
+          -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
         return std::make_unique<ArrowComputeAggTransformOp>(engine_ptr, keys, aggs, options);
       }));
 
-  ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
-  ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
+  ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());
+  ARROW_ASSIGN_OR_RAISE(auto task, plan->CreateTask());
 
   ARROW_ASSIGN_OR_RAISE(auto state, task->Step());
   if (state != TaskState::kNeedInput) {

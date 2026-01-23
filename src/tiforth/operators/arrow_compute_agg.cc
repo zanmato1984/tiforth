@@ -414,61 +414,53 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::N
                                   std::move(reordered));
 }
 
-arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
+pipeline::PipelinePipe ArrowComputeAggTransformOp::Pipe(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("arrow compute agg input batch must not be null");
+    }
+    ARROW_RETURN_NOT_OK(ConsumeBatch(std::move(batch)));
+    return pipeline::OpOutput::PipeSinkNeedsMore();
+  };
+}
+
+pipeline::PipelineDrain ArrowComputeAggTransformOp::Drain(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                pipeline::ThreadId) -> pipeline::OpResult {
+    ARROW_RETURN_NOT_OK(FinalizeIfNeeded());
+    if (exec_state_ == nullptr) {
+      return pipeline::OpOutput::Finished();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto batch, NextOutputBatch());
+    if (batch != nullptr) {
+      return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
+    }
+    exec_state_.reset();
+    return pipeline::OpOutput::Finished();
+  };
+}
+
+arrow::Status ArrowComputeAggTransformOp::ConsumeBatch(std::shared_ptr<arrow::RecordBatch> batch) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
   if (batch == nullptr) {
-    return arrow::Status::Invalid("batch must not be null");
+    return arrow::Status::Invalid("input batch must not be null");
   }
-
-  if (options_.stable_dictionary_encode_binary_keys) {
-    return TransformImplStableDictionary(batch);
-  }
-
-  if (*batch == nullptr) {
-    if (!finalized_) {
-      if (input_schema_ == nullptr) {
-        finalized_ = true;
-        eos_forwarded_ = true;
-        batch->reset();
-        return OperatorStatus::kHasOutput;
-      }
-
-      if (exec_state_ == nullptr) {
-        return arrow::Status::Invalid("arrow compute agg is missing execution state");
-      }
-      if (!exec_state_->input_closed) {
-        if (!exec_state_->input_producer.Close()) {
-          return arrow::Status::Cancelled("arrow compute agg input producer closed early");
-        }
-        exec_state_->input_closed = true;
-      }
-      finalized_ = true;
-    }
-
-    if (exec_state_ != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(*batch, NextOutputBatch());
-      if (*batch != nullptr) {
-        return OperatorStatus::kHasOutput;
-      }
-      exec_state_.reset();
-    }
-    if (!eos_forwarded_) {
-      eos_forwarded_ = true;
-      batch->reset();
-      return OperatorStatus::kHasOutput;
-    }
-    batch->reset();
-    return OperatorStatus::kHasOutput;
-  }
-
   if (finalized_) {
     return arrow::Status::Invalid("arrow compute agg received input after finalization");
   }
 
-  const auto& input = **batch;
+  if (options_.stable_dictionary_encode_binary_keys) {
+    return ConsumeBatchStableDictionary(std::move(batch));
+  }
+
+  const auto& input = *batch;
   if (input_schema_ == nullptr) {
     input_schema_ = input.schema();
     if (input_schema_ == nullptr) {
@@ -551,101 +543,94 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImpl(
     return arrow::Status::Invalid("arrow compute agg input schema mismatch");
   }
 
+  if (exec_state_ == nullptr) {
+    return arrow::Status::Invalid("arrow compute agg missing exec state");
+  }
+
   arrow::compute::ExecBatch exec_batch(input);
   if (!exec_state_->input_producer.Push(
           std::optional<arrow::compute::ExecBatch>(std::move(exec_batch)))) {
     return arrow::Status::Cancelled("arrow compute agg input producer closed early");
   }
-  batch->reset();
-  return OperatorStatus::kNeedInput;
+  return arrow::Status::OK();
 }
 
-arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImplStableDictionary(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
+arrow::Status ArrowComputeAggTransformOp::FinalizeIfNeeded() {
+  if (engine_ == nullptr) {
+    return arrow::Status::Invalid("engine must not be null");
+  }
+  if (finalized_) {
+    return arrow::Status::OK();
+  }
+  if (input_schema_ == nullptr) {
+    finalized_ = true;
+    return arrow::Status::OK();
+  }
+  if (exec_state_ == nullptr) {
+    return arrow::Status::Invalid("arrow compute agg is missing execution state");
+  }
+
+  if (!exec_state_->input_closed) {
+    if (!exec_state_->input_producer.Close()) {
+      return arrow::Status::Cancelled("arrow compute agg input producer closed early");
+    }
+    exec_state_->input_closed = true;
+  }
+
+  if (options_.stable_dictionary_encode_binary_keys) {
+    if (keys_.empty()) {
+      return arrow::Status::NotImplemented("group-by without keys is not implemented");
+    }
+    if (dict_state_ == nullptr || dict_state_->encoded_schema == nullptr) {
+      return arrow::Status::Invalid("stable dictionary agg is missing encoded schema state");
+    }
+
+    const int32_t num_keys = static_cast<int32_t>(keys_.size());
+    if (dict_state_->stable_key_unifiers.size() != static_cast<std::size_t>(num_keys) ||
+        dict_state_->stable_key_value_types.size() != static_cast<std::size_t>(num_keys)) {
+      return arrow::Status::Invalid("stable dictionary agg missing key unifier state");
+    }
+    exec_state_->stable_dict_key_values.resize(static_cast<std::size_t>(num_keys));
+    for (int32_t i = 0; i < num_keys; ++i) {
+      const auto& value_type = dict_state_->stable_key_value_types[static_cast<std::size_t>(i)];
+      if (value_type == nullptr) {
+        continue;
+      }
+      auto& unifier = dict_state_->stable_key_unifiers[static_cast<std::size_t>(i)];
+      if (unifier == nullptr) {
+        return arrow::Status::Invalid("stable dictionary key unifier must not be null");
+      }
+      std::shared_ptr<arrow::Array> dict_values;
+      ARROW_RETURN_NOT_OK(unifier->GetResultWithIndexType(arrow::int32(), &dict_values));
+      if (dict_values == nullptr) {
+        return arrow::Status::Invalid("stable dictionary values must not be null");
+      }
+      exec_state_->stable_dict_key_values[static_cast<std::size_t>(i)] = std::move(dict_values);
+    }
+    dict_state_.reset();
+  }
+
+  finalized_ = true;
+  return arrow::Status::OK();
+}
+
+arrow::Status ArrowComputeAggTransformOp::ConsumeBatchStableDictionary(
+    std::shared_ptr<arrow::RecordBatch> batch) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
   if (batch == nullptr) {
-    return arrow::Status::Invalid("batch must not be null");
+    return arrow::Status::Invalid("input batch must not be null");
   }
   if (!options_.stable_dictionary_encode_binary_keys) {
     return arrow::Status::Invalid("stable dictionary mode is not enabled");
-  }
-
-  if (*batch == nullptr) {
-    if (!finalized_) {
-      if (input_schema_ == nullptr) {
-        finalized_ = true;
-        eos_forwarded_ = true;
-        batch->reset();
-        return OperatorStatus::kHasOutput;
-      }
-
-      if (keys_.empty()) {
-        return arrow::Status::NotImplemented("group-by without keys is not implemented");
-      }
-      if (dict_state_ == nullptr || dict_state_->encoded_schema == nullptr) {
-        return arrow::Status::Invalid("stable dictionary agg is missing encoded schema state");
-      }
-      if (exec_state_ == nullptr) {
-        return arrow::Status::Invalid("stable dictionary agg is missing exec state");
-      }
-
-      if (!exec_state_->input_closed) {
-        if (!exec_state_->input_producer.Close()) {
-          return arrow::Status::Cancelled("arrow compute agg input producer closed early");
-        }
-        exec_state_->input_closed = true;
-      }
-
-      const int32_t num_keys = static_cast<int32_t>(keys_.size());
-      if (dict_state_->stable_key_unifiers.size() != static_cast<std::size_t>(num_keys) ||
-          dict_state_->stable_key_value_types.size() != static_cast<std::size_t>(num_keys)) {
-        return arrow::Status::Invalid("stable dictionary agg missing key unifier state");
-      }
-      exec_state_->stable_dict_key_values.resize(static_cast<std::size_t>(num_keys));
-      for (int32_t i = 0; i < num_keys; ++i) {
-        const auto& value_type = dict_state_->stable_key_value_types[static_cast<std::size_t>(i)];
-        if (value_type == nullptr) {
-          continue;
-        }
-        auto& unifier = dict_state_->stable_key_unifiers[static_cast<std::size_t>(i)];
-        if (unifier == nullptr) {
-          return arrow::Status::Invalid("stable dictionary key unifier must not be null");
-        }
-        std::shared_ptr<arrow::Array> dict_values;
-        ARROW_RETURN_NOT_OK(unifier->GetResultWithIndexType(arrow::int32(), &dict_values));
-        if (dict_values == nullptr) {
-          return arrow::Status::Invalid("stable dictionary values must not be null");
-        }
-        exec_state_->stable_dict_key_values[static_cast<std::size_t>(i)] = std::move(dict_values);
-      }
-      dict_state_.reset();
-
-      finalized_ = true;
-    }
-
-    if (exec_state_ != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(*batch, NextOutputBatch());
-      if (*batch != nullptr) {
-        return OperatorStatus::kHasOutput;
-      }
-      exec_state_.reset();
-    }
-    if (!eos_forwarded_) {
-      eos_forwarded_ = true;
-      batch->reset();
-      return OperatorStatus::kHasOutput;
-    }
-    batch->reset();
-    return OperatorStatus::kHasOutput;
   }
 
   if (finalized_) {
     return arrow::Status::Invalid("arrow compute agg received input after finalization");
   }
 
-  const auto& input = **batch;
+  const auto& input = *batch;
   if (input_schema_ == nullptr) {
     input_schema_ = input.schema();
     if (input_schema_ == nullptr) {
@@ -896,8 +881,7 @@ arrow::Result<OperatorStatus> ArrowComputeAggTransformOp::TransformImplStableDic
           std::optional<arrow::compute::ExecBatch>(std::move(exec_batch)))) {
     return arrow::Status::Cancelled("arrow compute agg input producer closed early");
   }
-  batch->reset();
-  return OperatorStatus::kNeedInput;
+  return arrow::Status::OK();
 }
 
 }  // namespace tiforth

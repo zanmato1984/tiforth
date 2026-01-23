@@ -18,6 +18,7 @@
 #include "tiforth/operators/hash_agg.h"
 #include "tiforth/operators/hash_join.h"
 #include "tiforth/operators/sort.h"
+#include "tiforth/pipeline/op/op.h"
 #include "tiforth/plan.h"
 #include "tiforth/pipeline.h"
 #include "tiforth/task.h"
@@ -261,20 +262,20 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
           }));
 
   ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<TransformOpPtr> {
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
         ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
         return std::make_unique<HashAggTransformOp>(std::move(agg_ctx));
       }));
   ARROW_RETURN_NOT_OK(builder->SetStageSink(
-      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<SinkOpPtr> {
+      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
         ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
         return std::make_unique<HashAggMergeSinkOp>(std::move(agg_ctx));
       }));
 
   ARROW_ASSIGN_OR_RAISE(const auto result_stage, builder->AddStage());
   ARROW_RETURN_NOT_OK(builder->SetStageSource(
-      result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<SourceOpPtr> {
+      result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
         ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
         return std::make_unique<HashAggResultSourceOp>(std::move(agg_ctx), /*max_output_rows=*/1 << 30);
       }));

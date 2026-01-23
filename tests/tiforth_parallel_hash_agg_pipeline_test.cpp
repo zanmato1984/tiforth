@@ -9,44 +9,68 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
-#include "test_pipeline_runner.h"
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
 #include "tiforth/operators/hash_agg.h"
-#include "tiforth/operators/projection.h"
-#include "tiforth/pipeline_exec.h"
+#include "tiforth/pipeline/logical_pipeline.h"
+#include "tiforth/pipeline/physical_pipeline.h"
+#include "tiforth/pipeline/pipeline_context.h"
+#include "tiforth/pipeline/pipeline_task.h"
+#include "tiforth/task/awaiter.h"
+#include "tiforth/task/resumer.h"
+#include "tiforth/task/task_context.h"
+#include "tiforth/task/task_status.h"
 
 namespace tiforth {
 
 namespace {
 
-class VectorSourceOp final : public SourceOp {
+class SimpleResumer final : public task::Resumer {
+ public:
+  void Resume() override { resumed_.store(true, std::memory_order_release); }
+  bool IsResumed() const override { return resumed_.load(std::memory_order_acquire); }
+
+ private:
+  std::atomic_bool resumed_{false};
+};
+
+class SimpleAwaiter final : public task::Awaiter {
+ public:
+  explicit SimpleAwaiter(task::Resumers resumers) : resumers_(std::move(resumers)) {}
+
+  const task::Resumers& resumers() const { return resumers_; }
+
+ private:
+  task::Resumers resumers_;
+};
+
+class VectorSourceOp final : public pipeline::SourceOp {
  public:
   explicit VectorSourceOp(std::vector<std::shared_ptr<arrow::RecordBatch>> batches)
       : batches_(std::move(batches)) {}
 
- protected:
-  arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override {
-    if (batch == nullptr) {
-      return arrow::Status::Invalid("batch output must not be null");
-    }
-    if (offset_ >= batches_.size()) {
-      *batch = nullptr;
-      return OperatorStatus::kFinished;
-    }
-    *batch = batches_[offset_++];
-    if (*batch == nullptr) {
-      return arrow::Status::Invalid("source batch must not be null");
-    }
-    return OperatorStatus::kHasOutput;
+  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override {
+    return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                  pipeline::ThreadId) -> pipeline::OpResult {
+      if (offset_ >= batches_.size()) {
+        return pipeline::OpOutput::Finished();
+      }
+      auto batch = batches_[offset_++];
+      if (batch == nullptr) {
+        return arrow::Status::Invalid("source batch must not be null");
+      }
+      return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
+    };
   }
 
  private:
@@ -54,87 +78,38 @@ class VectorSourceOp final : public SourceOp {
   std::size_t offset_ = 0;
 };
 
-class EosSourceOp final : public SourceOp {
- protected:
-  arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override {
-    if (batch == nullptr) {
-      return arrow::Status::Invalid("batch output must not be null");
-    }
-    *batch = nullptr;
-    return OperatorStatus::kFinished;
-  }
-};
-
-class FinishOnEosSinkOp final : public SinkOp {
+class NoOpSinkOp final : public pipeline::SinkOp {
  public:
-  FinishOnEosSinkOp() = default;
-
- protected:
-  arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override {
-    if (batch != nullptr) {
-      return arrow::Status::Invalid("expected EOS only");
-    }
-    return OperatorStatus::kFinished;
-  }
-};
-
-class MergePartialsTransformOp final : public TransformOp {
- public:
-  MergePartialsTransformOp(std::shared_ptr<HashAggContext> context,
-                           std::shared_ptr<std::vector<std::optional<HashAggPartialState>>> partials)
-      : context_(std::move(context)), partials_(std::move(partials)) {}
-
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) override {
-    if (batch == nullptr) {
-      return arrow::Status::Invalid("batch must not be null");
-    }
-    if (context_ == nullptr) {
-      return arrow::Status::Invalid("hash agg context must not be null");
-    }
-    if (partials_ == nullptr) {
-      return arrow::Status::Invalid("partials must not be null");
-    }
-    if (*batch != nullptr) {
-      return arrow::Status::Invalid("expected EOS only");
-    }
-    if (merged_) {
-      batch->reset();
-      return OperatorStatus::kHasOutput;
-    }
-
-    for (auto& maybe_partial : *partials_) {
-      if (!maybe_partial.has_value()) {
-        continue;
+  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override {
+    return [](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+              std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+      if (input.has_value() && *input != nullptr) {
+        return arrow::Status::Invalid("unexpected sink input batch");
       }
-      ARROW_RETURN_NOT_OK(context_->MergePartial(std::move(*maybe_partial)));
-      maybe_partial.reset();
-    }
-    merged_ = true;
-    batch->reset();
-    return OperatorStatus::kHasOutput;
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    };
   }
-
- private:
-  std::shared_ptr<HashAggContext> context_;
-  std::shared_ptr<std::vector<std::optional<HashAggPartialState>>> partials_;
-  bool merged_ = false;
 };
 
-class SlotCollectSinkOp final : public SinkOp {
+class CollectSinkOp final : public pipeline::SinkOp {
  public:
-  explicit SlotCollectSinkOp(std::vector<std::shared_ptr<arrow::RecordBatch>>* out) : out_(out) {}
+  explicit CollectSinkOp(std::vector<std::shared_ptr<arrow::RecordBatch>>* out) : out_(out) {}
 
- protected:
-  arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override {
-    if (out_ == nullptr) {
-      return arrow::Status::Invalid("output slot must not be null");
-    }
-    if (batch == nullptr) {
-      return OperatorStatus::kFinished;
-    }
-    out_->push_back(std::move(batch));
-    return OperatorStatus::kNeedInput;
+  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override {
+    return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                  std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+      if (out_ == nullptr) {
+        return arrow::Status::Invalid("output slot must not be null");
+      }
+      if (!input.has_value()) {
+        return pipeline::OpOutput::PipeSinkNeedsMore();
+      }
+      auto batch = std::move(*input);
+      if (batch != nullptr) {
+        out_->push_back(std::move(batch));
+      }
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    };
   }
 
  private:
@@ -169,6 +144,54 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeInt32Batch(
   return arrow::RecordBatch::Make(schema, static_cast<int64_t>(keys.size()), {k_array, v_array});
 }
 
+task::TaskContext MakeTestTaskContext() {
+  task::TaskContext task_ctx;
+  task_ctx.resumer_factory = []() -> arrow::Result<task::ResumerPtr> {
+    return std::make_shared<SimpleResumer>();
+  };
+  task_ctx.single_awaiter_factory =
+      [](task::ResumerPtr resumer) -> arrow::Result<task::AwaiterPtr> {
+    task::Resumers resumers;
+    resumers.push_back(std::move(resumer));
+    return std::make_shared<SimpleAwaiter>(std::move(resumers));
+  };
+  task_ctx.any_awaiter_factory =
+      [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
+    return std::make_shared<SimpleAwaiter>(std::move(resumers));
+  };
+  task_ctx.all_awaiter_factory =
+      [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
+    return std::make_shared<SimpleAwaiter>(std::move(resumers));
+  };
+  return task_ctx;
+}
+
+arrow::Status RunPipelineTaskToCompletion(pipeline::PipelineTask* pipeline_task,
+                                         const pipeline::PipelineContext& pipeline_ctx,
+                                         const task::TaskContext& task_ctx) {
+  if (pipeline_task == nullptr) {
+    return arrow::Status::Invalid("pipeline task must not be null");
+  }
+
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto status, (*pipeline_task)(pipeline_ctx, task_ctx, /*thread_id=*/0));
+    if (status.IsFinished()) {
+      return arrow::Status::OK();
+    }
+    if (status.IsCancelled()) {
+      return arrow::Status::Cancelled("pipeline task cancelled");
+    }
+    if (status.IsBlocked()) {
+      return arrow::Status::Invalid("unexpected Blocked in this test");
+    }
+    if (status.IsYield()) {
+      std::this_thread::yield();
+      continue;
+    }
+    ARROW_CHECK(status.IsContinue());
+  }
+}
+
 arrow::Status RunParallelHashAggTwoStagePipeline() {
   constexpr int kBuildParallelism = 4;
   constexpr int kResultParallelism = 3;
@@ -201,90 +224,133 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
       std::make_shared<std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>>(
           kResultParallelism);
 
-  test::PipelineRunner runner;
+  const auto pipeline_ctx = pipeline::PipelineContext{};
+  auto task_ctx = MakeTestTaskContext();
 
-  test::PipelineStageSpec build_spec;
-  build_spec.name = "hash_agg_build";
-  build_spec.num_tasks = kBuildParallelism;
-  build_spec.task_factory =
-      [agg_ctx, partitions, partials](int task_id) -> arrow::Result<std::unique_ptr<PipelineExec>> {
-    if (task_id < 0 || static_cast<std::size_t>(task_id) >= partitions->size()) {
-      return arrow::Status::Invalid("task_id out of range");
+  {
+    std::atomic_bool has_error{false};
+    arrow::Status first_error;
+    std::vector<std::thread> threads;
+    threads.reserve(kBuildParallelism);
+    for (int task_id = 0; task_id < kBuildParallelism; ++task_id) {
+      threads.emplace_back([&, task_id]() {
+        if (task_id < 0 || static_cast<std::size_t>(task_id) >= partitions->size()) {
+          has_error.store(true);
+          first_error = arrow::Status::Invalid("task_id out of range");
+          return;
+        }
+        const std::size_t slot = static_cast<std::size_t>(task_id);
+        if (slot >= partials->size()) {
+          has_error.store(true);
+          first_error = arrow::Status::Invalid("partial slot out of range");
+          return;
+        }
+
+        auto source_op = std::make_unique<VectorSourceOp>((*partitions)[slot]);
+        auto sink_op = std::make_unique<NoOpSinkOp>();
+        auto pipe_op = std::make_unique<HashAggTransformOp>(
+            agg_ctx, [partials, slot](HashAggPartialState partial,
+                                      pipeline::ThreadId) -> arrow::Status {
+              (*partials)[slot] = std::move(partial);
+              return arrow::Status::OK();
+            });
+
+        pipeline::LogicalPipeline::Channel channel;
+        channel.source_op = source_op.get();
+        channel.pipe_ops = {pipe_op.get()};
+        pipeline::LogicalPipeline logical{"HashAggBuild",
+                                          std::vector<pipeline::LogicalPipeline::Channel>{
+                                              std::move(channel)},
+                                          sink_op.get()};
+        auto physical = pipeline::CompilePipeline(pipeline_ctx, logical);
+        if (physical.size() != 1) {
+          has_error.store(true);
+          first_error = arrow::Status::Invalid("expected a single physical pipeline");
+          return;
+        }
+
+        pipeline::PipelineTask pipeline_task{pipeline_ctx, physical[0], /*dop=*/1};
+        auto st = RunPipelineTaskToCompletion(&pipeline_task, pipeline_ctx, task_ctx);
+        if (!st.ok() && !has_error.exchange(true)) {
+          first_error = std::move(st);
+        }
+      });
     }
-    const std::size_t slot = static_cast<std::size_t>(task_id);
-    if (slot >= partials->size()) {
-      return arrow::Status::Invalid("partial slot out of range");
+    for (auto& th : threads) {
+      th.join();
     }
-
-    PipelineExecBuilder builder;
-    builder.SetSourceOp(
-        std::make_unique<VectorSourceOp>((*partitions)[static_cast<std::size_t>(task_id)]));
-    builder.AppendTransformOp(std::make_unique<HashAggTransformOp>(
-        agg_ctx, [partials, slot](HashAggPartialState partial) -> arrow::Status {
-          (*partials)[slot] = std::move(partial);
-          return arrow::Status::OK();
-        }));
-    builder.SetSinkOp(std::make_unique<FinishOnEosSinkOp>());
-    return builder.Build();
-  };
-  ARROW_ASSIGN_OR_RAISE(const auto build_stage, runner.AddStage(std::move(build_spec)));
-
-  test::PipelineStageSpec merge_spec;
-  merge_spec.name = "hash_agg_merge";
-  merge_spec.num_tasks = 1;
-  merge_spec.task_factory =
-      [agg_ctx, partials](int /*task_id*/) -> arrow::Result<std::unique_ptr<PipelineExec>> {
-    PipelineExecBuilder builder;
-    builder.SetSourceOp(std::make_unique<EosSourceOp>());
-    builder.AppendTransformOp(std::make_unique<MergePartialsTransformOp>(agg_ctx, partials));
-    builder.SetSinkOp(std::make_unique<HashAggMergeSinkOp>(agg_ctx));
-    return builder.Build();
-  };
-  ARROW_ASSIGN_OR_RAISE(const auto merge_stage, runner.AddStage(std::move(merge_spec)));
-
-  const Engine* engine_ptr = engine.get();
-  test::PipelineStageSpec result_spec;
-  result_spec.name = "hash_agg_result";
-  result_spec.num_tasks = kResultParallelism;
-  result_spec.task_factory =
-      [agg_ctx, engine_ptr, outputs_by_task,
-       kResultParallelism](int task_id) -> arrow::Result<std::unique_ptr<PipelineExec>> {
-    if (task_id < 0 || static_cast<std::size_t>(task_id) >= outputs_by_task->size()) {
-      return arrow::Status::Invalid("task_id out of range");
+    if (has_error.load()) {
+      return first_error.ok() ? arrow::Status::Invalid("build stage failed") : first_error;
     }
+  }
 
-    ARROW_ASSIGN_OR_RAISE(auto out, agg_ctx->OutputBatch());
-    if (out == nullptr) {
-      return arrow::Status::Invalid("expected non-null hash agg output");
+  for (auto& maybe_partial : *partials) {
+    if (!maybe_partial.has_value()) {
+      continue;
     }
-    const int64_t total_rows = out->num_rows();
-    if (total_rows < 0) {
-      return arrow::Status::Invalid("negative output row count");
+    ARROW_RETURN_NOT_OK(agg_ctx->MergePartial(std::move(*maybe_partial)));
+    maybe_partial.reset();
+  }
+  ARROW_RETURN_NOT_OK(agg_ctx->Finalize());
+
+  ARROW_ASSIGN_OR_RAISE(auto out, agg_ctx->OutputBatch());
+  if (out == nullptr) {
+    return arrow::Status::Invalid("expected non-null hash agg output");
+  }
+  const int64_t total_rows = out->num_rows();
+  if (total_rows < 0) {
+    return arrow::Status::Invalid("negative output row count");
+  }
+
+  {
+    std::atomic_bool has_error{false};
+    arrow::Status first_error;
+    std::vector<std::thread> threads;
+    threads.reserve(kResultParallelism);
+    for (int task_id = 0; task_id < kResultParallelism; ++task_id) {
+      threads.emplace_back([&, task_id]() {
+        if (task_id < 0 || static_cast<std::size_t>(task_id) >= outputs_by_task->size()) {
+          has_error.store(true);
+          first_error = arrow::Status::Invalid("task_id out of range");
+          return;
+        }
+        const int64_t start = (static_cast<int64_t>(task_id) * total_rows) / kResultParallelism;
+        const int64_t end =
+            (static_cast<int64_t>(task_id + 1) * total_rows) / kResultParallelism;
+
+        auto source_op = std::make_unique<HashAggResultSourceOp>(agg_ctx, start, end,
+                                                                 /*max_output_rows=*/1);
+        auto* slot = &(*outputs_by_task)[static_cast<std::size_t>(task_id)];
+        auto sink_op = std::make_unique<CollectSinkOp>(slot);
+
+        pipeline::LogicalPipeline::Channel channel;
+        channel.source_op = source_op.get();
+        channel.pipe_ops = {};
+        pipeline::LogicalPipeline logical{"HashAggResult",
+                                          std::vector<pipeline::LogicalPipeline::Channel>{
+                                              std::move(channel)},
+                                          sink_op.get()};
+        auto physical = pipeline::CompilePipeline(pipeline_ctx, logical);
+        if (physical.size() != 1) {
+          has_error.store(true);
+          first_error = arrow::Status::Invalid("expected a single physical pipeline");
+          return;
+        }
+
+        pipeline::PipelineTask pipeline_task{pipeline_ctx, physical[0], /*dop=*/1};
+        auto st = RunPipelineTaskToCompletion(&pipeline_task, pipeline_ctx, task_ctx);
+        if (!st.ok() && !has_error.exchange(true)) {
+          first_error = std::move(st);
+        }
+      });
     }
-    const int64_t start = (static_cast<int64_t>(task_id) * total_rows) / kResultParallelism;
-    const int64_t end = (static_cast<int64_t>(task_id + 1) * total_rows) / kResultParallelism;
-
-    PipelineExecBuilder builder;
-    builder.SetSourceOp(std::make_unique<HashAggResultSourceOp>(agg_ctx, start, end,
-                                                                /*max_output_rows=*/1));
-
-    std::vector<ProjectionExpr> exprs;
-    exprs.push_back({"k", MakeFieldRef("k")});
-    exprs.push_back({"sum_v_plus_1",
-                     MakeCall("add", {MakeFieldRef("sum_v"),
-                                      MakeLiteral(std::make_shared<arrow::Int64Scalar>(1))})});
-    builder.AppendTransformOp(
-        std::make_unique<ProjectionTransformOp>(engine_ptr, std::move(exprs)));
-
-    auto* slot = &(*outputs_by_task)[static_cast<std::size_t>(task_id)];
-    builder.SetSinkOp(std::make_unique<SlotCollectSinkOp>(slot));
-    return builder.Build();
-  };
-  ARROW_ASSIGN_OR_RAISE(const auto result_stage, runner.AddStage(std::move(result_spec)));
-
-  ARROW_RETURN_NOT_OK(runner.AddDependency(build_stage, merge_stage));
-  ARROW_RETURN_NOT_OK(runner.AddDependency(merge_stage, result_stage));
-  ARROW_RETURN_NOT_OK(runner.Run());
+    for (auto& th : threads) {
+      th.join();
+    }
+    if (has_error.load()) {
+      return first_error.ok() ? arrow::Status::Invalid("result stage failed") : first_error;
+    }
+  }
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
   outputs.reserve(32);
@@ -297,20 +363,19 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
     return arrow::Status::Invalid("expected non-empty output");
   }
 
-  std::map<std::optional<int32_t>, int64_t> expected_sum_v_plus_1;
-  expected_sum_v_plus_1.emplace(std::optional<int32_t>(1), 18 + 1);
-  expected_sum_v_plus_1.emplace(std::optional<int32_t>(2), 27 + 1);
-  expected_sum_v_plus_1.emplace(std::optional<int32_t>(3), 9 + 1);
-  expected_sum_v_plus_1.emplace(std::optional<int32_t>(4), 12 + 1);
-  expected_sum_v_plus_1.emplace(std::optional<int32_t>(), 10 + 1);
+  std::map<std::optional<int32_t>, int64_t> expected_sum_v;
+  expected_sum_v.emplace(std::optional<int32_t>(1), 18);
+  expected_sum_v.emplace(std::optional<int32_t>(2), 27);
+  expected_sum_v.emplace(std::optional<int32_t>(3), 9);
+  expected_sum_v.emplace(std::optional<int32_t>(4), 12);
+  expected_sum_v.emplace(std::optional<int32_t>(), 10);
 
   for (const auto& batch : outputs) {
     if (batch == nullptr) {
       return arrow::Status::Invalid("output batch must not be null");
     }
     auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(batch->GetColumnByName("k"));
-    auto sum_array =
-        std::dynamic_pointer_cast<arrow::Int64Array>(batch->GetColumnByName("sum_v_plus_1"));
+    auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(batch->GetColumnByName("sum_v"));
     if (k_array == nullptr || sum_array == nullptr) {
       return arrow::Status::Invalid("unexpected output types");
     }
@@ -323,18 +388,18 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
       if (!k_array->IsNull(i)) {
         key = k_array->Value(i);
       }
-      const auto it = expected_sum_v_plus_1.find(key);
-      if (it == expected_sum_v_plus_1.end()) {
+      const auto it = expected_sum_v.find(key);
+      if (it == expected_sum_v.end()) {
         return arrow::Status::Invalid("unexpected group key");
       }
       if (sum_array->IsNull(i) || sum_array->Value(i) != it->second) {
-        return arrow::Status::Invalid("sum_v_plus_1 mismatch");
+        return arrow::Status::Invalid("sum_v mismatch");
       }
-      expected_sum_v_plus_1.erase(it);
+      expected_sum_v.erase(it);
     }
   }
 
-  if (!expected_sum_v_plus_1.empty()) {
+  if (!expected_sum_v.empty()) {
     return arrow::Status::Invalid("missing expected group keys");
   }
   return arrow::Status::OK();
