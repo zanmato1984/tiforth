@@ -24,6 +24,7 @@ target_compile_features(tiforth PUBLIC cxx_std_20)
 target_include_directories(
   tiforth
   PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_include_directories(tiforth PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 if(TIFORTH_ARROW_INCLUDE_DIRS)
   foreach(_tiforth_arrow_inc_dir IN LISTS TIFORTH_ARROW_INCLUDE_DIRS)

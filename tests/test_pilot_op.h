@@ -12,7 +12,7 @@
 #include "tiforth/pipeline/op/op.h"
 #include "tiforth/task/blocked_resumer.h"
 
-namespace tiforth {
+namespace tiforth::test {
 
 enum class PilotBlockKind {
   kIOIn,
@@ -80,10 +80,12 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
       switch (options_.block_kind) {
         case PilotBlockKind::kIOIn:
           state_ = State::kBlockedIO;
-          return pipeline::OpOutput::Blocked(std::make_shared<PilotResumer>(this, task::BlockedKind::kIOIn));
+          return pipeline::OpOutput::Blocked(
+              std::make_shared<PilotResumer>(this, task::BlockedKind::kIOIn));
         case PilotBlockKind::kIOOut:
           state_ = State::kBlockedIO;
-          return pipeline::OpOutput::Blocked(std::make_shared<PilotResumer>(this, task::BlockedKind::kIOOut));
+          return pipeline::OpOutput::Blocked(
+              std::make_shared<PilotResumer>(this, task::BlockedKind::kIOOut));
         case PilotBlockKind::kWaiting:
           state_ = State::kBlockedWait;
           return pipeline::OpOutput::Blocked(
@@ -203,4 +205,5 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
   std::shared_ptr<arrow::RecordBatch> buffered_output_;
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::test
+

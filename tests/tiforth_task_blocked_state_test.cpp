@@ -7,10 +7,10 @@
 #include <gtest/gtest.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/operators/pilot.h"
 #include "tiforth/pipeline/logical_pipeline.h"
 #include "tiforth/pipeline/task_groups.h"
 
+#include "test_pilot_op.h"
 #include "test_pipeline_ops.h"
 #include "test_task_group_runner.h"
 
@@ -28,14 +28,14 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
 }
 
 arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunPilotPipeline(
-    PilotAsyncOptions options, std::vector<std::shared_ptr<arrow::RecordBatch>> inputs) {
+    test::PilotAsyncOptions options, std::vector<std::shared_ptr<arrow::RecordBatch>> inputs) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   (void)engine;
 
   auto source_op = std::make_unique<test::VectorSourceOp>(std::move(inputs));
 
   std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
-  pipe_ops.push_back(std::make_unique<PilotAsyncPipeOp>(std::move(options)));
+  pipe_ops.push_back(std::make_unique<test::PilotAsyncPipeOp>(std::move(options)));
 
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
@@ -63,8 +63,8 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunPilotPipeline
 }
 
 arrow::Status RunPilotIOIn() {
-  PilotAsyncOptions options;
-  options.block_kind = PilotBlockKind::kIOIn;
+  test::PilotAsyncOptions options;
+  options.block_kind = test::PilotBlockKind::kIOIn;
   options.block_cycles = 1;
 
   const auto schema = arrow::schema({arrow::field("x", arrow::int32())});
@@ -81,9 +81,9 @@ arrow::Status RunPilotIOIn() {
 }
 
 arrow::Status RunPilotErrorPropagation() {
-  PilotAsyncOptions options;
-  options.block_kind = PilotBlockKind::kIOIn;
-  options.error_point = PilotErrorPoint::kPipe;
+  test::PilotAsyncOptions options;
+  options.block_kind = test::PilotBlockKind::kIOIn;
+  options.error_point = test::PilotErrorPoint::kPipe;
   options.error_status = arrow::Status::IOError("pilot injected error");
 
   const auto schema = arrow::schema({arrow::field("x", arrow::int32())});
@@ -100,8 +100,8 @@ arrow::Status RunPilotErrorPropagation() {
 }
 
 arrow::Status RunPilotWaitForNotify() {
-  PilotAsyncOptions options;
-  options.block_kind = PilotBlockKind::kWaitForNotify;
+  test::PilotAsyncOptions options;
+  options.block_kind = test::PilotBlockKind::kWaitForNotify;
 
   const auto schema = arrow::schema({arrow::field("x", arrow::int32())});
   ARROW_ASSIGN_OR_RAISE(const auto batch0, MakeBatch(schema, {1, 2}));
@@ -110,7 +110,7 @@ arrow::Status RunPilotWaitForNotify() {
       std::vector<std::shared_ptr<arrow::RecordBatch>>{batch0});
 
   std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
-  pipe_ops.push_back(std::make_unique<PilotAsyncPipeOp>(std::move(options)));
+  pipe_ops.push_back(std::make_unique<test::PilotAsyncPipeOp>(std::move(options)));
 
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);

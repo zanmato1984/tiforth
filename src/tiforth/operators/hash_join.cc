@@ -26,8 +26,11 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/collation.h"
+#include "tiforth/detail/arena.h"
 #include "tiforth/detail/arrow_compute.h"
 #include "tiforth/detail/arrow_memory_pool_resource.h"
+#include "tiforth/detail/key_hash_table.h"
+#include "tiforth/detail/scratch_bytes.h"
 #include "tiforth/type_metadata.h"
 
 namespace tiforth {
@@ -35,7 +38,58 @@ namespace tiforth {
 namespace {
 }  // namespace
 
-HashJoinPipeOp::HashJoinPipeOp(
+struct HashJoinPipeOp::Impl {
+  using Decimal128Bytes = std::array<uint8_t, 16>;
+  using Decimal256Bytes = std::array<uint8_t, 32>;
+  static constexpr uint32_t kInvalidIndex = std::numeric_limits<uint32_t>::max();
+
+  struct BuildRowNode {
+    uint64_t build_row = 0;
+    uint32_t next = kInvalidIndex;
+  };
+
+  struct BuildRowList {
+    uint32_t head = kInvalidIndex;
+    uint32_t tail = kInvalidIndex;
+  };
+
+  Impl(const Engine* engine, std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
+       JoinKey key, arrow::MemoryPool* memory_pool);
+
+  arrow::Status BuildIndex();
+  arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema(
+      const std::shared_ptr<arrow::Schema>& left_schema) const;
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> Probe(const arrow::RecordBatch& batch);
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches_;
+  JoinKey key_;
+
+  std::shared_ptr<arrow::Schema> build_schema_;
+  std::shared_ptr<arrow::RecordBatch> build_combined_;
+  std::shared_ptr<arrow::Schema> output_schema_;
+
+  uint8_t key_count_ = 0;
+  std::array<int, 2> build_key_indices_ = {-1, -1};
+  std::array<int, 2> probe_key_indices_ = {-1, -1};
+
+  std::array<int32_t, 2> key_collation_ids_ = {-1, -1};
+
+  arrow::MemoryPool* memory_pool_ = nullptr;
+  detail::Arena key_arena_;
+  detail::KeyHashTable key_to_key_id_;
+  detail::ScratchBytes scratch_normalized_key_;
+  detail::ScratchBytes scratch_sort_key_;
+  // Owns the memory_resource used by PMR containers in the join index so the allocator stays
+  // valid for the lifetime of the hash table/state.
+  std::unique_ptr<std::pmr::memory_resource> pmr_resource_;
+
+  std::pmr::vector<BuildRowList> key_rows_;
+  std::pmr::vector<BuildRowNode> row_nodes_;
+  bool index_built_ = false;
+  arrow::compute::ExecContext exec_context_;
+};
+
+HashJoinPipeOp::Impl::Impl(
     const Engine* engine, std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
     JoinKey key, arrow::MemoryPool* memory_pool)
     : build_batches_(std::move(build_batches)),
@@ -53,7 +107,14 @@ HashJoinPipeOp::HashJoinPipeOp(
       exec_context_(memory_pool_, /*executor=*/nullptr,
                     engine != nullptr ? engine->function_registry() : nullptr) {}
 
-arrow::Status HashJoinPipeOp::BuildIndex() {
+HashJoinPipeOp::HashJoinPipeOp(
+    const Engine* engine, std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
+    JoinKey key, arrow::MemoryPool* memory_pool)
+    : impl_(std::make_unique<Impl>(engine, std::move(build_batches), std::move(key), memory_pool)) {}
+
+HashJoinPipeOp::~HashJoinPipeOp() = default;
+
+arrow::Status HashJoinPipeOp::Impl::BuildIndex() {
   if (index_built_) {
     return arrow::Status::OK();
   }
@@ -319,7 +380,7 @@ arrow::Status HashJoinPipeOp::BuildIndex() {
   return arrow::Status::OK();
 }
 
-arrow::Result<std::shared_ptr<arrow::Schema>> HashJoinPipeOp::BuildOutputSchema(
+arrow::Result<std::shared_ptr<arrow::Schema>> HashJoinPipeOp::Impl::BuildOutputSchema(
     const std::shared_ptr<arrow::Schema>& left_schema) const {
   if (left_schema == nullptr) {
     return arrow::Status::Invalid("left schema must not be null");
@@ -339,7 +400,7 @@ arrow::Result<std::shared_ptr<arrow::Schema>> HashJoinPipeOp::BuildOutputSchema(
   return arrow::schema(std::move(fields));
 }
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashJoinPipeOp::Probe(
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashJoinPipeOp::Impl::Probe(
     const arrow::RecordBatch& probe) {
   ARROW_RETURN_NOT_OK(BuildIndex());
   if (build_schema_ == nullptr || build_combined_ == nullptr) {
@@ -620,7 +681,10 @@ pipeline::PipelinePipe HashJoinPipeOp::Pipe(const pipeline::PipelineContext&) {
     if (batch == nullptr) {
       return arrow::Status::Invalid("hash join input batch must not be null");
     }
-    ARROW_ASSIGN_OR_RAISE(auto out, Probe(*batch));
+    if (impl_ == nullptr) {
+      return arrow::Status::Invalid("hash join operator has null implementation");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, impl_->Probe(*batch));
     if (out == nullptr) {
       return arrow::Status::Invalid("hash join output batch must not be null");
     }

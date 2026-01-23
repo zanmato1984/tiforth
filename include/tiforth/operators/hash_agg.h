@@ -5,10 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <arrow/compute/api_aggregate.h>
-#include <arrow/compute/exec.h>
-#include <arrow/compute/kernel.h>
-#include <arrow/record_batch.h>
 #include <arrow/result.h>
 #include <arrow/type_fwd.h>
 
@@ -17,7 +13,10 @@
 
 namespace arrow {
 class MemoryPool;
+class RecordBatch;
+class Schema;
 namespace compute {
+class ExecContext;
 class Grouper;
 }  // namespace compute
 }  // namespace arrow
@@ -73,47 +72,20 @@ class HashAggState final {
 
   ~HashAggState();
 
-  const Engine* engine() const { return engine_; }
-  const std::vector<AggKey>& keys() const { return keys_; }
-  const std::vector<AggFunc>& aggs() const { return aggs_; }
-  const GrouperFactory& grouper_factory() const { return grouper_factory_; }
+  const Engine* engine() const;
+  const std::vector<AggKey>& keys() const;
+  const std::vector<AggFunc>& aggs() const;
+  const GrouperFactory& grouper_factory() const;
 
-  arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
+  arrow::MemoryPool* memory_pool() const;
 
   arrow::Status Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
   arrow::Status MergeAndFinalize();
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> OutputBatch();
 
  private:
-  struct Compiled;
-  struct ThreadLocal;
-
-  arrow::Status InitIfNeeded(const arrow::RecordBatch& batch);
-  arrow::Status ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
-  arrow::Status Merge();
-  arrow::Status Finalize();
-
-  const Engine* engine_ = nullptr;
-  std::vector<AggKey> keys_;
-  std::vector<AggFunc> aggs_;
-  GrouperFactory grouper_factory_;
-
-  std::shared_ptr<arrow::Schema> input_schema_;
-  arrow::compute::ExecContext exec_context_;
-  std::size_t dop_ = 1;
-
-  std::unique_ptr<Compiled> compiled_;
-
-  std::vector<arrow::TypeHolder> key_types_;
-  std::vector<arrow::compute::Aggregate> aggregates_;
-  std::vector<std::vector<arrow::TypeHolder>> agg_in_types_;
-  std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
-
-  std::vector<ThreadLocal> thread_locals_;
-
-  std::shared_ptr<arrow::Schema> output_schema_;
-  std::shared_ptr<arrow::RecordBatch> output_batch_;
-  bool finalized_ = false;
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace tiforth

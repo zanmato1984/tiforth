@@ -10,7 +10,10 @@
 #include <vector>
 
 #include <arrow/array/util.h>
+#include <arrow/compute/api_aggregate.h>
+#include <arrow/compute/exec.h>
 #include <arrow/compute/function.h>
+#include <arrow/compute/kernel.h>
 #include <arrow/compute/registry.h>
 #include <arrow/compute/row/grouper.h>
 #include <arrow/memory_pool.h>
@@ -200,19 +203,62 @@ arrow::Result<std::unique_ptr<arrow::compute::Grouper>> MakeDefaultGrouper(
 
 }  // namespace
 
-struct HashAggState::Compiled {
-  std::vector<CompiledExpr> keys;
-  std::vector<std::optional<CompiledExpr>> agg_args;
+struct HashAggState::Impl {
+  struct Compiled {
+    std::vector<CompiledExpr> keys;
+    std::vector<std::optional<CompiledExpr>> agg_args;
+  };
+
+  struct ThreadLocal {
+    std::unique_ptr<arrow::compute::Grouper> grouper;
+    std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
+  };
+
+  Impl(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+       GrouperFactory grouper_factory, arrow::MemoryPool* memory_pool, std::size_t dop);
+
+  const Engine* engine() const { return engine_; }
+  const std::vector<AggKey>& keys() const { return keys_; }
+  const std::vector<AggFunc>& aggs() const { return aggs_; }
+  const GrouperFactory& grouper_factory() const { return grouper_factory_; }
+  arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
+
+  arrow::Status Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status MergeAndFinalize();
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> OutputBatch();
+
+ private:
+  arrow::Status InitIfNeeded(const arrow::RecordBatch& batch);
+  arrow::Status ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status Merge();
+  arrow::Status Finalize();
+
+  const Engine* engine_ = nullptr;
+  std::vector<AggKey> keys_;
+  std::vector<AggFunc> aggs_;
+  GrouperFactory grouper_factory_;
+
+  std::shared_ptr<arrow::Schema> input_schema_;
+  arrow::compute::ExecContext exec_context_;
+  std::size_t dop_ = 1;
+
+  std::unique_ptr<Compiled> compiled_;
+
+  std::vector<arrow::TypeHolder> key_types_;
+  std::vector<arrow::compute::Aggregate> aggregates_;
+  std::vector<std::vector<arrow::TypeHolder>> agg_in_types_;
+  std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
+
+  std::vector<ThreadLocal> thread_locals_;
+
+  std::shared_ptr<arrow::Schema> output_schema_;
+  std::shared_ptr<arrow::RecordBatch> output_batch_;
+  bool finalized_ = false;
 };
 
-struct HashAggState::ThreadLocal {
-  std::unique_ptr<arrow::compute::Grouper> grouper;
-  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
-};
-
-HashAggState::HashAggState(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
-                           GrouperFactory grouper_factory, arrow::MemoryPool* memory_pool,
-                           std::size_t dop)
+HashAggState::Impl::Impl(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+                         GrouperFactory grouper_factory, arrow::MemoryPool* memory_pool,
+                         std::size_t dop)
     : engine_(engine),
       keys_(std::move(keys)),
       aggs_(std::move(aggs)),
@@ -225,9 +271,15 @@ HashAggState::HashAggState(const Engine* engine, std::vector<AggKey> keys, std::
       dop_(dop == 0 ? 1 : dop),
       thread_locals_(dop_ == 0 ? 1 : dop_) {}
 
+HashAggState::HashAggState(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+                           GrouperFactory grouper_factory, arrow::MemoryPool* memory_pool,
+                           std::size_t dop)
+    : impl_(std::make_unique<Impl>(engine, std::move(keys), std::move(aggs),
+                                   std::move(grouper_factory), memory_pool, dop)) {}
+
 HashAggState::~HashAggState() = default;
 
-arrow::Status HashAggState::InitIfNeeded(const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Impl::InitIfNeeded(const arrow::RecordBatch& batch) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("hash agg engine must not be null");
   }
@@ -289,7 +341,7 @@ arrow::Status HashAggState::InitIfNeeded(const arrow::RecordBatch& batch) {
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggState::Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Impl::Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
   if (finalized_) {
     return arrow::Status::Invalid("hash agg state is finalized");
   }
@@ -300,7 +352,7 @@ arrow::Status HashAggState::Consume(pipeline::ThreadId thread_id, const arrow::R
   return ConsumeBatch(thread_id, batch);
 }
 
-arrow::Status HashAggState::ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Impl::ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
   if (compiled_ == nullptr) {
     return arrow::Status::Invalid("hash agg is missing compiled expressions");
   }
@@ -514,7 +566,7 @@ arrow::Status HashAggState::ConsumeBatch(pipeline::ThreadId thread_id, const arr
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggState::Merge() {
+arrow::Status HashAggState::Impl::Merge() {
   if (thread_locals_.empty()) {
     return arrow::Status::OK();
   }
@@ -565,7 +617,7 @@ arrow::Status HashAggState::Merge() {
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggState::Finalize() {
+arrow::Status HashAggState::Impl::Finalize() {
   if (finalized_) {
     return arrow::Status::OK();
   }
@@ -632,7 +684,7 @@ arrow::Status HashAggState::Finalize() {
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggState::MergeAndFinalize() {
+arrow::Status HashAggState::Impl::MergeAndFinalize() {
   if (finalized_) {
     return arrow::Status::OK();
   }
@@ -640,9 +692,53 @@ arrow::Status HashAggState::MergeAndFinalize() {
   return Finalize();
 }
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggState::OutputBatch() {
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggState::Impl::OutputBatch() {
   ARROW_RETURN_NOT_OK(MergeAndFinalize());
   return output_batch_;
+}
+
+const Engine* HashAggState::engine() const {
+  return impl_ != nullptr ? impl_->engine() : nullptr;
+}
+
+const std::vector<AggKey>& HashAggState::keys() const {
+  static const std::vector<AggKey> kEmpty;
+  return impl_ != nullptr ? impl_->keys() : kEmpty;
+}
+
+const std::vector<AggFunc>& HashAggState::aggs() const {
+  static const std::vector<AggFunc> kEmpty;
+  return impl_ != nullptr ? impl_->aggs() : kEmpty;
+}
+
+const HashAggState::GrouperFactory& HashAggState::grouper_factory() const {
+  static const GrouperFactory kEmpty{};
+  return impl_ != nullptr ? impl_->grouper_factory() : kEmpty;
+}
+
+arrow::MemoryPool* HashAggState::memory_pool() const {
+  return impl_ != nullptr ? impl_->memory_pool() : nullptr;
+}
+
+arrow::Status HashAggState::Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+  if (impl_ == nullptr) {
+    return arrow::Status::Invalid("hash agg state implementation must not be null");
+  }
+  return impl_->Consume(thread_id, batch);
+}
+
+arrow::Status HashAggState::MergeAndFinalize() {
+  if (impl_ == nullptr) {
+    return arrow::Status::Invalid("hash agg state implementation must not be null");
+  }
+  return impl_->MergeAndFinalize();
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggState::OutputBatch() {
+  if (impl_ == nullptr) {
+    return arrow::Status::Invalid("hash agg state implementation must not be null");
+  }
+  return impl_->OutputBatch();
 }
 
 HashAggSinkOp::HashAggSinkOp(std::shared_ptr<HashAggState> state) : state_(std::move(state)) {}

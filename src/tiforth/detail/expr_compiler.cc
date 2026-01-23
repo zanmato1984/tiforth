@@ -14,6 +14,7 @@
 #include <arrow/type.h>
 
 #include "tiforth/collation.h"
+#include "tiforth/compiled_expr.h"
 #include "tiforth/detail/arrow_compute.h"
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
@@ -347,30 +348,6 @@ arrow::Result<CompiledExpr> CompileExpr(const std::shared_ptr<arrow::Schema>& sc
 
   ARROW_ASSIGN_OR_RAISE(auto bound, typed.expr.Bind(*schema, exec_context));
   return CompiledExpr{schema, std::move(bound)};
-}
-
-arrow::Result<arrow::Datum> ExecuteExpr(const CompiledExpr& compiled, const arrow::RecordBatch& batch,
-                                       arrow::compute::ExecContext* exec_context) {
-  if (compiled.schema == nullptr) {
-    return arrow::Status::Invalid("compiled schema must not be null");
-  }
-  if (exec_context == nullptr) {
-    return arrow::Status::Invalid("exec_context must not be null");
-  }
-  if (batch.schema() == nullptr || !compiled.schema->Equals(*batch.schema(), /*check_metadata=*/true)) {
-    return arrow::Status::Invalid("input batch schema mismatch for compiled expression");
-  }
-
-  return arrow::compute::ExecuteScalarExpression(compiled.bound, arrow::compute::ExecBatch(batch),
-                                                 exec_context);
-}
-
-arrow::Result<std::shared_ptr<arrow::Array>> ExecuteExprAsArray(const CompiledExpr& compiled,
-                                                                const arrow::RecordBatch& batch,
-                                                                arrow::compute::ExecContext* exec_context) {
-  ARROW_ASSIGN_OR_RAISE(auto out, ExecuteExpr(compiled, batch, exec_context));
-  return DatumToArray(out, batch.num_rows(), exec_context != nullptr ? exec_context->memory_pool()
-                                                                     : arrow::default_memory_pool());
 }
 
 }  // namespace tiforth::detail

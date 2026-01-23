@@ -13,6 +13,7 @@ function(add_tiforth_test TEST_NAME TEST_SRC)
   target_link_libraries(
     ${TEST_NAME}
     PRIVATE tiforth GTest::gtest GTest::gtest_main Threads::Threads ${TIFORTH_ARROW_TESTING_TARGET})
+  target_include_directories(${TEST_NAME} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
   set_target_properties(${TEST_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/gtests")
   add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()

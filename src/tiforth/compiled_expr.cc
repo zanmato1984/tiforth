@@ -11,8 +11,7 @@ namespace tiforth {
 
 arrow::Result<CompiledExpr> CompileExpr(const std::shared_ptr<arrow::Schema>& schema, const Expr& expr,
                                        const Engine* engine, arrow::compute::ExecContext* exec_context) {
-  ARROW_ASSIGN_OR_RAISE(auto compiled, detail::CompileExpr(schema, expr, engine, exec_context));
-  return CompiledExpr{std::move(compiled.schema), std::move(compiled.bound)};
+  return detail::CompileExpr(schema, expr, engine, exec_context);
 }
 
 arrow::Result<arrow::Datum> ExecuteExpr(const CompiledExpr& compiled, const arrow::RecordBatch& batch,
