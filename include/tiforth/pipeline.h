@@ -8,7 +8,7 @@
 #include <arrow/record_batch.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/operators.h"
+#include "tiforth/pipeline/op/op.h"
 #include "tiforth/task.h"
 
 namespace tiforth {
@@ -24,9 +24,9 @@ class PipelineBuilder {
 
   ~PipelineBuilder();
 
-  using TransformFactory = std::function<arrow::Result<TransformOpPtr>()>;
+  using PipeFactory = std::function<arrow::Result<std::unique_ptr<pipeline::PipeOp>>()>;
 
-  arrow::Status AppendTransform(TransformFactory factory);
+  arrow::Status AppendPipe(PipeFactory factory);
 
   arrow::Result<std::unique_ptr<Pipeline>> Finalize();
 
@@ -34,7 +34,7 @@ class PipelineBuilder {
   explicit PipelineBuilder(const Engine* engine);
 
   const Engine* engine_;
-  std::vector<TransformFactory> transform_factories_;
+  std::vector<PipeFactory> pipe_factories_;
 };
 
 class Pipeline {
@@ -47,10 +47,10 @@ class Pipeline {
       std::shared_ptr<arrow::RecordBatchReader> input) const;
 
  private:
-  Pipeline(const Engine* engine, std::vector<PipelineBuilder::TransformFactory> transform_factories);
+  Pipeline(const Engine* engine, std::vector<PipelineBuilder::PipeFactory> pipe_factories);
 
   const Engine* engine_;
-  std::vector<PipelineBuilder::TransformFactory> transform_factories_;
+  std::vector<PipelineBuilder::PipeFactory> pipe_factories_;
 
   friend class PipelineBuilder;
 };

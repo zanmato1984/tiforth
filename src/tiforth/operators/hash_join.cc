@@ -35,7 +35,7 @@ namespace tiforth {
 namespace {
 }  // namespace
 
-HashJoinTransformOp::HashJoinTransformOp(
+HashJoinPipeOp::HashJoinPipeOp(
     const Engine* engine, std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
     JoinKey key, arrow::MemoryPool* memory_pool)
     : build_batches_(std::move(build_batches)),
@@ -53,7 +53,7 @@ HashJoinTransformOp::HashJoinTransformOp(
       exec_context_(memory_pool_, /*executor=*/nullptr,
                     engine != nullptr ? engine->function_registry() : nullptr) {}
 
-arrow::Status HashJoinTransformOp::BuildIndex() {
+arrow::Status HashJoinPipeOp::BuildIndex() {
   if (index_built_) {
     return arrow::Status::OK();
   }
@@ -319,7 +319,7 @@ arrow::Status HashJoinTransformOp::BuildIndex() {
   return arrow::Status::OK();
 }
 
-arrow::Result<std::shared_ptr<arrow::Schema>> HashJoinTransformOp::BuildOutputSchema(
+arrow::Result<std::shared_ptr<arrow::Schema>> HashJoinPipeOp::BuildOutputSchema(
     const std::shared_ptr<arrow::Schema>& left_schema) const {
   if (left_schema == nullptr) {
     return arrow::Status::Invalid("left schema must not be null");
@@ -339,18 +339,13 @@ arrow::Result<std::shared_ptr<arrow::Schema>> HashJoinTransformOp::BuildOutputSc
   return arrow::schema(std::move(fields));
 }
 
-arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
-  if (*batch == nullptr) {
-    return OperatorStatus::kHasOutput;
-  }
-
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashJoinPipeOp::Probe(
+    const arrow::RecordBatch& probe) {
   ARROW_RETURN_NOT_OK(BuildIndex());
   if (build_schema_ == nullptr || build_combined_ == nullptr) {
     return arrow::Status::Invalid("build side must be initialized before probing");
   }
 
-  const auto& probe = **batch;
   const auto probe_schema = probe.schema();
   if (probe_schema == nullptr) {
     return arrow::Status::Invalid("probe schema must not be null");
@@ -612,8 +607,30 @@ arrow::Result<OperatorStatus> HashJoinTransformOp::TransformImpl(
   }
 
   const int64_t out_rows = probe_indices_array->length();
-  *batch = arrow::RecordBatch::Make(output_schema_, out_rows, std::move(out_arrays));
-  return OperatorStatus::kHasOutput;
+  return arrow::RecordBatch::Make(output_schema_, out_rows, std::move(out_arrays));
+}
+
+pipeline::PipelinePipe HashJoinPipeOp::Pipe(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("hash join input batch must not be null");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, Probe(*batch));
+    if (out == nullptr) {
+      return arrow::Status::Invalid("hash join output batch must not be null");
+    }
+    return pipeline::OpOutput::PipeEven(std::move(out));
+  };
+}
+
+pipeline::PipelineDrain HashJoinPipeOp::Drain(const pipeline::PipelineContext&) {
+  return [](const pipeline::PipelineContext&, const task::TaskContext&,
+            pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
 }
 
 }  // namespace tiforth

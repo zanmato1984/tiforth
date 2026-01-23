@@ -49,7 +49,9 @@ install(TARGETS tiforth EXPORT tiforthTargets
 # required by the public API surface.
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
         PATTERN "arrow_compute.h" EXCLUDE
-        PATTERN "expr_compiler.h" EXCLUDE)
+        PATTERN "expr_compiler.h" EXCLUDE
+        PATTERN "stash" EXCLUDE
+        PATTERN "stash/*" EXCLUDE)
 
 install(EXPORT tiforthTargets
         NAMESPACE tiforth::

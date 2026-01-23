@@ -27,11 +27,11 @@ arrow::Status RunPilotIOInTaskAPI() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([]() -> arrow::Result<TransformOpPtr> {
-    PilotAsyncTransformOptions options;
+  ARROW_RETURN_NOT_OK(builder->AppendPipe([]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+    PilotAsyncOptions options;
     options.block_kind = PilotBlockKind::kIOIn;
     options.block_cycles = 1;
-    return std::make_unique<PilotAsyncTransformOp>(std::move(options));
+    return std::make_unique<PilotAsyncPipeOp>(std::move(options));
   }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -74,11 +74,11 @@ arrow::Status RunPilotIOInRecordBatchReader() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([]() -> arrow::Result<TransformOpPtr> {
-    PilotAsyncTransformOptions options;
+  ARROW_RETURN_NOT_OK(builder->AppendPipe([]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+    PilotAsyncOptions options;
     options.block_kind = PilotBlockKind::kIOIn;
     options.block_cycles = 1;
-    return std::make_unique<PilotAsyncTransformOp>(std::move(options));
+    return std::make_unique<PilotAsyncPipeOp>(std::move(options));
   }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -114,12 +114,12 @@ arrow::Status RunPilotErrorPropagation() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([]() -> arrow::Result<TransformOpPtr> {
-    PilotAsyncTransformOptions options;
+  ARROW_RETURN_NOT_OK(builder->AppendPipe([]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+    PilotAsyncOptions options;
     options.block_kind = PilotBlockKind::kIOIn;
-    options.error_point = PilotErrorPoint::kTransform;
+    options.error_point = PilotErrorPoint::kPipe;
     options.error_status = arrow::Status::IOError("pilot injected error");
-    return std::make_unique<PilotAsyncTransformOp>(std::move(options));
+    return std::make_unique<PilotAsyncPipeOp>(std::move(options));
   }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -157,10 +157,10 @@ arrow::Status RunPilotWaitForNotifyTaskAPI() {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([]() -> arrow::Result<TransformOpPtr> {
-    PilotAsyncTransformOptions options;
+  ARROW_RETURN_NOT_OK(builder->AppendPipe([]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+    PilotAsyncOptions options;
     options.block_kind = PilotBlockKind::kWaitForNotify;
-    return std::make_unique<PilotAsyncTransformOp>(std::move(options));
+    return std::make_unique<PilotAsyncPipeOp>(std::move(options));
   }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());

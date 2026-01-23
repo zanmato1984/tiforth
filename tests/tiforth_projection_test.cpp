@@ -47,9 +47,10 @@ arrow::Status RunProjectionSmoke() {
                    MakeCall("add",
                             {MakeFieldRef("x"), MakeLiteral(std::make_shared<arrow::Int32Scalar>(10))})});
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), exprs]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<ProjectionTransformOp>(engine_ptr, exprs);
+  ARROW_RETURN_NOT_OK(
+      builder->AppendPipe([engine_ptr = engine.get(), exprs]()
+                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<ProjectionPipeOp>(engine_ptr, exprs);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());

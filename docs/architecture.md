@@ -13,8 +13,8 @@ This document describes the main moving pieces and how they fit together. For ho
 - **Unit of exchange**: TiForth operators process `arrow::RecordBatch` objects.
 - **Schema stability**: a `tiforth::Task` validates that all input batches have the same schema
   (including field metadata).
-- **End-of-stream (EOS)**: EOS is represented as a `nullptr` `std::shared_ptr<arrow::RecordBatch>`
-  inside the pipeline execution loop.
+- **End-of-stream (EOS)**: EOS is signaled by the upstream `pipeline::SourceOp` returning
+  `pipeline::OpOutput::Finished()`. Hosts should not push `nullptr` batches; use `Task::CloseInput()`.
 
 ### Engine: host integration point
 
@@ -36,7 +36,7 @@ Public APIs:
 
 Model:
 
-- A `Pipeline` is an immutable sequence of **transform operators**.
+- A `Pipeline` is an immutable sequence of **pipe operators** (`pipeline::PipeOp`).
 - A `Task` is a single executable instance of that sequence with internal input/output queues.
 
 Execution is **incremental** and driven by `Task::Step()`:
@@ -44,30 +44,21 @@ Execution is **incremental** and driven by `Task::Step()`:
 - `kNeedInput`: provide more input (push a batch, or close input).
 - `kHasOutput`: consume outputs via `Task::PullOutput()`.
 - `kFinished`: no more outputs will be produced.
-- `kBlocked`: reserved for future async/blocking operators.
+- `kIOIn` / `kIOOut` / `kWaiting` / `kWaitForNotify`: the task is blocked on a host-driven event
+  (IO/await/notify), exposed via a `task::BlockedResumer`.
 
-Internally, `Task` runs a `PipelineExec` which repeatedly:
-
-1. asks the sink whether it needs input (`SinkOp::Prepare`)
-2. lets transforms flush buffered outputs (`TransformOp::TryOutput`, in reverse order)
-3. reads a batch from the source (`SourceOp::Read`)
-4. pushes the batch through transforms (`TransformOp::Transform`)
-5. writes the batch to the sink (`SinkOp::Write`)
-
-EOS is treated like an “output” batch to allow transforms/sinks to flush and finalize.
+Internally, `Task` wraps a `pipeline::PipelineTask` (ara-style) and operators communicate using
+`pipeline::OpOutput`. Pipes can flush buffered output in `PipeOp::Drain()` after the source finishes.
 
 ### Operator abstraction
 
-Public API: `tiforth::Operator` and derived `SourceOp` / `TransformOp` / `SinkOp`
-(`include/tiforth/operators.h`).
+Public API: `pipeline::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/pipeline/op/op.h`).
 
 Key points:
 
-- Operators communicate using `tiforth::OperatorStatus`:
-  - `kNeedInput`: operator cannot progress without more input.
-  - `kHasOutput`: operator produced a batch (or forwarded EOS).
-  - `kFinished`: operator is complete.
-- Transform operators must correctly handle `*batch == nullptr` (EOS marker).
+- Operators communicate using `pipeline::OpOutput` (streaming + blocked/yield states).
+- `PipeOp::Pipe` / `SinkOp::Sink` may be called with `std::nullopt` to resume after a `Blocked` or `PipeYield`.
+- End-of-stream is not represented by a `nullptr` batch; use `Drain()`/`Finished()` to flush/finalize.
 
 TiForth ships a small set of built-in transform operators (filter/projection/join/agg/sort); see
 `operators_and_functions.md`.

@@ -13,14 +13,14 @@
 
 namespace tiforth {
 
-struct ProjectionTransformOp::Compiled {
+struct ProjectionPipeOp::Compiled {
   std::vector<CompiledExpr> exprs;
 };
 
-ProjectionTransformOp::~ProjectionTransformOp() = default;
+ProjectionPipeOp::~ProjectionPipeOp() = default;
 
-ProjectionTransformOp::ProjectionTransformOp(const Engine* engine, std::vector<ProjectionExpr> exprs,
-                                             arrow::MemoryPool* memory_pool)
+ProjectionPipeOp::ProjectionPipeOp(const Engine* engine, std::vector<ProjectionExpr> exprs,
+                                   arrow::MemoryPool* memory_pool)
     : engine_(engine),
       exprs_(std::move(exprs)),
       exec_context_(memory_pool != nullptr
@@ -29,7 +29,7 @@ ProjectionTransformOp::ProjectionTransformOp(const Engine* engine, std::vector<P
                     /*executor=*/nullptr,
                     engine != nullptr ? engine->function_registry() : nullptr) {}
 
-arrow::Result<std::shared_ptr<arrow::Schema>> ProjectionTransformOp::ComputeOutputSchema(
+arrow::Result<std::shared_ptr<arrow::Schema>> ProjectionPipeOp::ComputeOutputSchema(
     const arrow::RecordBatch& input, const std::vector<std::shared_ptr<arrow::Array>>& arrays) const {
   if (arrays.size() != exprs_.size()) {
     return arrow::Status::Invalid("projection output array count mismatch");
@@ -94,16 +94,12 @@ arrow::Result<std::shared_ptr<arrow::Schema>> ProjectionTransformOp::ComputeOutp
   return arrow::schema(std::move(fields));
 }
 
-arrow::Result<OperatorStatus> ProjectionTransformOp::TransformImpl(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
-  if (*batch == nullptr) {
-    return OperatorStatus::kHasOutput;
-  }
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> ProjectionPipeOp::Project(
+    const arrow::RecordBatch& input) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("projection engine must not be null");
   }
 
-  const auto& input = **batch;
   std::vector<std::shared_ptr<arrow::Array>> arrays;
   arrays.reserve(exprs_.size());
 
@@ -149,8 +145,30 @@ arrow::Result<OperatorStatus> ProjectionTransformOp::TransformImpl(
     }
   }
 
-  *batch = arrow::RecordBatch::Make(output_schema_, input.num_rows(), std::move(arrays));
-  return OperatorStatus::kHasOutput;
+  return arrow::RecordBatch::Make(output_schema_, input.num_rows(), std::move(arrays));
+}
+
+pipeline::PipelinePipe ProjectionPipeOp::Pipe(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("projection input batch must not be null");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, Project(*batch));
+    if (out == nullptr) {
+      return arrow::Status::Invalid("projection output batch must not be null");
+    }
+    return pipeline::OpOutput::PipeEven(std::move(out));
+  };
+}
+
+pipeline::PipelineDrain ProjectionPipeOp::Drain(const pipeline::PipelineContext&) {
+  return [](const pipeline::PipelineContext&, const task::TaskContext&,
+            pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
 }
 
 }  // namespace tiforth

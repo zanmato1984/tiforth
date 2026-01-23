@@ -56,9 +56,10 @@ arrow::Status RunSortSmoke() {
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "x", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, eng]() -> arrow::Result<TransformOpPtr> {
-    return std::make_unique<SortTransformOp>(eng, keys);
-  }));
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<SortPipeOp>(eng, keys);
+      }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
   ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
@@ -159,9 +160,10 @@ arrow::Status RunStringSort(int32_t collation_id, const std::vector<int32_t>& ex
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "s", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, eng]() -> arrow::Result<TransformOpPtr> {
-    return std::make_unique<SortTransformOp>(eng, keys);
-  }));
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<SortPipeOp>(eng, keys);
+      }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
   ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());

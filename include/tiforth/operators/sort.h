@@ -8,7 +8,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 
-#include "tiforth/operators.h"
+#include "tiforth/pipeline/op/op.h"
 
 namespace arrow {
 class Array;
@@ -26,14 +26,12 @@ struct SortKey {
   bool nulls_first = false;
 };
 
-class SortTransformOp final : public TransformOp {
+class SortPipeOp final : public pipeline::PipeOp {
  public:
-  SortTransformOp(const Engine* engine, std::vector<SortKey> keys,
-                  arrow::MemoryPool* memory_pool = nullptr);
+  SortPipeOp(const Engine* engine, std::vector<SortKey> keys, arrow::MemoryPool* memory_pool = nullptr);
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(
-      std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
+  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
 
  private:
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortAll();
@@ -42,8 +40,7 @@ class SortTransformOp final : public TransformOp {
   std::shared_ptr<arrow::Schema> output_schema_;
   std::vector<std::shared_ptr<arrow::RecordBatch>> buffered_;
 
-  bool output_emitted_ = false;
-  bool eos_forwarded_ = false;
+  bool drained_ = false;
 
   arrow::compute::ExecContext exec_context_;
 };

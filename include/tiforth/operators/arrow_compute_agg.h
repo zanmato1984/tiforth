@@ -28,12 +28,12 @@ struct ArrowComputeAggOptions {
   bool stable_dictionary_encode_binary_keys = false;
 };
 
-class ArrowComputeAggTransformOp final : public pipeline::PipeOp {
+class ArrowComputeAggPipeOp final : public pipeline::PipeOp {
  public:
-  ArrowComputeAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
-                             std::vector<AggFunc> aggs, ArrowComputeAggOptions options = {},
-                             arrow::MemoryPool* memory_pool = nullptr);
- ~ArrowComputeAggTransformOp() override;
+  ArrowComputeAggPipeOp(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+                        ArrowComputeAggOptions options = {},
+                        arrow::MemoryPool* memory_pool = nullptr);
+  ~ArrowComputeAggPipeOp() override;
 
   pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
   pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;

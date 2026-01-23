@@ -115,7 +115,7 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
       stage,
       [engine_ptr = engine.get(), keys, aggs, options](PlanTaskContext*)
           -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        return std::make_unique<ArrowComputeAggTransformOp>(engine_ptr, keys, aggs, options);
+        return std::make_unique<ArrowComputeAggPipeOp>(engine_ptr, keys, aggs, options);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto plan, builder->Finalize());

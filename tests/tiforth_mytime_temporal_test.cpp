@@ -33,9 +33,10 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> RunProjection(
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), exprs = std::move(exprs)]() mutable -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<ProjectionTransformOp>(engine_ptr, std::move(exprs));
+  ARROW_RETURN_NOT_OK(
+      builder->AppendPipe([engine_ptr = engine.get(), exprs = std::move(exprs)]() mutable
+                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<ProjectionPipeOp>(engine_ptr, std::move(exprs));
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());

@@ -16,8 +16,8 @@
 #include <arrow/status.h>
 #include <arrow/util/logging.h>
 
-#include "tiforth/operators.h"
-#include "tiforth/pipeline_exec.h"
+#include "tiforth/stash/operators.h"
+#include "tiforth/stash/pipeline_exec.h"
 
 namespace tiforth::test {
 

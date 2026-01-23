@@ -1,11 +1,11 @@
-#include "tiforth/task.h"
+#include "tiforth/stash/task.h"
 
 #include <utility>
 
 #include <arrow/status.h>
 #include <arrow/type.h>
 
-#include "tiforth/plan.h"
+#include "tiforth/stash/plan.h"
 
 namespace tiforth {
 

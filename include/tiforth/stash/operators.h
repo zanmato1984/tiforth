@@ -100,3 +100,4 @@ class SinkOp : public Operator {
 using SinkOpPtr = std::unique_ptr<SinkOp>;
 
 }  // namespace tiforth
+

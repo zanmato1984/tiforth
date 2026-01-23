@@ -85,9 +85,10 @@ arrow::Status RunFilterGreaterThan() {
   auto predicate = MakeCall("greater",
                             {MakeFieldRef("x"),
                              MakeLiteral(std::make_shared<arrow::Int32Scalar>(2))});
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(
+      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
+                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -159,9 +160,10 @@ arrow::Status RunFilterDropsNullPredicate() {
   auto predicate = MakeCall("greater",
                             {MakeFieldRef("x"),
                              MakeLiteral(std::make_shared<arrow::Int32Scalar>(1))});
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(
+      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
+                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -209,9 +211,10 @@ arrow::Status RunFilterTruthyInt32() {
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeFieldRef("x");
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(
+      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
+                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -258,9 +261,10 @@ arrow::Status RunFilterTruthyString() {
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeFieldRef("s");
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(
+      builder->AppendPipe([engine_ptr = engine.get(), predicate]()
+                              -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());

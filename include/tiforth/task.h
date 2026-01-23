@@ -2,13 +2,15 @@
 
 #include <deque>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <arrow/result.h>
 #include <arrow/record_batch.h>
 
-#include "tiforth/operators.h"
 #include "tiforth/pipeline/pipeline_context.h"
+#include "tiforth/pipeline/op/op.h"
+#include "tiforth/task/blocked_resumer.h"
 #include "tiforth/task/task_context.h"
 
 namespace tiforth {
@@ -30,7 +32,8 @@ enum class TaskState {
 class Task {
  public:
   static arrow::Result<std::unique_ptr<Task>> Create();
-  static arrow::Result<std::unique_ptr<Task>> Create(TransformOps transforms);
+  static arrow::Result<std::unique_ptr<Task>> Create(
+      std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops);
 
   Task(const Task&) = delete;
   Task& operator=(const Task&) = delete;
@@ -55,7 +58,7 @@ class Task {
   class OutputSinkOp;
   struct Stage;
 
-  arrow::Status Init(TransformOps transforms);
+  arrow::Status Init(std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops);
   arrow::Status InitPlan(const Plan& plan);
   arrow::Status ValidateOrSetSchema(const std::shared_ptr<arrow::Schema>& schema);
 
@@ -75,6 +78,7 @@ class Task {
   bool need_input_ = false;
   task::ResumerPtr input_resumer_;
   task::ResumerPtr blocked_resumer_;
+  std::optional<task::BlockedKind> blocked_kind_;
 
   friend class Plan;
 };

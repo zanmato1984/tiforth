@@ -26,87 +26,53 @@ namespace tiforth {
 
 class Engine;
 
-class HashAggContext;
+class HashAggState;
 
-struct HashAggPartialState {
-  HashAggPartialState() = default;
-  HashAggPartialState(const HashAggPartialState&) = delete;
-  HashAggPartialState& operator=(const HashAggPartialState&) = delete;
-  HashAggPartialState(HashAggPartialState&&);
-  HashAggPartialState& operator=(HashAggPartialState&&);
-  ~HashAggPartialState();
+class HashAggSinkOp final : public pipeline::SinkOp {
+ public:
+  explicit HashAggSinkOp(std::shared_ptr<HashAggState> state);
 
-  // Keepalive for Arrow compute objects (Grouper / KernelState) which may store a raw pointer to
-  // ExecContext.
-  std::shared_ptr<arrow::compute::ExecContext> exec_context;
+  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override;
+  std::optional<task::TaskGroup> Backend(const pipeline::PipelineContext&) override;
+  std::unique_ptr<pipeline::SourceOp> ImplicitSource(const pipeline::PipelineContext&) override;
 
-  std::shared_ptr<arrow::Schema> input_schema;
-  std::vector<arrow::TypeHolder> key_types;
-  std::unique_ptr<arrow::compute::Grouper> grouper;
-  std::vector<std::vector<arrow::TypeHolder>> agg_in_types;
-  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
+ private:
+  std::shared_ptr<HashAggState> state_;
+  bool backend_done_ = false;
 };
 
-// A TiForth-native hash aggregation operator driven by Arrow's Grouper + grouped hash_* kernels.
-//
-// This intentionally does not depend on Arrow Acero ExecPlan. It is the building block for:
-// - pluggable Grouper implementations (collation / short-string optimization),
-// - grouped hash_* parity tests against TiFlash native aggregation.
-//
-// MS20+: implemented as a breaker-style hash aggregation (partial TransformOp + merge SinkOp + result SourceOp).
-class HashAggTransformOp final : public pipeline::PipeOp {
+class HashAggResultSourceOp final : public pipeline::SourceOp {
+ public:
+  HashAggResultSourceOp(std::shared_ptr<HashAggState> state, int64_t max_output_rows = 65536);
+  HashAggResultSourceOp(std::shared_ptr<HashAggState> state, int64_t start_row, int64_t end_row,
+                        int64_t max_output_rows = 65536);
+
+  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override;
+
+ private:
+  std::shared_ptr<HashAggState> state_;
+  int64_t start_row_ = 0;
+  int64_t end_row_ = -1;
+  int64_t next_row_ = 0;
+  bool emitted_empty_ = false;
+  int64_t max_output_rows_ = 65536;
+};
+
+class HashAggState final {
  public:
   using GrouperFactory =
       std::function<arrow::Result<std::unique_ptr<arrow::compute::Grouper>>(
           const std::vector<arrow::TypeHolder>& key_types,
           arrow::compute::ExecContext* exec_context)>;
 
-  explicit HashAggTransformOp(std::shared_ptr<HashAggContext> context);
-  HashAggTransformOp(std::shared_ptr<HashAggContext> context,
-                     std::function<arrow::Status(HashAggPartialState, pipeline::ThreadId)>
-                         on_partial_sealed);
-  ~HashAggTransformOp() override;
+  HashAggState(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+               GrouperFactory grouper_factory = {}, arrow::MemoryPool* memory_pool = nullptr,
+               std::size_t dop = 1);
 
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
+  HashAggState(const HashAggState&) = delete;
+  HashAggState& operator=(const HashAggState&) = delete;
 
- private:
-  arrow::Status SealPartial(pipeline::ThreadId thread_id);
-  arrow::Status InitIfNeededAndConsume(const arrow::RecordBatch& batch);
-  arrow::Status ConsumeBatch(const arrow::RecordBatch& batch);
-
-  std::shared_ptr<HashAggContext> context_;
-  const Engine* engine_ = nullptr;
-
-  std::shared_ptr<arrow::Schema> input_schema_;
-  std::shared_ptr<arrow::compute::ExecContext> exec_context_;
-
-  struct Compiled;
-  std::unique_ptr<Compiled> compiled_;
-
-  std::vector<arrow::TypeHolder> key_types_;
-  std::unique_ptr<arrow::compute::Grouper> grouper_;
-  std::vector<arrow::compute::Aggregate> aggregates_;
-  std::vector<std::vector<arrow::TypeHolder>> agg_in_types_;
-  std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
-  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states_;
-
-  std::function<arrow::Status(HashAggPartialState, pipeline::ThreadId)> on_partial_sealed_;
-  bool sealed_ = false;
-};
-
-class HashAggContext final {
- public:
-  using GrouperFactory = HashAggTransformOp::GrouperFactory;
-  using PartialState = HashAggPartialState;
-
-  HashAggContext(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
-                 GrouperFactory grouper_factory = {}, arrow::MemoryPool* memory_pool = nullptr);
-
-  HashAggContext(const HashAggContext&) = delete;
-  HashAggContext& operator=(const HashAggContext&) = delete;
-
-  ~HashAggContext();
+  ~HashAggState();
 
   const Engine* engine() const { return engine_; }
   const std::vector<AggKey>& keys() const { return keys_; }
@@ -115,12 +81,18 @@ class HashAggContext final {
 
   arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
 
-  arrow::Status MergePartial(PartialState partial);
-  arrow::Status Finalize();
+  arrow::Status Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status MergeAndFinalize();
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> OutputBatch();
 
  private:
-  arrow::Status InitIfNeeded(const PartialState& partial);
+  struct Compiled;
+  struct ThreadLocal;
+
+  arrow::Status InitIfNeeded(const arrow::RecordBatch& batch);
+  arrow::Status ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status Merge();
+  arrow::Status Finalize();
 
   const Engine* engine_ = nullptr;
   std::vector<AggKey> keys_;
@@ -129,46 +101,21 @@ class HashAggContext final {
 
   std::shared_ptr<arrow::Schema> input_schema_;
   arrow::compute::ExecContext exec_context_;
+  std::size_t dop_ = 1;
 
+  std::unique_ptr<Compiled> compiled_;
+
+  std::vector<arrow::TypeHolder> key_types_;
   std::vector<arrow::compute::Aggregate> aggregates_;
   std::vector<std::vector<arrow::TypeHolder>> agg_in_types_;
   std::vector<const arrow::compute::HashAggregateKernel*> agg_kernels_;
-  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states_;
 
-  std::unique_ptr<arrow::compute::Grouper> grouper_;
+  std::vector<ThreadLocal> thread_locals_;
 
   std::shared_ptr<arrow::Schema> output_schema_;
   std::shared_ptr<arrow::RecordBatch> output_batch_;
   bool finalized_ = false;
 };
 
-class HashAggMergeSinkOp final : public pipeline::SinkOp {
- public:
-  explicit HashAggMergeSinkOp(std::shared_ptr<HashAggContext> context);
-
-  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override;
-  std::optional<task::TaskGroup> Backend(const pipeline::PipelineContext&) override;
-
- private:
-  std::shared_ptr<HashAggContext> context_;
-  bool finalized_ = false;
-};
-
-class HashAggResultSourceOp final : public pipeline::SourceOp {
- public:
-  HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t max_output_rows = 65536);
-  HashAggResultSourceOp(std::shared_ptr<HashAggContext> context, int64_t start_row, int64_t end_row,
-                        int64_t max_output_rows = 65536);
-
-  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override;
-
- private:
-  std::shared_ptr<HashAggContext> context_;
-  int64_t start_row_ = 0;
-  int64_t end_row_ = -1;
-  int64_t next_row_ = 0;
-  bool emitted_empty_ = false;
-  int64_t max_output_rows_ = 65536;
-};
-
 }  // namespace tiforth
+

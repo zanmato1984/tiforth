@@ -66,9 +66,9 @@ arrow::Status RunFilterEquals(int32_t collation_id, const std::vector<std::strin
   auto predicate = MakeCall(
       "equal",
       {MakeFieldRef("s"), MakeLiteral(std::make_shared<arrow::BinaryScalar>(literal))});
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [engine_ptr = engine.get(), predicate]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -101,9 +101,9 @@ arrow::Status RunFilterEqualsLargeBinary(int32_t collation_id, const std::vector
   auto predicate = MakeCall(
       "equal", {MakeFieldRef("s"),
                 MakeLiteral(std::make_shared<arrow::LargeBinaryScalar>(literal))});
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [engine_ptr = engine.get(), predicate]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -177,9 +177,9 @@ arrow::Status RunFilterEqualsFields(std::pair<std::string, int32_t> lhs_col,
   ARROW_ASSIGN_OR_RAISE(auto builder, PipelineBuilder::Create(engine.get()));
 
   auto predicate = MakeCall("equal", {MakeFieldRef(lhs_col.first), MakeFieldRef(rhs_col.first)});
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [engine_ptr = engine.get(), predicate]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<FilterTransformOp>(engine_ptr, predicate);
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [engine_ptr = engine.get(), predicate]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<FilterPipeOp>(engine_ptr, predicate);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());

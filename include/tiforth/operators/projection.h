@@ -9,7 +9,7 @@
 #include <arrow/result.h>
 
 #include "tiforth/expr.h"
-#include "tiforth/operators.h"
+#include "tiforth/pipeline/op/op.h"
 
 namespace arrow {
 class Array;
@@ -24,17 +24,18 @@ struct ProjectionExpr {
   ExprPtr expr;
 };
 
-class ProjectionTransformOp final : public TransformOp {
+class ProjectionPipeOp final : public pipeline::PipeOp {
  public:
-  ProjectionTransformOp(const Engine* engine, std::vector<ProjectionExpr> exprs,
-                        arrow::MemoryPool* memory_pool = nullptr);
-  ~ProjectionTransformOp() override;
+  ProjectionPipeOp(const Engine* engine, std::vector<ProjectionExpr> exprs,
+                   arrow::MemoryPool* memory_pool = nullptr);
+  ~ProjectionPipeOp() override;
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(
-      std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
+  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
 
  private:
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> Project(const arrow::RecordBatch& input);
+
   struct Compiled;
 
   arrow::Result<std::shared_ptr<arrow::Schema>> ComputeOutputSchema(

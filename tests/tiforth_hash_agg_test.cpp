@@ -133,29 +133,23 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPlan(
 
   const Engine* engine_ptr = engine.get();
   ARROW_ASSIGN_OR_RAISE(const auto ctx_id,
-                        builder->AddBreakerState<HashAggContext>(
+                        builder->AddBreakerState<HashAggState>(
                             [engine_ptr, keys, aggs]()
-                                -> arrow::Result<std::shared_ptr<HashAggContext>> {
-                              return std::make_shared<HashAggContext>(engine_ptr, keys, aggs);
+                                -> arrow::Result<std::shared_ptr<HashAggState>> {
+                              return std::make_shared<HashAggState>(engine_ptr, keys, aggs);
                             }));
 
   ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      build_stage,
-      [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
-        return std::make_unique<HashAggTransformOp>(std::move(agg_ctx));
-      }));
   ARROW_RETURN_NOT_OK(builder->SetStageSink(
       build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
-        return std::make_unique<HashAggMergeSinkOp>(std::move(agg_ctx));
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
+        return std::make_unique<HashAggSinkOp>(std::move(agg_ctx));
       }));
 
   ARROW_ASSIGN_OR_RAISE(const auto result_stage, builder->AddStage());
   ARROW_RETURN_NOT_OK(builder->SetStageSource(
       result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
         return std::make_unique<HashAggResultSourceOp>(std::move(agg_ctx));
       }));
   ARROW_RETURN_NOT_OK(builder->AddDependency(build_stage, result_stage));

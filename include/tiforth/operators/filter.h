@@ -7,7 +7,7 @@
 #include <arrow/result.h>
 
 #include "tiforth/expr.h"
-#include "tiforth/operators.h"
+#include "tiforth/pipeline/op/op.h"
 
 namespace arrow {
 class Array;
@@ -17,16 +17,17 @@ class Schema;
 
 namespace tiforth {
 
-class FilterTransformOp final : public TransformOp {
+class FilterPipeOp final : public pipeline::PipeOp {
  public:
-  FilterTransformOp(const Engine* engine, ExprPtr predicate, arrow::MemoryPool* memory_pool = nullptr);
-  ~FilterTransformOp() override;
+  FilterPipeOp(const Engine* engine, ExprPtr predicate, arrow::MemoryPool* memory_pool = nullptr);
+  ~FilterPipeOp() override;
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(
-      std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
+  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
 
  private:
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> Filter(const arrow::RecordBatch& input);
+
   struct Compiled;
 
   const Engine* engine_ = nullptr;

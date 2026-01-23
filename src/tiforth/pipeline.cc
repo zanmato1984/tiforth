@@ -109,41 +109,40 @@ PipelineBuilder::PipelineBuilder(const Engine* engine) : engine_(engine) {}
 
 PipelineBuilder::~PipelineBuilder() = default;
 
-arrow::Status PipelineBuilder::AppendTransform(TransformFactory factory) {
+arrow::Status PipelineBuilder::AppendPipe(PipeFactory factory) {
   if (!factory) {
-    return arrow::Status::Invalid("transform factory must not be empty");
+    return arrow::Status::Invalid("pipe factory must not be empty");
   }
-  transform_factories_.push_back(std::move(factory));
+  pipe_factories_.push_back(std::move(factory));
   return arrow::Status::OK();
 }
 
 arrow::Result<std::unique_ptr<Pipeline>> PipelineBuilder::Finalize() {
-  return std::unique_ptr<Pipeline>(new Pipeline(engine_, std::move(transform_factories_)));
+  return std::unique_ptr<Pipeline>(new Pipeline(engine_, std::move(pipe_factories_)));
 }
 
-Pipeline::Pipeline(const Engine* engine,
-                   std::vector<PipelineBuilder::TransformFactory> transform_factories)
-    : engine_(engine), transform_factories_(std::move(transform_factories)) {}
+Pipeline::Pipeline(const Engine* engine, std::vector<PipelineBuilder::PipeFactory> pipe_factories)
+    : engine_(engine), pipe_factories_(std::move(pipe_factories)) {}
 
 arrow::Result<std::unique_ptr<Task>> Pipeline::CreateTask() const {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
 
-  TransformOps transforms;
-  transforms.reserve(transform_factories_.size());
-  for (const auto& factory : transform_factories_) {
+  std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops;
+  pipe_ops.reserve(pipe_factories_.size());
+  for (const auto& factory : pipe_factories_) {
     if (!factory) {
-      return arrow::Status::Invalid("transform factory must not be empty");
+      return arrow::Status::Invalid("pipe factory must not be empty");
     }
-    ARROW_ASSIGN_OR_RAISE(auto transform, factory());
-    if (transform == nullptr) {
-      return arrow::Status::Invalid("transform factory returned null");
+    ARROW_ASSIGN_OR_RAISE(auto op, factory());
+    if (op == nullptr) {
+      return arrow::Status::Invalid("pipe factory returned null");
     }
-    transforms.push_back(std::move(transform));
+    pipe_ops.push_back(std::move(op));
   }
 
-  return Task::Create(std::move(transforms));
+  return Task::Create(std::move(pipe_ops));
 }
 
 arrow::Result<std::shared_ptr<arrow::RecordBatchReader>> Pipeline::MakeReader(

@@ -28,15 +28,6 @@
 
 namespace tiforth {
 
-HashAggPartialState::HashAggPartialState(HashAggPartialState&&) = default;
-HashAggPartialState& HashAggPartialState::operator=(HashAggPartialState&&) = default;
-HashAggPartialState::~HashAggPartialState() = default;
-
-struct HashAggTransformOp::Compiled {
-  std::vector<CompiledExpr> keys;
-  std::vector<std::optional<CompiledExpr>> agg_args;
-};
-
 namespace {
 
 arrow::Result<std::string> ToHashAggFunctionName(std::string_view func) {
@@ -144,8 +135,7 @@ arrow::Result<std::vector<const arrow::compute::HashAggregateKernel*>> GetKernel
     arrow::compute::ExecContext* ctx, const std::vector<arrow::compute::Aggregate>& aggregates,
     const std::vector<std::vector<arrow::TypeHolder>>& in_types) {
   if (aggregates.size() != in_types.size()) {
-    return arrow::Status::Invalid("aggregate arity mismatch: aggregates=", aggregates.size(),
-                                  " args=", in_types.size());
+    return arrow::Status::Invalid("aggregate function count mismatch");
   }
 
   std::vector<const arrow::compute::HashAggregateKernel*> kernels(in_types.size());
@@ -159,9 +149,8 @@ arrow::Result<std::vector<std::unique_ptr<arrow::compute::KernelState>>> InitKer
     const std::vector<const arrow::compute::HashAggregateKernel*>& kernels,
     arrow::compute::ExecContext* ctx, const std::vector<arrow::compute::Aggregate>& aggregates,
     const std::vector<std::vector<arrow::TypeHolder>>& in_types) {
-  if (kernels.size() != aggregates.size()) {
-    return arrow::Status::Invalid("kernel count mismatch: kernels=", kernels.size(),
-                                  " aggregates=", aggregates.size());
+  if (kernels.size() != aggregates.size() || aggregates.size() != in_types.size()) {
+    return arrow::Status::Invalid("aggregate kernel/state count mismatch");
   }
 
   std::vector<std::unique_ptr<arrow::compute::KernelState>> states(kernels.size());
@@ -175,24 +164,12 @@ arrow::Result<std::unique_ptr<arrow::compute::Grouper>> MakeDefaultGrouper(
     const std::vector<arrow::TypeHolder>& key_types,
     const std::shared_ptr<arrow::Schema>& input_schema, const std::vector<AggKey>& keys,
     arrow::compute::ExecContext* exec_context) {
-  if (exec_context == nullptr) {
-    return arrow::Status::Invalid("exec context must not be null");
-  }
-  if (key_types.size() == 1) {
-    const auto id = key_types[0].id();
-    if (id == arrow::Type::BINARY || id == arrow::Type::STRING) {
+  if (key_types.size() == 1 && keys.size() == 1) {
+    if (const auto maybe_idx = FieldRefIndex(keys[0].expr, input_schema); maybe_idx.has_value()) {
+      const int idx = *maybe_idx;
       int32_t collation_id = 63;
-      if (input_schema != nullptr && keys.size() == 1) {
-        const auto maybe_index = FieldRefIndex(keys[0].expr, input_schema);
-        if (maybe_index.has_value()) {
-          const int idx = *maybe_index;
-          if (idx < 0 || idx >= input_schema->num_fields()) {
-            return arrow::Status::Invalid("group-by key field index out of range");
-          }
-          const auto& field = input_schema->field(idx);
-          if (field == nullptr) {
-            return arrow::Status::Invalid("input field must not be null");
-          }
+      if (input_schema != nullptr && idx >= 0 && idx < input_schema->num_fields()) {
+        if (const auto& field = input_schema->field(idx); field != nullptr) {
           ARROW_ASSIGN_OR_RAISE(const auto logical_type, GetLogicalType(*field));
           if (logical_type.id == LogicalTypeId::kString && logical_type.collation_id >= 0 &&
               logical_type.collation_id != 63) {
@@ -212,8 +189,10 @@ arrow::Result<std::unique_ptr<arrow::compute::Grouper>> MakeDefaultGrouper(
         return std::make_unique<detail::CollationSingleKeyGrouper>(std::move(key_type),
                                                                    collation_id, exec_context);
       }
-      return std::make_unique<detail::SmallStringSingleKeyGrouper>(std::move(key_type),
-                                                                   exec_context);
+      if (key_type->id() == arrow::Type::STRING || key_type->id() == arrow::Type::BINARY) {
+        return std::make_unique<detail::SmallStringSingleKeyGrouper>(std::move(key_type),
+                                                                     exec_context);
+      }
     }
   }
   return arrow::compute::Grouper::Make(key_types, exec_context);
@@ -221,9 +200,19 @@ arrow::Result<std::unique_ptr<arrow::compute::Grouper>> MakeDefaultGrouper(
 
 }  // namespace
 
-HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
-                               std::vector<AggFunc> aggs, GrouperFactory grouper_factory,
-                               arrow::MemoryPool* memory_pool)
+struct HashAggState::Compiled {
+  std::vector<CompiledExpr> keys;
+  std::vector<std::optional<CompiledExpr>> agg_args;
+};
+
+struct HashAggState::ThreadLocal {
+  std::unique_ptr<arrow::compute::Grouper> grouper;
+  std::vector<std::unique_ptr<arrow::compute::KernelState>> agg_states;
+};
+
+HashAggState::HashAggState(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
+                           GrouperFactory grouper_factory, arrow::MemoryPool* memory_pool,
+                           std::size_t dop)
     : engine_(engine),
       keys_(std::move(keys)),
       aggs_(std::move(aggs)),
@@ -232,101 +221,17 @@ HashAggContext::HashAggContext(const Engine* engine, std::vector<AggKey> keys,
                         ? memory_pool
                         : (engine != nullptr ? engine->memory_pool() : arrow::default_memory_pool()),
                     /*executor=*/nullptr,
-                    engine != nullptr ? engine->function_registry() : nullptr) {}
+                    engine != nullptr ? engine->function_registry() : nullptr),
+      dop_(dop == 0 ? 1 : dop),
+      thread_locals_(dop_ == 0 ? 1 : dop_) {}
 
-HashAggContext::~HashAggContext() = default;
+HashAggState::~HashAggState() = default;
 
-HashAggTransformOp::HashAggTransformOp(std::shared_ptr<HashAggContext> context)
-    : HashAggTransformOp(std::move(context), /*on_partial_sealed=*/{}) {}
-
-HashAggTransformOp::HashAggTransformOp(
-    std::shared_ptr<HashAggContext> context,
-    std::function<arrow::Status(HashAggPartialState, pipeline::ThreadId)> on_partial_sealed)
-    : context_(std::move(context)),
-      engine_(context_ != nullptr ? context_->engine() : nullptr),
-      exec_context_(std::make_shared<arrow::compute::ExecContext>(
-          context_ != nullptr ? context_->memory_pool()
-                              : (engine_ != nullptr ? engine_->memory_pool()
-                                                    : arrow::default_memory_pool()),
-          /*executor=*/nullptr, engine_ != nullptr ? engine_->function_registry() : nullptr)),
-      on_partial_sealed_(std::move(on_partial_sealed)) {
-  ARROW_DCHECK(context_ != nullptr);
-}
-
-HashAggTransformOp::~HashAggTransformOp() = default;
-
-pipeline::PipelinePipe HashAggTransformOp::Pipe(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                pipeline::ThreadId, std::optional<pipeline::Batch> input) -> pipeline::OpResult {
-    if (context_ == nullptr) {
-      return arrow::Status::Invalid("hash agg context must not be null");
-    }
-    if (!input.has_value()) {
-      return pipeline::OpOutput::PipeSinkNeedsMore();
-    }
-    auto batch = std::move(*input);
-    if (batch == nullptr) {
-      return arrow::Status::Invalid("hash agg input batch must not be null");
-    }
-    if (sealed_) {
-      return arrow::Status::Invalid("hash agg received input after seal");
-    }
-
-    ARROW_RETURN_NOT_OK(InitIfNeededAndConsume(*batch));
-    return pipeline::OpOutput::PipeSinkNeedsMore();
-  };
-}
-
-pipeline::PipelineDrain HashAggTransformOp::Drain(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                pipeline::ThreadId thread_id) -> pipeline::OpResult {
-    ARROW_RETURN_NOT_OK(SealPartial(thread_id));
-    return pipeline::OpOutput::Finished();
-  };
-}
-
-arrow::Status HashAggTransformOp::SealPartial(pipeline::ThreadId thread_id) {
-  if (sealed_) {
-    return arrow::Status::OK();
-  }
+arrow::Status HashAggState::InitIfNeeded(const arrow::RecordBatch& batch) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("hash agg engine must not be null");
   }
-  if (context_ == nullptr) {
-    return arrow::Status::Invalid("hash agg context must not be null");
-  }
-  if (input_schema_ == nullptr) {
-    sealed_ = true;
-    return arrow::Status::OK();
-  }
-
-  HashAggContext::PartialState partial;
-  partial.exec_context = exec_context_;
-  partial.input_schema = input_schema_;
-  partial.key_types = std::move(key_types_);
-  partial.grouper = std::move(grouper_);
-  partial.agg_in_types = std::move(agg_in_types_);
-  partial.agg_states = std::move(agg_states_);
-  if (on_partial_sealed_) {
-    ARROW_RETURN_NOT_OK(on_partial_sealed_(std::move(partial), thread_id));
-  } else {
-    ARROW_RETURN_NOT_OK(context_->MergePartial(std::move(partial)));
-  }
-  agg_kernels_.clear();
-  aggregates_.clear();
-  compiled_.reset();
-  sealed_ = true;
-  return arrow::Status::OK();
-}
-
-arrow::Status HashAggTransformOp::InitIfNeededAndConsume(const arrow::RecordBatch& batch) {
-  if (engine_ == nullptr) {
-    return arrow::Status::Invalid("hash agg engine must not be null");
-  }
-  if (context_ == nullptr) {
-    return arrow::Status::Invalid("hash agg context must not be null");
-  }
-  if (context_->keys().empty()) {
+  if (keys_.empty()) {
     return arrow::Status::NotImplemented("group-by without keys is not implemented");
   }
 
@@ -341,55 +246,70 @@ arrow::Status HashAggTransformOp::InitIfNeededAndConsume(const arrow::RecordBatc
 
   ARROW_RETURN_NOT_OK(detail::EnsureArrowComputeInitialized());
 
-  if (compiled_ == nullptr) {
-    compiled_ = std::make_unique<Compiled>();
-    compiled_->keys.reserve(context_->keys().size());
-    for (const auto& key : context_->keys()) {
-      if (key.name.empty()) {
-        return arrow::Status::Invalid("group-by key name must not be empty");
-      }
-      if (key.expr == nullptr) {
-        return arrow::Status::Invalid("group-by key expr must not be null");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto compiled_key,
-                            CompileExpr(input_schema_, *key.expr, engine_, exec_context_.get()));
-      compiled_->keys.push_back(std::move(compiled_key));
-    }
-
-    compiled_->agg_args.resize(context_->aggs().size());
-    for (std::size_t i = 0; i < context_->aggs().size(); ++i) {
-      const auto& agg = context_->aggs()[i];
-      if (agg.name.empty()) {
-        return arrow::Status::Invalid("aggregate output name must not be empty");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(agg.func));
-      if (func_name == "hash_count_all") {
-        if (agg.arg != nullptr) {
-          return arrow::Status::Invalid("count_all must not have an argument expression");
-        }
-        continue;
-      }
-      if (agg.arg == nullptr) {
-        return arrow::Status::Invalid("aggregate argument expr must not be null");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto compiled_arg,
-                            CompileExpr(input_schema_, *agg.arg, engine_, exec_context_.get()));
-      compiled_->agg_args[i] = std::move(compiled_arg);
-    }
+  if (compiled_ != nullptr) {
+    return arrow::Status::OK();
   }
 
-  return ConsumeBatch(batch);
+  auto compiled = std::make_unique<Compiled>();
+  compiled->keys.reserve(keys_.size());
+  for (const auto& key : keys_) {
+    if (key.name.empty()) {
+      return arrow::Status::Invalid("group-by key name must not be empty");
+    }
+    if (key.expr == nullptr) {
+      return arrow::Status::Invalid("group-by key expr must not be null");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto compiled_key,
+                          CompileExpr(input_schema_, *key.expr, engine_, &exec_context_));
+    compiled->keys.push_back(std::move(compiled_key));
+  }
+
+  compiled->agg_args.resize(aggs_.size());
+  for (std::size_t i = 0; i < aggs_.size(); ++i) {
+    const auto& agg = aggs_[i];
+    if (agg.name.empty()) {
+      return arrow::Status::Invalid("aggregate output name must not be empty");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(agg.func));
+    if (func_name == "hash_count_all") {
+      if (agg.arg != nullptr) {
+        return arrow::Status::Invalid("count_all must not have an argument expression");
+      }
+      continue;
+    }
+    if (agg.arg == nullptr) {
+      return arrow::Status::Invalid("aggregate argument expr must not be null");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto compiled_arg,
+                          CompileExpr(input_schema_, *agg.arg, engine_, &exec_context_));
+    compiled->agg_args[i] = std::move(compiled_arg);
+  }
+
+  compiled_ = std::move(compiled);
+  return arrow::Status::OK();
 }
 
-arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+  if (finalized_) {
+    return arrow::Status::Invalid("hash agg state is finalized");
+  }
+  if (thread_id >= dop_) {
+    return arrow::Status::Invalid("hash agg thread id out of range");
+  }
+  ARROW_RETURN_NOT_OK(InitIfNeeded(batch));
+  return ConsumeBatch(thread_id, batch);
+}
+
+arrow::Status HashAggState::ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
   if (compiled_ == nullptr) {
     return arrow::Status::Invalid("hash agg is missing compiled expressions");
   }
-  if (static_cast<std::size_t>(batch.num_columns()) != static_cast<std::size_t>(batch.schema()->num_fields())) {
-    return arrow::Status::Invalid("input batch schema mismatch");
+  if (batch.schema() == nullptr) {
+    return arrow::Status::Invalid("input batch schema must not be null");
   }
-  if (context_ == nullptr) {
-    return arrow::Status::Invalid("hash agg context must not be null");
+  if (static_cast<std::size_t>(batch.num_columns()) !=
+      static_cast<std::size_t>(batch.schema()->num_fields())) {
+    return arrow::Status::Invalid("input batch schema mismatch");
   }
 
   const int64_t length = batch.num_rows();
@@ -400,8 +320,7 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
   std::vector<std::shared_ptr<arrow::Array>> key_arrays;
   key_arrays.reserve(compiled_->keys.size());
   for (const auto& compiled_key : compiled_->keys) {
-    ARROW_ASSIGN_OR_RAISE(auto array,
-                          ExecuteExprAsArray(compiled_key, batch, exec_context_.get()));
+    ARROW_ASSIGN_OR_RAISE(auto array, ExecuteExprAsArray(compiled_key, batch, &exec_context_));
     if (array == nullptr) {
       return arrow::Status::Invalid("key array must not be null");
     }
@@ -412,13 +331,13 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
   }
 
   std::vector<std::shared_ptr<arrow::Array>> agg_arg_arrays;
-  agg_arg_arrays.resize(context_->aggs().size());
-  for (std::size_t i = 0; i < context_->aggs().size(); ++i) {
+  agg_arg_arrays.resize(aggs_.size());
+  for (std::size_t i = 0; i < aggs_.size(); ++i) {
     if (!compiled_->agg_args[i].has_value()) {
       continue;
     }
     ARROW_ASSIGN_OR_RAISE(auto array,
-                          ExecuteExprAsArray(*compiled_->agg_args[i], batch, exec_context_.get()));
+                          ExecuteExprAsArray(*compiled_->agg_args[i], batch, &exec_context_));
     if (array == nullptr) {
       return arrow::Status::Invalid("aggregate argument array must not be null");
     }
@@ -428,8 +347,7 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
     agg_arg_arrays[i] = std::move(array);
   }
 
-  if (grouper_ == nullptr) {
-    key_types_.clear();
+  if (key_types_.empty()) {
     key_types_.reserve(key_arrays.size());
     for (const auto& arr : key_arrays) {
       if (arr == nullptr || arr->type() == nullptr) {
@@ -438,313 +356,262 @@ arrow::Status HashAggTransformOp::ConsumeBatch(const arrow::RecordBatch& batch) 
       key_types_.emplace_back(arr->type().get());
     }
 
-    if (context_->grouper_factory()) {
-      ARROW_ASSIGN_OR_RAISE(grouper_,
-                            context_->grouper_factory()(key_types_, exec_context_.get()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(grouper_,
-                            MakeDefaultGrouper(key_types_, input_schema_, context_->keys(),
-                                               exec_context_.get()));
-    }
-    if (grouper_ == nullptr) {
-      return arrow::Status::Invalid("grouper must not be null");
-    }
-
     aggregates_.clear();
-    aggregates_.reserve(context_->aggs().size());
+    aggregates_.reserve(aggs_.size());
     agg_in_types_.clear();
-    agg_in_types_.reserve(context_->aggs().size());
-
-    for (std::size_t i = 0; i < context_->aggs().size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(context_->aggs()[i].func));
-      arrow::compute::Aggregate agg;
-      agg.function = std::move(func_name);
-      agg.name = context_->aggs()[i].name;
-      aggregates_.push_back(std::move(agg));
-
-      std::vector<arrow::TypeHolder> in_types;
-      if (aggregates_.back().function != "hash_count_all") {
-        if (agg_arg_arrays[i] == nullptr || agg_arg_arrays[i]->type() == nullptr) {
-          return arrow::Status::Invalid("aggregate argument type must not be null");
-        }
-        in_types.emplace_back(agg_arg_arrays[i]->type().get());
+    agg_in_types_.reserve(aggs_.size());
+    for (std::size_t i = 0; i < aggs_.size(); ++i) {
+      const auto& agg = aggs_[i];
+      ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(agg.func));
+      if (func_name == "hash_count_all") {
+        aggregates_.emplace_back(std::move(func_name), agg.name);
+        agg_in_types_.push_back({});
+        continue;
       }
-    agg_in_types_.push_back(std::move(in_types));
+      if (agg_arg_arrays[i] == nullptr || agg_arg_arrays[i]->type() == nullptr) {
+        return arrow::Status::Invalid("aggregate argument type must not be null");
+      }
+      aggregates_.emplace_back(std::move(func_name), agg.name);
+      agg_in_types_.push_back({arrow::TypeHolder(agg_arg_arrays[i]->type().get())});
+    }
+
+    ARROW_ASSIGN_OR_RAISE(agg_kernels_, GetKernels(&exec_context_, aggregates_, agg_in_types_));
+
+    for (std::size_t tid = 0; tid < dop_; ++tid) {
+      auto* tl = &thread_locals_[tid];
+      if (grouper_factory_) {
+        ARROW_ASSIGN_OR_RAISE(tl->grouper, grouper_factory_(key_types_, &exec_context_));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(tl->grouper,
+                              MakeDefaultGrouper(key_types_, input_schema_, keys_, &exec_context_));
+      }
+      if (tl->grouper == nullptr) {
+        return arrow::Status::Invalid("grouper factory returned null");
+      }
+      ARROW_ASSIGN_OR_RAISE(tl->agg_states,
+                            InitKernels(agg_kernels_, &exec_context_, aggregates_, agg_in_types_));
+      if (tl->agg_states.size() != agg_kernels_.size()) {
+        return arrow::Status::Invalid("aggregate state size mismatch");
+      }
+    }
+
+    // Build output schema (aggregates first, then keys) to match TiForth/TiFlash expectations.
+    std::vector<std::shared_ptr<arrow::Field>> out_fields;
+    out_fields.reserve(aggs_.size() + keys_.size());
+
+    auto* tl0 = &thread_locals_[0];
+    if (tl0->agg_states.size() != aggs_.size()) {
+      return arrow::Status::Invalid("aggregate state size mismatch");
+    }
+
+    for (std::size_t i = 0; i < aggs_.size(); ++i) {
+      arrow::compute::KernelContext kernel_ctx{&exec_context_};
+      kernel_ctx.SetState(tl0->agg_states[i].get());
+      const auto aggr_in_types = ExtendWithGroupIdType(agg_in_types_[i]);
+      ARROW_ASSIGN_OR_RAISE(auto type_holder,
+                            agg_kernels_[i]->signature->out_type().Resolve(&kernel_ctx,
+                                                                           aggr_in_types));
+      bool nullable = true;
+      if (aggregates_[i].function == "hash_count_all" || aggregates_[i].function == "hash_count") {
+        nullable = false;
+      } else if (input_schema_ != nullptr) {
+        const auto maybe_index = FieldRefIndex(aggs_[i].arg, input_schema_);
+        if (maybe_index.has_value()) {
+          const int idx = *maybe_index;
+          if (idx < 0 || idx >= input_schema_->num_fields()) {
+            return arrow::Status::Invalid("aggregate argument field index out of range");
+          }
+          const auto& in_field = input_schema_->field(idx);
+          if (in_field == nullptr) {
+            return arrow::Status::Invalid("input field must not be null");
+          }
+          nullable = in_field->nullable();
+        }
+      }
+      out_fields.push_back(arrow::field(aggs_[i].name, type_holder.GetSharedPtr(), nullable));
+    }
+
+    for (std::size_t i = 0; i < keys_.size(); ++i) {
+      std::shared_ptr<arrow::Field> field;
+      if (input_schema_ != nullptr) {
+        const auto maybe_index = FieldRefIndex(keys_[i].expr, input_schema_);
+        if (maybe_index.has_value()) {
+          const int idx = *maybe_index;
+          if (idx < 0 || idx >= input_schema_->num_fields()) {
+            return arrow::Status::Invalid("group-by key field index out of range");
+          }
+          const auto& in_field = input_schema_->field(idx);
+          if (in_field == nullptr) {
+            return arrow::Status::Invalid("input field must not be null");
+          }
+          field = in_field->WithName(keys_[i].name);
+        }
+      }
+      if (field == nullptr) {
+        auto key_type = key_types_[i].GetSharedPtr();
+        if (key_type == nullptr) {
+          return arrow::Status::Invalid("key type must not be null");
+        }
+        field = arrow::field(keys_[i].name, std::move(key_type));
+      }
+      out_fields.push_back(std::move(field));
+    }
+
+    output_schema_ = arrow::schema(std::move(out_fields));
   }
 
-    ARROW_ASSIGN_OR_RAISE(agg_kernels_,
-                          GetKernels(exec_context_.get(), aggregates_, agg_in_types_));
-    ARROW_ASSIGN_OR_RAISE(agg_states_, InitKernels(agg_kernels_, exec_context_.get(), aggregates_,
-                                                   agg_in_types_));
+  if (thread_id >= thread_locals_.size()) {
+    return arrow::Status::Invalid("hash agg thread local index out of range");
+  }
+  auto* tl = &thread_locals_[thread_id];
+  if (tl->grouper == nullptr) {
+    return arrow::Status::Invalid("grouper must not be null");
+  }
+  if (tl->agg_states.size() != agg_kernels_.size()) {
+    return arrow::Status::Invalid("aggregate state size mismatch");
   }
 
-  std::vector<arrow::Datum> key_values;
-  key_values.reserve(key_arrays.size());
-  for (const auto& arr : key_arrays) {
-    key_values.emplace_back(arr);
+  std::vector<arrow::compute::ExecValue> keys_span_values;
+  keys_span_values.reserve(key_arrays.size());
+  for (const auto& array : key_arrays) {
+    if (array == nullptr || array->data() == nullptr) {
+      return arrow::Status::Invalid("key array data must not be null");
+    }
+    keys_span_values.emplace_back(*array->data());
   }
-  const arrow::compute::ExecBatch key_batch(std::move(key_values), length);
-  const arrow::compute::ExecSpan key_span(key_batch);
-  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper_->Consume(key_span));
+  arrow::compute::ExecSpan key_span(std::move(keys_span_values), length);
+  ARROW_ASSIGN_OR_RAISE(auto id_batch, tl->grouper->Consume(key_span));
   if (!id_batch.is_array()) {
     return arrow::Status::Invalid("expected grouper Consume to return an array datum");
   }
+  const auto& group_ids = id_batch.array();
+  if (group_ids == nullptr) {
+    return arrow::Status::Invalid("group id mapping array must not be null");
+  }
 
   for (std::size_t i = 0; i < agg_kernels_.size(); ++i) {
-    arrow::compute::KernelContext kernel_ctx{exec_context_.get()};
-    kernel_ctx.SetState(agg_states_[i].get());
-
-    std::vector<arrow::Datum> values;
-    values.reserve(2);
-    if (aggregates_[i].function != "hash_count_all") {
-      if (agg_arg_arrays[i] == nullptr) {
-        return arrow::Status::Invalid("missing aggregate argument array");
-      }
-      values.emplace_back(agg_arg_arrays[i]);
+    if (agg_kernels_[i] == nullptr || tl->agg_states[i] == nullptr) {
+      return arrow::Status::Invalid("aggregate kernel/state must not be null");
     }
-    values.emplace_back(id_batch);
 
-    const arrow::compute::ExecBatch agg_batch(std::move(values), length);
-    const arrow::compute::ExecSpan agg_span(agg_batch);
-    ARROW_RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, grouper_->num_groups()));
+    arrow::compute::KernelContext kernel_ctx{&exec_context_};
+    kernel_ctx.SetState(tl->agg_states[i].get());
+
+    std::vector<arrow::compute::ExecValue> column_values;
+    if (i < agg_arg_arrays.size() && agg_arg_arrays[i] != nullptr) {
+      if (agg_arg_arrays[i]->data() == nullptr) {
+        return arrow::Status::Invalid("aggregate argument array data must not be null");
+      }
+      column_values.emplace_back(*agg_arg_arrays[i]->data());
+    }
+    column_values.emplace_back(*group_ids);
+    arrow::compute::ExecSpan agg_span(std::move(column_values), length);
+
+    ARROW_RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, tl->grouper->num_groups()));
     ARROW_RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_span));
   }
 
   return arrow::Status::OK();
 }
 
-// Legacy TransformOp surface removed in MS24; HashAgg is driven via pipeline::PipeOp (Pipe/Drain).
-
-arrow::Status HashAggContext::InitIfNeeded(const PartialState& partial) {
-  if (engine_ == nullptr) {
-    return arrow::Status::Invalid("hash agg engine must not be null");
+arrow::Status HashAggState::Merge() {
+  if (thread_locals_.empty()) {
+    return arrow::Status::OK();
   }
-  if (keys_.empty()) {
-    return arrow::Status::NotImplemented("group-by without keys is not implemented");
-  }
-  if (partial.input_schema == nullptr) {
-    return arrow::Status::Invalid("input schema must not be null");
-  }
-  if (partial.key_types.size() != keys_.size()) {
-    return arrow::Status::Invalid("group-by key arity mismatch: keys=", keys_.size(),
-                                  " key_types=", partial.key_types.size());
-  }
-  if (partial.agg_in_types.size() != aggs_.size() || partial.agg_states.size() != aggs_.size()) {
-    return arrow::Status::Invalid("aggregate arity mismatch");
-  }
-
-  if (input_schema_ == nullptr) {
-    input_schema_ = partial.input_schema;
-  } else if (!input_schema_->Equals(*partial.input_schema, /*check_metadata=*/true)) {
-    return arrow::Status::Invalid("hash agg input schema mismatch");
-  }
-
-  if (grouper_ != nullptr) {
+  auto* state0 = &thread_locals_[0];
+  if (state0->grouper == nullptr) {
+    // No input has been consumed.
     return arrow::Status::OK();
   }
 
-  ARROW_RETURN_NOT_OK(detail::EnsureArrowComputeInitialized());
-
-  if (grouper_factory_) {
-    ARROW_ASSIGN_OR_RAISE(grouper_, grouper_factory_(partial.key_types, &exec_context_));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(grouper_,
-                          MakeDefaultGrouper(partial.key_types, input_schema_, keys_,
-                                             &exec_context_));
-  }
-  if (grouper_ == nullptr) {
-    return arrow::Status::Invalid("grouper must not be null");
-  }
-
-  aggregates_.clear();
-  aggregates_.reserve(aggs_.size());
-  for (std::size_t i = 0; i < aggs_.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto func_name, ToHashAggFunctionName(aggs_[i].func));
-    arrow::compute::Aggregate agg;
-    agg.function = std::move(func_name);
-    agg.name = aggs_[i].name;
-    aggregates_.push_back(std::move(agg));
-  }
-
-  agg_in_types_ = partial.agg_in_types;
-  ARROW_ASSIGN_OR_RAISE(agg_kernels_, GetKernels(&exec_context_, aggregates_, agg_in_types_));
-  ARROW_ASSIGN_OR_RAISE(agg_states_,
-                        InitKernels(agg_kernels_, &exec_context_, aggregates_, agg_in_types_));
-
-  std::vector<std::shared_ptr<arrow::Field>> out_fields;
-  out_fields.reserve(aggs_.size() + keys_.size());
-
-  for (std::size_t i = 0; i < aggs_.size(); ++i) {
-    arrow::compute::KernelContext kernel_ctx{&exec_context_};
-    kernel_ctx.SetState(agg_states_[i].get());
-    const auto aggr_in_types = ExtendWithGroupIdType(agg_in_types_[i]);
-    ARROW_ASSIGN_OR_RAISE(auto type_holder,
-                          agg_kernels_[i]->signature->out_type().Resolve(&kernel_ctx,
-                                                                         aggr_in_types));
-    bool nullable = true;
-    if (aggregates_[i].function == "hash_count_all" || aggregates_[i].function == "hash_count") {
-      nullable = false;
-    } else if (input_schema_ != nullptr) {
-      const auto maybe_index = FieldRefIndex(aggs_[i].arg, input_schema_);
-      if (maybe_index.has_value()) {
-        const int idx = *maybe_index;
-        if (idx < 0 || idx >= input_schema_->num_fields()) {
-          return arrow::Status::Invalid("aggregate argument field index out of range");
-        }
-        const auto& in_field = input_schema_->field(idx);
-        if (in_field == nullptr) {
-          return arrow::Status::Invalid("input field must not be null");
-        }
-        nullable = in_field->nullable();
-      }
+  for (std::size_t tid = 1; tid < thread_locals_.size(); ++tid) {
+    auto* other = &thread_locals_[tid];
+    if (other->grouper == nullptr) {
+      continue;
     }
-    out_fields.push_back(arrow::field(aggs_[i].name, type_holder.GetSharedPtr(), nullable));
-  }
 
-  for (std::size_t i = 0; i < keys_.size(); ++i) {
-    std::shared_ptr<arrow::Field> field;
-    if (input_schema_ != nullptr) {
-      const auto maybe_index = FieldRefIndex(keys_[i].expr, input_schema_);
-      if (maybe_index.has_value()) {
-        const int idx = *maybe_index;
-        if (idx < 0 || idx >= input_schema_->num_fields()) {
-          return arrow::Status::Invalid("group-by key field index out of range");
-        }
-        const auto& in_field = input_schema_->field(idx);
-        if (in_field == nullptr) {
-          return arrow::Status::Invalid("input field must not be null");
-        }
-        field = in_field->WithName(keys_[i].name);
-      }
+    ARROW_ASSIGN_OR_RAISE(auto other_keys, other->grouper->GetUniques());
+    ARROW_ASSIGN_OR_RAISE(auto transposition,
+                          state0->grouper->Consume(arrow::compute::ExecSpan(other_keys)));
+    if (!transposition.is_array()) {
+      return arrow::Status::Invalid("expected transposition to be an array datum");
     }
-    if (field == nullptr) {
-      auto key_type = partial.key_types[i].GetSharedPtr();
-      if (key_type == nullptr) {
-        return arrow::Status::Invalid("key type must not be null");
-      }
-      field = arrow::field(keys_[i].name, std::move(key_type));
-    }
-    out_fields.push_back(std::move(field));
-  }
 
-  output_schema_ = arrow::schema(std::move(out_fields));
+    for (std::size_t i = 0; i < agg_kernels_.size(); ++i) {
+      if (agg_kernels_[i] == nullptr) {
+        return arrow::Status::Invalid("aggregate kernel must not be null");
+      }
+      if (state0->agg_states.size() != agg_kernels_.size() ||
+          other->agg_states.size() != agg_kernels_.size()) {
+        return arrow::Status::Invalid("aggregate state size mismatch");
+      }
+      if (state0->agg_states[i] == nullptr || other->agg_states[i] == nullptr) {
+        return arrow::Status::Invalid("aggregate state must not be null");
+      }
+
+      arrow::compute::KernelContext kernel_ctx{&exec_context_};
+      kernel_ctx.SetState(state0->agg_states[i].get());
+      ARROW_RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state0->grouper->num_groups()));
+
+      auto other_state = std::move(other->agg_states[i]);
+      ARROW_RETURN_NOT_OK(
+          agg_kernels_[i]->merge(&kernel_ctx, std::move(*other_state), *transposition.array()));
+      other_state.reset();
+    }
+
+    other->grouper.reset();
+    other->agg_states.clear();
+  }
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggContext::MergePartial(PartialState partial) {
-  if (finalized_) {
-    return arrow::Status::Invalid("hash agg context is finalized");
-  }
-  if (partial.input_schema == nullptr) {
-    return arrow::Status::Invalid("partial input schema must not be null");
-  }
-  if (partial.grouper == nullptr) {
-    return arrow::Status::Invalid("partial grouper must not be null");
-  }
-  if (partial.agg_states.size() != aggs_.size()) {
-    return arrow::Status::Invalid("partial aggregate state size mismatch");
-  }
-
-  ARROW_RETURN_NOT_OK(InitIfNeeded(partial));
-  if (grouper_ == nullptr) {
-    return arrow::Status::Invalid("grouper must not be null");
-  }
-
-  const int64_t partial_groups = static_cast<int64_t>(partial.grouper->num_groups());
-  if (partial_groups < 0) {
-    return arrow::Status::Invalid("negative group count");
-  }
-  if (partial_groups > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
-    return arrow::Status::NotImplemented("too many groups for merge");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto uniques, partial.grouper->GetUniques());
-  if (uniques.length != partial_groups) {
-    return arrow::Status::Invalid("unique key batch length mismatch");
-  }
-  if (static_cast<std::size_t>(uniques.values.size()) != keys_.size()) {
-    return arrow::Status::Invalid("unique key batch column count mismatch");
-  }
-
-  const arrow::compute::ExecSpan unique_span(uniques);
-  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper_->Consume(unique_span));
-  if (!id_batch.is_array()) {
-    return arrow::Status::Invalid("expected grouper Consume to return an array datum");
-  }
-  const auto& mapping = id_batch.array();
-  if (mapping == nullptr) {
-    return arrow::Status::Invalid("group id mapping array must not be null");
-  }
-  if (mapping->length != partial_groups) {
-    return arrow::Status::Invalid("group id mapping length mismatch");
-  }
-
-  for (std::size_t i = 0; i < aggs_.size(); ++i) {
-    if (agg_kernels_[i] == nullptr || agg_states_[i] == nullptr) {
-      return arrow::Status::Invalid("aggregate kernel/state must not be null");
-    }
-    if (partial.agg_states[i] == nullptr) {
-      return arrow::Status::Invalid("partial aggregate state must not be null");
-    }
-
-    arrow::compute::KernelContext kernel_ctx{&exec_context_};
-    kernel_ctx.SetState(agg_states_[i].get());
-    ARROW_RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, grouper_->num_groups()));
-
-    auto other = std::move(partial.agg_states[i]);
-    ARROW_RETURN_NOT_OK(agg_kernels_[i]->merge(&kernel_ctx, std::move(*other), *mapping));
-  }
-
-  return arrow::Status::OK();
-}
-
-arrow::Status HashAggContext::Finalize() {
+arrow::Status HashAggState::Finalize() {
   if (finalized_) {
     return arrow::Status::OK();
   }
 
-  if (input_schema_ == nullptr) {
-    finalized_ = true;
-    return arrow::Status::OK();
-  }
   if (output_schema_ == nullptr) {
-    return arrow::Status::Invalid("hash agg output schema must not be null");
-  }
-  if (grouper_ == nullptr) {
-    return arrow::Status::Invalid("hash agg grouper must not be null");
-  }
-  if (agg_kernels_.size() != aggs_.size() || agg_states_.size() != aggs_.size()) {
-    return arrow::Status::Invalid("hash agg kernel/state size mismatch");
+    // No input has been consumed.
+    finalized_ = true;
+    output_batch_.reset();
+    return arrow::Status::OK();
   }
 
-  const int64_t num_groups = static_cast<int64_t>(grouper_->num_groups());
+  if (thread_locals_.empty() || thread_locals_[0].grouper == nullptr) {
+    return arrow::Status::Invalid("grouper must not be null");
+  }
+
+  auto* state = &thread_locals_[0];
+
+  const int64_t num_groups = static_cast<int64_t>(state->grouper->num_groups());
   if (num_groups < 0) {
     return arrow::Status::Invalid("negative group count");
   }
   if (num_groups > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
-    return arrow::Status::NotImplemented("too many groups for RecordBatch output");
+    return arrow::Status::NotImplemented("too many groups for finalize");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
+  ARROW_ASSIGN_OR_RAISE(auto uniques, state->grouper->GetUniques());
   if (uniques.length != num_groups) {
     return arrow::Status::Invalid("unique key batch length mismatch");
   }
-  if (static_cast<std::size_t>(uniques.values.size()) != keys_.size()) {
-    return arrow::Status::Invalid("unique key batch column count mismatch");
-  }
 
   std::vector<std::shared_ptr<arrow::Array>> out_columns;
-  out_columns.reserve(aggs_.size() + keys_.size());
+  out_columns.reserve(output_schema_->fields().size());
 
-  for (std::size_t i = 0; i < aggs_.size(); ++i) {
+  for (std::size_t i = 0; i < agg_kernels_.size(); ++i) {
+    if (agg_kernels_[i] == nullptr || state->agg_states[i] == nullptr) {
+      return arrow::Status::Invalid("aggregate kernel/state must not be null");
+    }
+
     arrow::compute::KernelContext kernel_ctx{&exec_context_};
-    kernel_ctx.SetState(agg_states_[i].get());
+    kernel_ctx.SetState(state->agg_states[i].get());
     arrow::Datum out;
     ARROW_RETURN_NOT_OK(agg_kernels_[i]->finalize(&kernel_ctx, &out));
     ARROW_ASSIGN_OR_RAISE(auto out_array,
                           detail::DatumToArray(out, num_groups, exec_context_.memory_pool()));
     out_columns.push_back(std::move(out_array));
-    agg_states_[i].reset();
+    state->agg_states[i].reset();
   }
 
   for (std::size_t i = 0; i < keys_.size(); ++i) {
@@ -756,9 +623,8 @@ arrow::Status HashAggContext::Finalize() {
 
   output_batch_ = arrow::RecordBatch::Make(output_schema_, num_groups, std::move(out_columns));
 
-  grouper_.reset();
+  state->grouper.reset();
   agg_kernels_.clear();
-  agg_states_.clear();
   aggregates_.clear();
   agg_in_types_.clear();
 
@@ -766,59 +632,73 @@ arrow::Status HashAggContext::Finalize() {
   return arrow::Status::OK();
 }
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggContext::OutputBatch() {
-  ARROW_RETURN_NOT_OK(Finalize());
+arrow::Status HashAggState::MergeAndFinalize() {
+  if (finalized_) {
+    return arrow::Status::OK();
+  }
+  ARROW_RETURN_NOT_OK(Merge());
+  return Finalize();
+}
+
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggState::OutputBatch() {
+  ARROW_RETURN_NOT_OK(MergeAndFinalize());
   return output_batch_;
 }
 
-HashAggMergeSinkOp::HashAggMergeSinkOp(std::shared_ptr<HashAggContext> context)
-    : context_(std::move(context)) {}
+HashAggSinkOp::HashAggSinkOp(std::shared_ptr<HashAggState> state) : state_(std::move(state)) {}
 
-pipeline::PipelineSink HashAggMergeSinkOp::Sink(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
-    if (context_ == nullptr) {
-      return arrow::Status::Invalid("hash agg context must not be null");
+pipeline::PipelineSink HashAggSinkOp::Sink(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                pipeline::ThreadId thread_id, std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (state_ == nullptr) {
+      return arrow::Status::Invalid("hash agg state must not be null");
     }
-    if (input.has_value() && *input != nullptr) {
-      return arrow::Status::Invalid("hash agg merge sink expects no input batches");
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
     }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("hash agg input batch must not be null");
+    }
+    ARROW_RETURN_NOT_OK(state_->Consume(thread_id, *batch));
     return pipeline::OpOutput::PipeSinkNeedsMore();
   };
 }
 
-std::optional<task::TaskGroup> HashAggMergeSinkOp::Backend(const pipeline::PipelineContext&) {
+std::optional<task::TaskGroup> HashAggSinkOp::Backend(const pipeline::PipelineContext&) {
   task::Task finalize_task{
-      "HashAggFinalize",
+      "HashAggMergeFinalize",
       [this](const task::TaskContext&, task::TaskId) -> task::TaskResult {
-        if (context_ == nullptr) {
-          return arrow::Status::Invalid("hash agg context must not be null");
+        if (state_ == nullptr) {
+          return arrow::Status::Invalid("hash agg state must not be null");
         }
-        if (finalized_) {
+        if (backend_done_) {
           return task::TaskStatus::Finished();
         }
-        ARROW_RETURN_NOT_OK(context_->Finalize());
-        finalized_ = true;
+        backend_done_ = true;
+        ARROW_RETURN_NOT_OK(state_->MergeAndFinalize());
         return task::TaskStatus::Finished();
       }};
 
-  return task::TaskGroup{"HashAggFinalize", std::move(finalize_task), /*num_tasks=*/1,
+  return task::TaskGroup{"HashAggMergeFinalize", std::move(finalize_task), /*num_tasks=*/1,
                          /*continuation=*/std::nullopt,
                          /*notify_finish=*/{}};
 }
 
-HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggContext> context,
-                                             int64_t max_output_rows)
-    : context_(std::move(context)),
+std::unique_ptr<pipeline::SourceOp> HashAggSinkOp::ImplicitSource(const pipeline::PipelineContext&) {
+  return std::make_unique<HashAggResultSourceOp>(state_);
+}
+
+HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggState> state, int64_t max_output_rows)
+    : state_(std::move(state)),
       start_row_(0),
       end_row_(-1),
       next_row_(0),
       max_output_rows_(max_output_rows) {}
 
-HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggContext> context,
-                                             int64_t start_row, int64_t end_row,
-                                             int64_t max_output_rows)
-    : context_(std::move(context)),
+HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggState> state, int64_t start_row,
+                                             int64_t end_row, int64_t max_output_rows)
+    : state_(std::move(state)),
       start_row_(start_row),
       end_row_(end_row),
       next_row_(start_row),
@@ -827,8 +707,8 @@ HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggContext> con
 pipeline::PipelineSource HashAggResultSourceOp::Source(const pipeline::PipelineContext&) {
   return [this](const pipeline::PipelineContext&, const task::TaskContext&,
                 pipeline::ThreadId) -> pipeline::OpResult {
-    if (context_ == nullptr) {
-      return arrow::Status::Invalid("hash agg context must not be null");
+    if (state_ == nullptr) {
+      return arrow::Status::Invalid("hash agg state must not be null");
     }
     if (max_output_rows_ <= 0) {
       return arrow::Status::Invalid("max_output_rows must be positive");
@@ -843,7 +723,7 @@ pipeline::PipelineSource HashAggResultSourceOp::Source(const pipeline::PipelineC
       return arrow::Status::Invalid("end_row must be >= start_row");
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto output, context_->OutputBatch());
+    ARROW_ASSIGN_OR_RAISE(auto output, state_->OutputBatch());
     if (output == nullptr) {
       return pipeline::OpOutput::Finished();
     }

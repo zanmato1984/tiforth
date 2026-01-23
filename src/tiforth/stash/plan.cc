@@ -1,4 +1,4 @@
-#include "tiforth/plan.h"
+#include "tiforth/stash/plan.h"
 
 #include <queue>
 #include <utility>
@@ -187,4 +187,3 @@ arrow::Result<std::unique_ptr<Task>> Plan::CreateTask() const {
 }
 
 }  // namespace tiforth
-

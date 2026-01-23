@@ -67,9 +67,11 @@ arrow::Status RunTiForthProjectionSmoke() {
                          {tiforth::MakeFieldRef("x"),
                           tiforth::MakeLiteral(std::make_shared<arrow::Int32Scalar>(10))})});
 
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([exprs]() -> arrow::Result<tiforth::TransformOpPtr> {
-    return std::make_unique<tiforth::ProjectionTransformOp>(exprs);
-  }));
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [engine_ptr = engine.get(),
+       exprs]() -> arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>> {
+        return std::make_unique<tiforth::ProjectionPipeOp>(engine_ptr, exprs);
+      }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
   ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());

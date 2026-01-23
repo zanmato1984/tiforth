@@ -54,18 +54,32 @@ class SimpleAwaiter final : public task::Awaiter {
   task::Resumers resumers_;
 };
 
-class VectorSourceOp final : public pipeline::SourceOp {
+class PartitionedVectorSourceOp final : public pipeline::SourceOp {
  public:
-  explicit VectorSourceOp(std::vector<std::shared_ptr<arrow::RecordBatch>> batches)
-      : batches_(std::move(batches)) {}
+  using Partitions = std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>;
+
+  explicit PartitionedVectorSourceOp(std::shared_ptr<const Partitions> partitions)
+      : partitions_(std::move(partitions)),
+        offsets_(partitions_ != nullptr ? partitions_->size() : 0, 0) {}
 
   pipeline::PipelineSource Source(const pipeline::PipelineContext&) override {
     return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                  pipeline::ThreadId) -> pipeline::OpResult {
-      if (offset_ >= batches_.size()) {
+                  pipeline::ThreadId thread_id) -> pipeline::OpResult {
+      if (partitions_ == nullptr) {
+        return arrow::Status::Invalid("partitions must not be null");
+      }
+      if (thread_id >= partitions_->size()) {
+        return arrow::Status::Invalid("thread id out of range");
+      }
+      if (thread_id >= offsets_.size()) {
+        return arrow::Status::Invalid("thread offset out of range");
+      }
+      auto& offset = offsets_[thread_id];
+      const auto& batches = (*partitions_)[thread_id];
+      if (offset >= batches.size()) {
         return pipeline::OpOutput::Finished();
       }
-      auto batch = batches_[offset_++];
+      auto batch = batches[offset++];
       if (batch == nullptr) {
         return arrow::Status::Invalid("source batch must not be null");
       }
@@ -74,21 +88,8 @@ class VectorSourceOp final : public pipeline::SourceOp {
   }
 
  private:
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
-  std::size_t offset_ = 0;
-};
-
-class NoOpSinkOp final : public pipeline::SinkOp {
- public:
-  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override {
-    return [](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-              std::optional<pipeline::Batch> input) -> pipeline::OpResult {
-      if (input.has_value() && *input != nullptr) {
-        return arrow::Status::Invalid("unexpected sink input batch");
-      }
-      return pipeline::OpOutput::PipeSinkNeedsMore();
-    };
-  }
+  std::shared_ptr<const Partitions> partitions_;
+  std::vector<std::size_t> offsets_;
 };
 
 class CollectSinkOp final : public pipeline::SinkOp {
@@ -201,7 +202,10 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
   std::vector<AggKey> keys = {{"k", MakeFieldRef("k")}};
   std::vector<AggFunc> aggs = {{"sum_v", "sum", MakeFieldRef("v")}};
 
-  auto agg_ctx = std::make_shared<HashAggContext>(engine.get(), keys, aggs);
+  auto agg_state = std::make_shared<HashAggState>(engine.get(), keys, aggs,
+                                                  /*grouper_factory=*/HashAggState::GrouperFactory{},
+                                                  /*memory_pool=*/nullptr,
+                                                  /*dop=*/static_cast<std::size_t>(kBuildParallelism));
 
   ARROW_ASSIGN_OR_RAISE(auto batch0, MakeInt32Batch({1, 2}, {10, 20}));
   ARROW_ASSIGN_OR_RAISE(auto batch1, MakeInt32Batch({1, 3}, {5, 7}));
@@ -212,14 +216,12 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> inputs = {batch0, batch1, batch2,
                                                              batch3, batch4, batch5};
-  auto partitions = std::make_shared<std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>>(
+  auto partitions = std::make_shared<PartitionedVectorSourceOp::Partitions>(
       static_cast<std::size_t>(kBuildParallelism));
   for (std::size_t i = 0; i < inputs.size(); ++i) {
     (*partitions)[i % kBuildParallelism].push_back(inputs[i]);
   }
 
-  auto partials =
-      std::make_shared<std::vector<std::optional<HashAggPartialState>>>(kBuildParallelism);
   auto outputs_by_task =
       std::make_shared<std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>>(
           kResultParallelism);
@@ -227,6 +229,26 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
   const auto pipeline_ctx = pipeline::PipelineContext{};
   auto task_ctx = MakeTestTaskContext();
 
+  // Warm up the hash agg state (compile exprs, init kernels/groupers) without affecting results.
+  ARROW_RETURN_NOT_OK(agg_state->Consume(/*thread_id=*/0, *batch0->Slice(/*offset=*/0, /*length=*/0)));
+
+  auto source_op = std::make_unique<PartitionedVectorSourceOp>(partitions);
+  auto sink_op = std::make_unique<HashAggSinkOp>(agg_state);
+
+  pipeline::LogicalPipeline::Channel channel;
+  channel.source_op = source_op.get();
+  channel.pipe_ops = {};
+  pipeline::LogicalPipeline logical{
+      "HashAggBuild",
+      std::vector<pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      sink_op.get()};
+  auto physical = pipeline::CompilePipeline(pipeline_ctx, logical);
+  if (physical.size() != 1) {
+    return arrow::Status::Invalid("expected a single physical pipeline");
+  }
+
+  pipeline::PipelineTask pipeline_task{pipeline_ctx, physical[0],
+                                       /*dop=*/static_cast<std::size_t>(kBuildParallelism)};
   {
     std::atomic_bool has_error{false};
     arrow::Status first_error;
@@ -234,45 +256,36 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
     threads.reserve(kBuildParallelism);
     for (int task_id = 0; task_id < kBuildParallelism; ++task_id) {
       threads.emplace_back([&, task_id]() {
-        if (task_id < 0 || static_cast<std::size_t>(task_id) >= partitions->size()) {
-          has_error.store(true);
-          first_error = arrow::Status::Invalid("task_id out of range");
-          return;
-        }
-        const std::size_t slot = static_cast<std::size_t>(task_id);
-        if (slot >= partials->size()) {
-          has_error.store(true);
-          first_error = arrow::Status::Invalid("partial slot out of range");
-          return;
-        }
-
-        auto source_op = std::make_unique<VectorSourceOp>((*partitions)[slot]);
-        auto sink_op = std::make_unique<NoOpSinkOp>();
-        auto pipe_op = std::make_unique<HashAggTransformOp>(
-            agg_ctx, [partials, slot](HashAggPartialState partial,
-                                      pipeline::ThreadId) -> arrow::Status {
-              (*partials)[slot] = std::move(partial);
-              return arrow::Status::OK();
-            });
-
-        pipeline::LogicalPipeline::Channel channel;
-        channel.source_op = source_op.get();
-        channel.pipe_ops = {pipe_op.get()};
-        pipeline::LogicalPipeline logical{"HashAggBuild",
-                                          std::vector<pipeline::LogicalPipeline::Channel>{
-                                              std::move(channel)},
-                                          sink_op.get()};
-        auto physical = pipeline::CompilePipeline(pipeline_ctx, logical);
-        if (physical.size() != 1) {
-          has_error.store(true);
-          first_error = arrow::Status::Invalid("expected a single physical pipeline");
-          return;
-        }
-
-        pipeline::PipelineTask pipeline_task{pipeline_ctx, physical[0], /*dop=*/1};
-        auto st = RunPipelineTaskToCompletion(&pipeline_task, pipeline_ctx, task_ctx);
-        if (!st.ok() && !has_error.exchange(true)) {
-          first_error = std::move(st);
+        const auto thread_id = static_cast<pipeline::ThreadId>(task_id);
+        while (true) {
+          auto st_res = pipeline_task(pipeline_ctx, task_ctx, thread_id);
+          if (!st_res.ok()) {
+            if (!has_error.exchange(true)) {
+              first_error = st_res.status();
+            }
+            return;
+          }
+          const auto st = st_res.ValueUnsafe();
+          if (st.IsFinished()) {
+            return;
+          }
+          if (st.IsCancelled()) {
+            if (!has_error.exchange(true)) {
+              first_error = arrow::Status::Cancelled("pipeline task cancelled");
+            }
+            return;
+          }
+          if (st.IsBlocked()) {
+            if (!has_error.exchange(true)) {
+              first_error = arrow::Status::Invalid("unexpected Blocked in this test");
+            }
+            return;
+          }
+          if (st.IsYield()) {
+            std::this_thread::yield();
+            continue;
+          }
+          ARROW_CHECK(st.IsContinue());
         }
       });
     }
@@ -284,16 +297,7 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
     }
   }
 
-  for (auto& maybe_partial : *partials) {
-    if (!maybe_partial.has_value()) {
-      continue;
-    }
-    ARROW_RETURN_NOT_OK(agg_ctx->MergePartial(std::move(*maybe_partial)));
-    maybe_partial.reset();
-  }
-  ARROW_RETURN_NOT_OK(agg_ctx->Finalize());
-
-  ARROW_ASSIGN_OR_RAISE(auto out, agg_ctx->OutputBatch());
+  ARROW_ASSIGN_OR_RAISE(auto out, agg_state->OutputBatch());
   if (out == nullptr) {
     return arrow::Status::Invalid("expected non-null hash agg output");
   }
@@ -318,7 +322,7 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
         const int64_t end =
             (static_cast<int64_t>(task_id + 1) * total_rows) / kResultParallelism;
 
-        auto source_op = std::make_unique<HashAggResultSourceOp>(agg_ctx, start, end,
+        auto source_op = std::make_unique<HashAggResultSourceOp>(agg_state, start, end,
                                                                  /*max_output_rows=*/1);
         auto* slot = &(*outputs_by_task)[static_cast<std::size_t>(task_id)];
         auto sink_op = std::make_unique<CollectSinkOp>(slot);

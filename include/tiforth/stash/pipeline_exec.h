@@ -7,7 +7,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 
-#include "tiforth/operators.h"
+#include "tiforth/stash/operators.h"
 
 namespace tiforth {
 

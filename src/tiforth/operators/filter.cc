@@ -165,14 +165,13 @@ arrow::Result<std::shared_ptr<arrow::Array>> CoercePredicateToBoolean(
 
 }  // namespace
 
-struct FilterTransformOp::Compiled {
+struct FilterPipeOp::Compiled {
   CompiledExpr predicate;
 };
 
-FilterTransformOp::~FilterTransformOp() = default;
+FilterPipeOp::~FilterPipeOp() = default;
 
-FilterTransformOp::FilterTransformOp(const Engine* engine, ExprPtr predicate,
-                                     arrow::MemoryPool* memory_pool)
+FilterPipeOp::FilterPipeOp(const Engine* engine, ExprPtr predicate, arrow::MemoryPool* memory_pool)
     : engine_(engine),
       predicate_(std::move(predicate)),
       exec_context_(memory_pool != nullptr
@@ -181,11 +180,8 @@ FilterTransformOp::FilterTransformOp(const Engine* engine, ExprPtr predicate,
                     /*executor=*/nullptr,
                     engine != nullptr ? engine->function_registry() : nullptr) {}
 
-arrow::Result<OperatorStatus> FilterTransformOp::TransformImpl(
-    std::shared_ptr<arrow::RecordBatch>* batch) {
-  if (*batch == nullptr) {
-    return OperatorStatus::kHasOutput;
-  }
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> FilterPipeOp::Filter(
+    const arrow::RecordBatch& input) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("filter engine must not be null");
   }
@@ -193,7 +189,6 @@ arrow::Result<OperatorStatus> FilterTransformOp::TransformImpl(
     return arrow::Status::Invalid("filter predicate must not be null");
   }
 
-  const auto& input = **batch;
   if (output_schema_ == nullptr) {
     output_schema_ = input.schema();
   } else if (!output_schema_->Equals(*input.schema(), /*check_metadata=*/true)) {
@@ -211,7 +206,8 @@ arrow::Result<OperatorStatus> FilterTransformOp::TransformImpl(
     compiled_ = std::make_unique<Compiled>(Compiled{std::move(compiled_pred)});
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto predicate_array, ExecuteExprAsArray(compiled_->predicate, input, &exec_context_));
+  ARROW_ASSIGN_OR_RAISE(auto predicate_array,
+                        ExecuteExprAsArray(compiled_->predicate, input, &exec_context_));
   ARROW_ASSIGN_OR_RAISE(predicate_array, CoercePredicateToBoolean(predicate_array, &exec_context_));
   if (predicate_array->length() != input.num_rows()) {
     return arrow::Status::Invalid("filter predicate length mismatch");
@@ -247,8 +243,30 @@ arrow::Result<OperatorStatus> FilterTransformOp::TransformImpl(
     out_rows = filtered_pred_array->length();
   }
 
-  *batch = arrow::RecordBatch::Make(output_schema_, out_rows, std::move(out_columns));
-  return OperatorStatus::kHasOutput;
+  return arrow::RecordBatch::Make(output_schema_, out_rows, std::move(out_columns));
+}
+
+pipeline::PipelinePipe FilterPipeOp::Pipe(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("filter input batch must not be null");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, Filter(*batch));
+    if (out == nullptr) {
+      return arrow::Status::Invalid("filter output batch must not be null");
+    }
+    return pipeline::OpOutput::PipeEven(std::move(out));
+  };
+}
+
+pipeline::PipelineDrain FilterPipeOp::Drain(const pipeline::PipelineContext&) {
+  return [](const pipeline::PipelineContext&, const task::TaskContext&,
+            pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
 }
 
 }  // namespace tiforth

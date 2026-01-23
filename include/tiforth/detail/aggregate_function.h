@@ -20,7 +20,7 @@ namespace tiforth::detail {
 // each function owns a fixed-size state blob per group and exposes lifecycle hooks.
 //
 // Notes:
-// - Implementations are expected to be used by a single HashAggContext (single-threaded today).
+// - Implementations are expected to be used by a single aggregation operator instance.
 // - State memory is owned by an arena; Destroy() must release any nested resources (e.g. pmr strings).
 class AggregateFunction {
  public:
@@ -103,4 +103,3 @@ inline arrow::Result<AggStateLayout> ComputeAggStateLayout(
 }
 
 }  // namespace tiforth::detail
-

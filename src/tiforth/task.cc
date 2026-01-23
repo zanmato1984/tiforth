@@ -10,6 +10,7 @@
 #include "tiforth/pipeline/pipeline_task.h"
 #include "tiforth/plan.h"
 #include "tiforth/task/awaiter.h"
+#include "tiforth/task/blocked_resumer.h"
 #include "tiforth/task/task.h"
 #include "tiforth/task/task_group.h"
 #include "tiforth/task/task_status.h"
@@ -27,27 +28,9 @@ class SimpleResumer final : public task::Resumer {
   std::atomic_bool resumed_{false};
 };
 
-class LegacyBlockedResumer final : public task::Resumer {
+class ResumersAwaiter final : public task::Awaiter {
  public:
-  LegacyBlockedResumer(Operator* op, OperatorStatus status) : op_(op), status_(status) {}
-
-  void Resume() override { resumed_.store(true, std::memory_order_release); }
-  bool IsResumed() const override { return resumed_.load(std::memory_order_acquire); }
-
-  Operator* op() const { return op_; }
-
-  OperatorStatus status() const { return status_; }
-  void set_status(OperatorStatus status) { status_ = status; }
-
- private:
-  Operator* op_ = nullptr;
-  OperatorStatus status_;
-  std::atomic_bool resumed_{false};
-};
-
-class LegacyAwaiter final : public task::Awaiter {
- public:
-  explicit LegacyAwaiter(task::Resumers resumers) : resumers_(std::move(resumers)) {}
+  explicit ResumersAwaiter(task::Resumers resumers) : resumers_(std::move(resumers)) {}
 
   const task::Resumers& resumers() const { return resumers_; }
 
@@ -55,301 +38,15 @@ class LegacyAwaiter final : public task::Awaiter {
   task::Resumers resumers_;
 };
 
-class LegacySourceAdapter final : public pipeline::SourceOp {
- public:
-  explicit LegacySourceAdapter(SourceOpPtr legacy) : legacy_(std::move(legacy)) {}
-
-  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                  pipeline::ThreadId) -> pipeline::OpResult {
-      if (legacy_ == nullptr) {
-        return arrow::Status::Invalid("legacy source must not be null");
-      }
-
-      if (blocked_resumer_ != nullptr) {
-        if (blocked_resumer_->IsResumed()) {
-          blocked_resumer_.reset();
-        } else {
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        }
-      }
-
-      std::shared_ptr<arrow::RecordBatch> batch;
-      ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->Read(&batch));
-      switch (status) {
-        case OperatorStatus::kHasOutput:
-          if (batch == nullptr) {
-            return arrow::Status::Invalid("legacy source returned kHasOutput with null batch");
-          }
-          return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
-        case OperatorStatus::kFinished:
-          return pipeline::OpOutput::Finished();
-        case OperatorStatus::kCancelled:
-          return pipeline::OpOutput::Cancelled();
-        case OperatorStatus::kNeedInput:
-          return arrow::Status::Invalid("legacy source must not return kNeedInput");
-        case OperatorStatus::kWaiting:
-        case OperatorStatus::kWaitForNotify:
-        case OperatorStatus::kIOIn:
-        case OperatorStatus::kIOOut:
-          blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), status);
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        default:
-          return arrow::Status::Invalid("unknown legacy source status");
-      }
-    };
-  }
-
- private:
-  SourceOpPtr legacy_;
-  std::shared_ptr<LegacyBlockedResumer> blocked_resumer_;
-};
-
-class LegacyTransformPipeOp final : public pipeline::PipeOp {
- public:
-  explicit LegacyTransformPipeOp(TransformOpPtr legacy) : legacy_(std::move(legacy)) {}
-
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                  std::optional<pipeline::Batch> input) -> pipeline::OpResult {
-      if (legacy_ == nullptr) {
-        return arrow::Status::Invalid("legacy transform must not be null");
-      }
-
-      if (blocked_resumer_ != nullptr) {
-        if (blocked_resumer_->IsResumed()) {
-          blocked_resumer_.reset();
-        } else {
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        }
-      }
-
-      if (!input.has_value()) {
-        // Continuation (internal output); legacy operators expose this via TryOutput().
-        std::shared_ptr<arrow::RecordBatch> out;
-        ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->TryOutput(&out));
-        if (status == OperatorStatus::kHasOutput) {
-          if (out == nullptr) {
-            return arrow::Status::Invalid("legacy transform TryOutput returned null output");
-          }
-          return pipeline::OpOutput::SourcePipeHasMore(std::move(out));
-        }
-        if (status == OperatorStatus::kNeedInput) {
-          return pipeline::OpOutput::PipeSinkNeedsMore();
-        }
-        if (status == OperatorStatus::kCancelled) {
-          return pipeline::OpOutput::Cancelled();
-        }
-        if (status == OperatorStatus::kWaiting || status == OperatorStatus::kWaitForNotify ||
-            status == OperatorStatus::kIOIn || status == OperatorStatus::kIOOut) {
-          blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), status);
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        }
-        return arrow::Status::Invalid("unknown legacy transform TryOutput status");
-      }
-
-      auto batch = std::move(*input);
-      ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->Transform(&batch));
-      switch (status) {
-        case OperatorStatus::kHasOutput:
-          if (batch == nullptr) {
-            return pipeline::OpOutput::PipeSinkNeedsMore();
-          }
-          return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
-        case OperatorStatus::kNeedInput:
-          return pipeline::OpOutput::PipeSinkNeedsMore();
-        case OperatorStatus::kCancelled:
-          return pipeline::OpOutput::Cancelled();
-        case OperatorStatus::kWaiting:
-        case OperatorStatus::kWaitForNotify:
-        case OperatorStatus::kIOIn:
-        case OperatorStatus::kIOOut:
-          blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), status);
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        default:
-          return arrow::Status::Invalid("unknown legacy transform status");
-      }
-    };
-  }
-
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                  pipeline::ThreadId) -> pipeline::OpResult {
-      if (legacy_ == nullptr) {
-        return arrow::Status::Invalid("legacy transform must not be null");
-      }
-      if (blocked_resumer_ != nullptr) {
-        if (blocked_resumer_->IsResumed()) {
-          blocked_resumer_.reset();
-        } else {
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        }
-      }
-
-      if (drain_done_) {
-        return pipeline::OpOutput::Finished();
-      }
-
-      if (!eos_sent_) {
-        eos_sent_ = true;
-        std::shared_ptr<arrow::RecordBatch> eos;
-        ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->Transform(&eos));
-        if (status == OperatorStatus::kHasOutput && eos != nullptr) {
-          return pipeline::OpOutput::SourcePipeHasMore(std::move(eos));
-        }
-        if (status == OperatorStatus::kCancelled) {
-          return pipeline::OpOutput::Cancelled();
-        }
-        if (status == OperatorStatus::kWaiting || status == OperatorStatus::kWaitForNotify ||
-            status == OperatorStatus::kIOIn || status == OperatorStatus::kIOOut) {
-          blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), status);
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        }
-        // kNeedInput: proceed to TryOutput() on next Drain call.
-      }
-
-      std::shared_ptr<arrow::RecordBatch> out;
-      ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->TryOutput(&out));
-      if (status == OperatorStatus::kHasOutput) {
-        if (out == nullptr) {
-          return arrow::Status::Invalid("legacy transform TryOutput returned null output");
-        }
-        return pipeline::OpOutput::SourcePipeHasMore(std::move(out));
-      }
-      if (status == OperatorStatus::kNeedInput) {
-        drain_done_ = true;
-        return pipeline::OpOutput::Finished();
-      }
-      if (status == OperatorStatus::kCancelled) {
-        return pipeline::OpOutput::Cancelled();
-      }
-      if (status == OperatorStatus::kWaiting || status == OperatorStatus::kWaitForNotify ||
-          status == OperatorStatus::kIOIn || status == OperatorStatus::kIOOut) {
-        blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), status);
-        return pipeline::OpOutput::Blocked(blocked_resumer_);
-      }
-      drain_done_ = true;
-      return pipeline::OpOutput::Finished();
-    };
-  }
-
- private:
-  TransformOpPtr legacy_;
-  std::shared_ptr<LegacyBlockedResumer> blocked_resumer_;
-  bool eos_sent_ = false;
-  bool drain_done_ = false;
-};
-
-class LegacySinkAdapter final : public pipeline::SinkOp {
- public:
-  explicit LegacySinkAdapter(SinkOpPtr legacy) : legacy_(std::move(legacy)) {}
-
-  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                  std::optional<pipeline::Batch> input) -> pipeline::OpResult {
-      if (legacy_ == nullptr) {
-        return arrow::Status::Invalid("legacy sink must not be null");
-      }
-
-      if (blocked_resumer_ != nullptr) {
-        if (blocked_resumer_->IsResumed()) {
-          blocked_resumer_.reset();
-        } else {
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        }
-      }
-
-      if (!prepared_) {
-        ARROW_ASSIGN_OR_RAISE(const auto st, legacy_->Prepare());
-        switch (st) {
-          case OperatorStatus::kNeedInput:
-            prepared_ = true;
-            break;
-          case OperatorStatus::kCancelled:
-            return pipeline::OpOutput::Cancelled();
-          case OperatorStatus::kWaiting:
-          case OperatorStatus::kWaitForNotify:
-          case OperatorStatus::kIOIn:
-          case OperatorStatus::kIOOut:
-            blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), st);
-            return pipeline::OpOutput::Blocked(blocked_resumer_);
-          default:
-            return arrow::Status::Invalid("unexpected legacy sink Prepare status");
-        }
-      }
-
-      if (!input.has_value()) {
-        return pipeline::OpOutput::PipeSinkNeedsMore();
-      }
-
-      auto batch = std::move(*input);
-      ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->Write(std::move(batch)));
-      switch (status) {
-        case OperatorStatus::kNeedInput:
-        case OperatorStatus::kFinished:
-          return pipeline::OpOutput::PipeSinkNeedsMore();
-        case OperatorStatus::kCancelled:
-          return pipeline::OpOutput::Cancelled();
-        case OperatorStatus::kWaiting:
-        case OperatorStatus::kWaitForNotify:
-        case OperatorStatus::kIOIn:
-        case OperatorStatus::kIOOut:
-          blocked_resumer_ = std::make_shared<LegacyBlockedResumer>(legacy_.get(), status);
-          return pipeline::OpOutput::Blocked(blocked_resumer_);
-        default:
-          return arrow::Status::Invalid("unknown legacy sink Write status");
-      }
-    };
-  }
-
-  std::optional<task::TaskGroup> Backend(const pipeline::PipelineContext&) override {
-    if (backend_done_) {
-      return std::nullopt;
-    }
-
-    task::Task backend_task{
-        "LegacySinkBackend",
-        [this](const task::TaskContext&, task::TaskId) -> task::TaskResult {
-          if (legacy_ == nullptr) {
-            return arrow::Status::Invalid("legacy sink must not be null");
-          }
-          if (backend_done_) {
-            return task::TaskStatus::Finished();
-          }
-          backend_done_ = true;
-
-          std::shared_ptr<arrow::RecordBatch> eos;
-          ARROW_ASSIGN_OR_RAISE(const auto status, legacy_->Write(std::move(eos)));
-          if (status == OperatorStatus::kCancelled) {
-            return task::TaskStatus::Cancelled();
-          }
-          if (status != OperatorStatus::kFinished && status != OperatorStatus::kNeedInput) {
-            return arrow::Status::Invalid("legacy sink backend expected to finish");
-          }
-          return task::TaskStatus::Finished();
-        }};
-
-    return task::TaskGroup{"LegacySinkBackend", std::move(backend_task), /*num_tasks=*/1,
-                           /*continuation=*/std::nullopt,
-                           /*notify_finish=*/{}};
-  }
-
- private:
-  SinkOpPtr legacy_;
-  std::shared_ptr<LegacyBlockedResumer> blocked_resumer_;
-  bool prepared_ = false;
-  bool backend_done_ = false;
-};
-
 }  // namespace
 
 arrow::Result<std::unique_ptr<Task>> Task::Create() {
-  return Create(TransformOps{});
+  return Create(std::vector<std::unique_ptr<pipeline::PipeOp>>{});
 }
 
-arrow::Result<std::unique_ptr<Task>> Task::Create(TransformOps transforms) {
+arrow::Result<std::unique_ptr<Task>> Task::Create(std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops) {
   auto task = std::unique_ptr<Task>(new Task());
-  ARROW_RETURN_NOT_OK(task->Init(std::move(transforms)));
+  ARROW_RETURN_NOT_OK(task->Init(std::move(pipe_ops)));
   return task;
 }
 
@@ -555,7 +252,7 @@ struct Task::Stage {
   }
 };
 
-arrow::Status Task::Init(TransformOps transforms) {
+arrow::Status Task::Init(std::vector<std::unique_ptr<pipeline::PipeOp>> pipe_ops) {
   pipeline_context_ = pipeline::PipelineContext{};
 
   task_context_ = task::TaskContext{};
@@ -567,20 +264,21 @@ arrow::Status Task::Init(TransformOps transforms) {
       [](task::ResumerPtr resumer) -> arrow::Result<task::AwaiterPtr> {
     task::Resumers resumers;
     resumers.push_back(std::move(resumer));
-    return std::make_shared<LegacyAwaiter>(std::move(resumers));
+    return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
   task_context_.any_awaiter_factory =
       [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
-    return std::make_shared<LegacyAwaiter>(std::move(resumers));
+    return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
   task_context_.all_awaiter_factory =
       [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
-    return std::make_shared<LegacyAwaiter>(std::move(resumers));
+    return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
 
   need_input_ = false;
   input_resumer_.reset();
   blocked_resumer_.reset();
+  blocked_kind_.reset();
 
   stages_.clear();
   current_stage_index_ = 0;
@@ -588,10 +286,7 @@ arrow::Status Task::Init(TransformOps transforms) {
   auto stage = std::make_unique<Stage>();
   stage->source_op = std::make_unique<InputSourceOp>(this);
   stage->sink_op = std::make_unique<OutputSinkOp>(this);
-  stage->pipe_ops.reserve(transforms.size());
-  for (auto& transform : transforms) {
-    stage->pipe_ops.push_back(std::make_unique<LegacyTransformPipeOp>(std::move(transform)));
-  }
+  stage->pipe_ops = std::move(pipe_ops);
   ARROW_RETURN_NOT_OK(stage->Init(pipeline_context_));
   stages_.push_back(std::move(stage));
 
@@ -614,20 +309,21 @@ arrow::Status Task::InitPlan(const Plan& plan) {
       [](task::ResumerPtr resumer) -> arrow::Result<task::AwaiterPtr> {
     task::Resumers resumers;
     resumers.push_back(std::move(resumer));
-    return std::make_shared<LegacyAwaiter>(std::move(resumers));
+    return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
   task_context_.any_awaiter_factory =
       [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
-    return std::make_shared<LegacyAwaiter>(std::move(resumers));
+    return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
   task_context_.all_awaiter_factory =
       [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
-    return std::make_shared<LegacyAwaiter>(std::move(resumers));
+    return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
 
   need_input_ = false;
   input_resumer_.reset();
   blocked_resumer_.reset();
+  blocked_kind_.reset();
 
   plan_task_context_ = std::make_unique<PlanTaskContext>();
 
@@ -661,38 +357,19 @@ arrow::Status Task::InitPlan(const Plan& plan) {
         stage_exec->source_op = std::make_unique<InputSourceOp>(this);
         break;
       case PlanStageSourceKind::kCustom: {
-        if (stage.pipeline_source_factory) {
-          ARROW_ASSIGN_OR_RAISE(auto source,
-                                stage.pipeline_source_factory(plan_task_context_.get()));
-          if (source == nullptr) {
-            return arrow::Status::Invalid("custom stage pipeline source factory returned null");
-          }
-          stage_exec->source_op = std::move(source);
-          break;
-        }
-        if (!stage.source_factory) {
+        if (!stage.pipeline_source_factory) {
           return arrow::Status::Invalid("custom stage source factory must not be empty");
         }
-        ARROW_ASSIGN_OR_RAISE(auto source, stage.source_factory(plan_task_context_.get()));
+        ARROW_ASSIGN_OR_RAISE(auto source, stage.pipeline_source_factory(plan_task_context_.get()));
         if (source == nullptr) {
           return arrow::Status::Invalid("custom stage source factory returned null");
         }
-        stage_exec->source_op = std::make_unique<LegacySourceAdapter>(std::move(source));
+        stage_exec->source_op = std::move(source);
         break;
       }
     }
 
-    stage_exec->pipe_ops.reserve(stage.transform_factories.size() + stage.pipe_factories.size());
-    for (const auto& transform_factory : stage.transform_factories) {
-      if (!transform_factory) {
-        return arrow::Status::Invalid("transform factory must not be empty");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto transform, transform_factory(plan_task_context_.get()));
-      if (transform == nullptr) {
-        return arrow::Status::Invalid("transform factory returned null");
-      }
-      stage_exec->pipe_ops.push_back(std::make_unique<LegacyTransformPipeOp>(std::move(transform)));
-    }
+    stage_exec->pipe_ops.reserve(stage.pipe_factories.size());
     for (const auto& pipe_factory : stage.pipe_factories) {
       if (!pipe_factory) {
         return arrow::Status::Invalid("pipe factory must not be empty");
@@ -709,22 +386,14 @@ arrow::Status Task::InitPlan(const Plan& plan) {
         stage_exec->sink_op = std::make_unique<OutputSinkOp>(this);
         break;
       case PlanStageSinkKind::kCustom: {
-        if (stage.pipeline_sink_factory) {
-          ARROW_ASSIGN_OR_RAISE(auto sink, stage.pipeline_sink_factory(plan_task_context_.get()));
-          if (sink == nullptr) {
-            return arrow::Status::Invalid("custom stage pipeline sink factory returned null");
-          }
-          stage_exec->sink_op = std::move(sink);
-          break;
-        }
-        if (!stage.sink_factory) {
+        if (!stage.pipeline_sink_factory) {
           return arrow::Status::Invalid("custom stage sink factory must not be empty");
         }
-        ARROW_ASSIGN_OR_RAISE(auto sink, stage.sink_factory(plan_task_context_.get()));
+        ARROW_ASSIGN_OR_RAISE(auto sink, stage.pipeline_sink_factory(plan_task_context_.get()));
         if (sink == nullptr) {
           return arrow::Status::Invalid("custom stage sink factory returned null");
         }
-        stage_exec->sink_op = std::make_unique<LegacySinkAdapter>(std::move(sink));
+        stage_exec->sink_op = std::move(sink);
         break;
       }
     }
@@ -820,6 +489,21 @@ arrow::Result<TaskState> Task::Step() {
 
   if (blocked_resumer_ != nullptr && blocked_resumer_->IsResumed()) {
     blocked_resumer_.reset();
+    blocked_kind_.reset();
+  }
+
+  if (blocked_resumer_ != nullptr && blocked_kind_.has_value()) {
+    switch (*blocked_kind_) {
+      case task::BlockedKind::kIOIn:
+        return TaskState::kIOIn;
+      case task::BlockedKind::kIOOut:
+        return TaskState::kIOOut;
+      case task::BlockedKind::kWaitForNotify:
+        return TaskState::kWaitForNotify;
+      case task::BlockedKind::kWaiting:
+        return TaskState::kWaiting;
+    }
+    return arrow::Status::Invalid("unknown blocked kind");
   }
 
   if (current_stage_index_ >= stages_.size()) {
@@ -854,40 +538,46 @@ arrow::Result<TaskState> Task::Step() {
       }
 
       blocked_resumer_.reset();
+      blocked_kind_.reset();
 
       const auto& awaiter = st.GetAwaiter();
-      const auto* legacy_awaiter = dynamic_cast<const LegacyAwaiter*>(awaiter.get());
-      if (legacy_awaiter == nullptr) {
+      const auto* resumers_awaiter = dynamic_cast<const ResumersAwaiter*>(awaiter.get());
+      if (resumers_awaiter == nullptr) {
         return TaskState::kWaiting;
       }
 
-      // In the current Task wrapper we only support single-channel/single-thread pipelines, so
-      // there should be at most one blocked operator at a time.
-      for (const auto& resumer : legacy_awaiter->resumers()) {
+      task::ResumerPtr selected;
+      for (const auto& resumer : resumers_awaiter->resumers()) {
         if (resumer == nullptr) {
           continue;
         }
-        auto legacy_resumer = std::dynamic_pointer_cast<LegacyBlockedResumer>(resumer);
-        if (legacy_resumer == nullptr) {
-          continue;
+        if (selected != nullptr) {
+          return arrow::Status::NotImplemented(
+              "Task wrapper supports at most one blocked resumer");
         }
-
-        blocked_resumer_ = std::move(resumer);
-        switch (legacy_resumer->status()) {
-          case OperatorStatus::kIOIn:
-            return TaskState::kIOIn;
-          case OperatorStatus::kIOOut:
-            return TaskState::kIOOut;
-          case OperatorStatus::kWaitForNotify:
-            return TaskState::kWaitForNotify;
-          case OperatorStatus::kWaiting:
-            return TaskState::kWaiting;
-          default:
-            return arrow::Status::Invalid("unexpected blocked legacy operator status");
-        }
+        selected = resumer;
+      }
+      if (selected == nullptr) {
+        return TaskState::kWaiting;
       }
 
-      return TaskState::kWaiting;
+      blocked_resumer_ = selected;
+      auto blocked = std::dynamic_pointer_cast<task::BlockedResumer>(selected);
+      if (blocked == nullptr) {
+        return TaskState::kWaiting;
+      }
+      blocked_kind_ = blocked->kind();
+      switch (*blocked_kind_) {
+        case task::BlockedKind::kIOIn:
+          return TaskState::kIOIn;
+        case task::BlockedKind::kIOOut:
+          return TaskState::kIOOut;
+        case task::BlockedKind::kWaitForNotify:
+          return TaskState::kWaitForNotify;
+        case task::BlockedKind::kWaiting:
+          return TaskState::kWaiting;
+      }
+      return arrow::Status::Invalid("unknown blocked kind");
     }
     if (st.IsYield()) {
       return TaskState::kWaiting;
@@ -900,101 +590,95 @@ arrow::Result<TaskState> Task::ExecuteIO() {
   if (blocked_resumer_ == nullptr) {
     return arrow::Status::Invalid("task is not blocked");
   }
-  auto legacy_resumer = std::dynamic_pointer_cast<LegacyBlockedResumer>(blocked_resumer_);
-  if (legacy_resumer == nullptr) {
-    return arrow::Status::Invalid("blocked resumer is not a legacy operator resumer");
-  }
-  if (legacy_resumer->op() == nullptr) {
-    return arrow::Status::Invalid("blocked legacy operator must not be null");
-  }
 
-  const auto prior = legacy_resumer->status();
-  if (prior != OperatorStatus::kIOIn && prior != OperatorStatus::kIOOut) {
+  auto blocked = std::dynamic_pointer_cast<task::BlockedResumer>(blocked_resumer_);
+  if (blocked == nullptr) {
+    return arrow::Status::Invalid("blocked resumer does not support ExecuteIO");
+  }
+  if (blocked->kind() != task::BlockedKind::kIOIn && blocked->kind() != task::BlockedKind::kIOOut) {
     return arrow::Status::Invalid("task is not in IO state");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto status, legacy_resumer->op()->ExecuteIO());
-  legacy_resumer->set_status(status);
-
-  switch (status) {
-    case OperatorStatus::kIOIn:
-      return TaskState::kIOIn;
-    case OperatorStatus::kIOOut:
-      return TaskState::kIOOut;
-    case OperatorStatus::kWaiting:
-      return TaskState::kWaiting;
-    case OperatorStatus::kWaitForNotify:
-      return TaskState::kWaitForNotify;
-    case OperatorStatus::kCancelled:
-      legacy_resumer->Resume();
-      blocked_resumer_.reset();
-      return TaskState::kCancelled;
-    default:
-      legacy_resumer->Resume();
-      blocked_resumer_.reset();
-      return TaskState::kNeedInput;
+  ARROW_ASSIGN_OR_RAISE(auto next_kind, blocked->ExecuteIO());
+  if (next_kind.has_value()) {
+    blocked_kind_ = *next_kind;
+    switch (*next_kind) {
+      case task::BlockedKind::kIOIn:
+        return TaskState::kIOIn;
+      case task::BlockedKind::kIOOut:
+        return TaskState::kIOOut;
+      case task::BlockedKind::kWaitForNotify:
+        return TaskState::kWaitForNotify;
+      case task::BlockedKind::kWaiting:
+        return TaskState::kWaiting;
+    }
+    return arrow::Status::Invalid("unknown blocked kind");
   }
+
+  blocked_resumer_->Resume();
+  blocked_resumer_.reset();
+  blocked_kind_.reset();
+  return TaskState::kNeedInput;
 }
 
 arrow::Result<TaskState> Task::Await() {
   if (blocked_resumer_ == nullptr) {
     return arrow::Status::Invalid("task is not blocked");
   }
-  auto legacy_resumer = std::dynamic_pointer_cast<LegacyBlockedResumer>(blocked_resumer_);
-  if (legacy_resumer == nullptr) {
-    return arrow::Status::Invalid("blocked resumer is not a legacy operator resumer");
-  }
-  if (legacy_resumer->op() == nullptr) {
-    return arrow::Status::Invalid("blocked legacy operator must not be null");
+
+  if (blocked_resumer_->IsResumed()) {
+    blocked_resumer_.reset();
+    blocked_kind_.reset();
+    return TaskState::kNeedInput;
   }
 
-  if (legacy_resumer->status() != OperatorStatus::kWaiting) {
+  auto blocked = std::dynamic_pointer_cast<task::BlockedResumer>(blocked_resumer_);
+  if (blocked == nullptr) {
+    return TaskState::kWaiting;
+  }
+  if (blocked->kind() != task::BlockedKind::kWaiting) {
     return arrow::Status::Invalid("task is not in await state");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const auto status, legacy_resumer->op()->Await());
-  legacy_resumer->set_status(status);
-
-  switch (status) {
-    case OperatorStatus::kWaiting:
-      return TaskState::kWaiting;
-    case OperatorStatus::kIOIn:
-      return TaskState::kIOIn;
-    case OperatorStatus::kIOOut:
-      return TaskState::kIOOut;
-    case OperatorStatus::kWaitForNotify:
-      return TaskState::kWaitForNotify;
-    case OperatorStatus::kCancelled:
-      legacy_resumer->Resume();
-      blocked_resumer_.reset();
-      return TaskState::kCancelled;
-    default:
-      legacy_resumer->Resume();
-      blocked_resumer_.reset();
-      return TaskState::kNeedInput;
+  ARROW_ASSIGN_OR_RAISE(auto next_kind, blocked->Await());
+  if (next_kind.has_value()) {
+    blocked_kind_ = *next_kind;
+    switch (*next_kind) {
+      case task::BlockedKind::kIOIn:
+        return TaskState::kIOIn;
+      case task::BlockedKind::kIOOut:
+        return TaskState::kIOOut;
+      case task::BlockedKind::kWaitForNotify:
+        return TaskState::kWaitForNotify;
+      case task::BlockedKind::kWaiting:
+        return TaskState::kWaiting;
+    }
+    return arrow::Status::Invalid("unknown blocked kind");
   }
+
+  blocked_resumer_->Resume();
+  blocked_resumer_.reset();
+  blocked_kind_.reset();
+  return TaskState::kNeedInput;
 }
 
 arrow::Status Task::Notify() {
   if (blocked_resumer_ == nullptr) {
     return arrow::Status::Invalid("task is not blocked");
   }
-  auto legacy_resumer = std::dynamic_pointer_cast<LegacyBlockedResumer>(blocked_resumer_);
-  if (legacy_resumer == nullptr) {
-    return arrow::Status::Invalid("blocked resumer is not a legacy operator resumer");
-  }
-  if (legacy_resumer->op() == nullptr) {
-    return arrow::Status::Invalid("blocked legacy operator must not be null");
-  }
 
-  if (legacy_resumer->status() != OperatorStatus::kWaitForNotify) {
+  auto blocked = std::dynamic_pointer_cast<task::BlockedResumer>(blocked_resumer_);
+  if (blocked == nullptr) {
+    return arrow::Status::Invalid("blocked resumer does not support Notify");
+  }
+  if (blocked->kind() != task::BlockedKind::kWaitForNotify) {
     return arrow::Status::Invalid("task is not waiting for notify");
   }
 
-  ARROW_RETURN_NOT_OK(legacy_resumer->op()->Notify());
-  legacy_resumer->set_status(OperatorStatus::kNeedInput);
-  legacy_resumer->Resume();
+  ARROW_RETURN_NOT_OK(blocked->Notify());
+  blocked_resumer_->Resume();
   blocked_resumer_.reset();
+  blocked_kind_.reset();
   return arrow::Status::OK();
 }
 

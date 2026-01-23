@@ -8,7 +8,7 @@
 #include <arrow/record_batch.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/operators.h"
+#include "tiforth/stash/operators.h"
 #include "tiforth/task.h"
 
 namespace tiforth {

@@ -7,8 +7,8 @@
 #include <arrow/result.h>
 #include <arrow/record_batch.h>
 
-#include "tiforth/operators.h"
-#include "tiforth/pipeline_exec.h"
+#include "tiforth/stash/operators.h"
+#include "tiforth/stash/pipeline_exec.h"
 
 namespace tiforth {
 

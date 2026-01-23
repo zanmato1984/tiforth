@@ -27,7 +27,7 @@ On creation, the engine registers TiForth functions into its registry.
 
 ### Building a pipeline
 
-Use `tiforth::PipelineBuilder` to append transform factories, then finalize into an immutable `Pipeline`.
+Use `tiforth::PipelineBuilder` to append pipe factories, then finalize into an immutable `Pipeline`.
 
 Example (filter + projection):
 
@@ -35,18 +35,18 @@ Example (filter + projection):
 auto engine = tiforth::Engine::Create({}).ValueOrDie();
 
 auto builder = tiforth::PipelineBuilder::Create(engine.get()).ValueOrDie();
-builder->AppendTransform([&] {
-  return arrow::Result<tiforth::TransformOpPtr>(
-      std::make_unique<tiforth::FilterTransformOp>(
+builder->AppendPipe([&] {
+  return arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>>(
+      std::make_unique<tiforth::FilterPipeOp>(
           engine.get(),
           tiforth::MakeCall("less", {tiforth::MakeFieldRef("a"),
                                      tiforth::MakeLiteral(std::make_shared<arrow::Int32Scalar>(10))})));
 });
-builder->AppendTransform([&] {
+builder->AppendPipe([&] {
   std::vector<tiforth::ProjectionExpr> exprs;
   exprs.push_back({"b", tiforth::MakeFieldRef("b")});
-  return arrow::Result<tiforth::TransformOpPtr>(
-      std::make_unique<tiforth::ProjectionTransformOp>(engine.get(), std::move(exprs)));
+  return arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>>(
+      std::make_unique<tiforth::ProjectionPipeOp>(engine.get(), std::move(exprs)));
 });
 
 auto pipeline = builder->Finalize().ValueOrDie();
@@ -54,9 +54,9 @@ auto pipeline = builder->Finalize().ValueOrDie();
 
 Notes:
 
-- A transform factory is invoked once per task instance (`Pipeline::CreateTask()`), so transforms can keep
+- A pipe factory is invoked once per task instance (`Pipeline::CreateTask()`), so pipes can keep
   task-local state.
-- Operators are expected to handle end-of-stream (`batch == nullptr`).
+- End-of-stream is signaled by the upstream source finishing. Pipes should flush any buffered output in `Drain()`.
 
 ### Running a task (push/pull)
 

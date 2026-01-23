@@ -240,9 +240,9 @@ tiforth_status_t tiforth_pipeline_append_filter(tiforth_pipeline_t* pipeline,
 
   auto predicate_expr = predicate->expr;
   const auto* engine = pipeline->engine->engine.get();
-  auto st = pipeline->builder->AppendTransform(
-      [engine, predicate_expr]() -> arrow::Result<tiforth::TransformOpPtr> {
-        return std::make_unique<tiforth::FilterTransformOp>(engine, predicate_expr);
+  auto st = pipeline->builder->AppendPipe(
+      [engine, predicate_expr]() -> arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>> {
+        return std::make_unique<tiforth::FilterPipeOp>(engine, predicate_expr);
       });
   return MakeStatusFromArrow(st);
 }
@@ -279,10 +279,10 @@ tiforth_status_t tiforth_pipeline_append_projection(tiforth_pipeline_t* pipeline
   }
 
   const auto* engine = pipeline->engine->engine.get();
-  auto st = pipeline->builder->AppendTransform(
+  auto st = pipeline->builder->AppendPipe(
       [engine, projection_exprs = std::move(projection_exprs)]() mutable
-          -> arrow::Result<tiforth::TransformOpPtr> {
-        return std::make_unique<tiforth::ProjectionTransformOp>(engine, std::move(projection_exprs));
+          -> arrow::Result<std::unique_ptr<tiforth::pipeline::PipeOp>> {
+        return std::make_unique<tiforth::ProjectionPipeOp>(engine, std::move(projection_exprs));
       });
   return MakeStatusFromArrow(st);
 }

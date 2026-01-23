@@ -102,9 +102,10 @@ arrow::Status RunMemoryPoolSmoke() {
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "x", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, eng]() -> arrow::Result<TransformOpPtr> {
-    return std::make_unique<SortTransformOp>(eng, keys);
-  }));
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<SortPipeOp>(eng, keys);
+      }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
   ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
@@ -151,9 +152,10 @@ arrow::Result<int64_t> RunCollatedSortBytesAllocated(int32_t collation_id) {
   const auto* eng = engine.get();
 
   std::vector<SortKey> keys = {SortKey{.name = "x", .ascending = true, .nulls_first = false}};
-  ARROW_RETURN_NOT_OK(builder->AppendTransform([keys, eng]() -> arrow::Result<TransformOpPtr> {
-    return std::make_unique<SortTransformOp>(eng, keys);
-  }));
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [keys, eng]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<SortPipeOp>(eng, keys);
+      }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
   ARROW_ASSIGN_OR_RAISE(auto task, pipeline->CreateTask());
@@ -203,9 +205,9 @@ arrow::Status RunHashJoinMemoryPoolSmoke() {
                         MakeBatch2("k", "bv", {1, 2, 2, std::nullopt}, {100, 200, 201, 999}));
   std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches = {std::move(build)};
   JoinKey key{.left = {"k"}, .right = {"k"}};
-  ARROW_RETURN_NOT_OK(builder->AppendTransform(
-      [eng, build_batches, key]() -> arrow::Result<TransformOpPtr> {
-        return std::make_unique<HashJoinTransformOp>(eng, build_batches, key);
+  ARROW_RETURN_NOT_OK(builder->AppendPipe(
+      [eng, build_batches, key]() -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
+        return std::make_unique<HashJoinPipeOp>(eng, build_batches, key);
       }));
 
   ARROW_ASSIGN_OR_RAISE(auto pipeline, builder->Finalize());
@@ -256,27 +258,22 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
   const Engine* engine_ptr = engine.get();
   ARROW_ASSIGN_OR_RAISE(
       const auto ctx_id,
-      builder->AddBreakerState<HashAggContext>(
-          [engine_ptr, keys, aggs]() -> arrow::Result<std::shared_ptr<HashAggContext>> {
-            return std::make_shared<HashAggContext>(engine_ptr, keys, aggs);
+      builder->AddBreakerState<HashAggState>(
+          [engine_ptr, keys, aggs]() -> arrow::Result<std::shared_ptr<HashAggState>> {
+            return std::make_shared<HashAggState>(engine_ptr, keys, aggs);
           }));
 
   ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
-  ARROW_RETURN_NOT_OK(builder->AppendPipe(
-      build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::PipeOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
-        return std::make_unique<HashAggTransformOp>(std::move(agg_ctx));
-      }));
   ARROW_RETURN_NOT_OK(builder->SetStageSink(
       build_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
-        return std::make_unique<HashAggMergeSinkOp>(std::move(agg_ctx));
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
+        return std::make_unique<HashAggSinkOp>(std::move(agg_ctx));
       }));
 
   ARROW_ASSIGN_OR_RAISE(const auto result_stage, builder->AddStage());
   ARROW_RETURN_NOT_OK(builder->SetStageSource(
       result_stage, [ctx_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
-        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggContext>(ctx_id));
+        ARROW_ASSIGN_OR_RAISE(auto agg_ctx, ctx->GetBreakerState<HashAggState>(ctx_id));
         return std::make_unique<HashAggResultSourceOp>(std::move(agg_ctx), /*max_output_rows=*/1 << 30);
       }));
   ARROW_RETURN_NOT_OK(builder->AddDependency(build_stage, result_stage));

@@ -10,14 +10,8 @@
 #include <arrow/status.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/operators.h"
+#include "tiforth/pipeline/op/op.h"
 #include "tiforth/task.h"
-
-namespace tiforth::pipeline {
-class SourceOp;
-class PipeOp;
-class SinkOp;
-}  // namespace tiforth::pipeline
 
 namespace tiforth {
 
@@ -52,10 +46,6 @@ class PlanTaskContext {
 };
 
 using BreakerStateFactory = std::function<arrow::Result<std::shared_ptr<void>>()>;
-using PlanSourceFactory = std::function<arrow::Result<SourceOpPtr>(PlanTaskContext*)>;
-using PlanTransformFactory = std::function<arrow::Result<TransformOpPtr>(PlanTaskContext*)>;
-using PlanSinkFactory = std::function<arrow::Result<SinkOpPtr>(PlanTaskContext*)>;
-
 using PlanPipelineSourceFactory =
     std::function<arrow::Result<std::unique_ptr<pipeline::SourceOp>>(PlanTaskContext*)>;
 using PlanPipelinePipeFactory =
@@ -75,14 +65,11 @@ enum class PlanStageSinkKind {
 
 struct PlanStage {
   PlanStageSourceKind source_kind = PlanStageSourceKind::kTaskInput;
-  PlanSourceFactory source_factory;
   PlanPipelineSourceFactory pipeline_source_factory;
 
-  std::vector<PlanTransformFactory> transform_factories;
   std::vector<PlanPipelinePipeFactory> pipe_factories;
 
   PlanStageSinkKind sink_kind = PlanStageSinkKind::kTaskOutput;
-  PlanSinkFactory sink_factory;
   PlanPipelineSinkFactory pipeline_sink_factory;
 };
 
@@ -117,14 +104,11 @@ class PlanBuilder {
   arrow::Result<std::size_t> AddStage();
 
   arrow::Status SetStageSourceTaskInput(std::size_t stage_id);
-  arrow::Status SetStageSource(std::size_t stage_id, PlanSourceFactory factory);
   arrow::Status SetStageSource(std::size_t stage_id, PlanPipelineSourceFactory factory);
 
-  arrow::Status AppendTransform(std::size_t stage_id, PlanTransformFactory factory);
   arrow::Status AppendPipe(std::size_t stage_id, PlanPipelinePipeFactory factory);
 
   arrow::Status SetStageSinkTaskOutput(std::size_t stage_id);
-  arrow::Status SetStageSink(std::size_t stage_id, PlanSinkFactory factory);
   arrow::Status SetStageSink(std::size_t stage_id, PlanPipelineSinkFactory factory);
 
   arrow::Status AddDependency(std::size_t upstream_stage_id, std::size_t downstream_stage_id);

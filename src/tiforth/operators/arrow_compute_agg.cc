@@ -29,7 +29,7 @@
 
 namespace tiforth {
 
-struct ArrowComputeAggTransformOp::ExecState {
+struct ArrowComputeAggPipeOp::ExecState {
   ExecState() : input_producer(input_gen.producer()) {}
 
   arrow::PushGenerator<std::optional<arrow::compute::ExecBatch>> input_gen;
@@ -42,7 +42,7 @@ struct ArrowComputeAggTransformOp::ExecState {
   bool output_exhausted = false;
 };
 
-struct ArrowComputeAggTransformOp::DictState {
+struct ArrowComputeAggPipeOp::DictState {
   std::vector<CompiledExpr> keys;
   std::vector<std::optional<CompiledExpr>> agg_args;
   std::vector<std::optional<int>> key_field_indices;
@@ -302,10 +302,10 @@ arrow::Result<std::shared_ptr<arrow::Schema>> RestoreStableKeyFieldTypesAtEnd(
 
 }  // namespace
 
-ArrowComputeAggTransformOp::ArrowComputeAggTransformOp(const Engine* engine, std::vector<AggKey> keys,
-                                                       std::vector<AggFunc> aggs,
-                                                       ArrowComputeAggOptions options,
-                                                       arrow::MemoryPool* memory_pool)
+ArrowComputeAggPipeOp::ArrowComputeAggPipeOp(const Engine* engine, std::vector<AggKey> keys,
+                                             std::vector<AggFunc> aggs,
+                                             ArrowComputeAggOptions options,
+                                             arrow::MemoryPool* memory_pool)
     : engine_(engine),
       keys_(std::move(keys)),
       aggs_(std::move(aggs)),
@@ -316,9 +316,9 @@ ArrowComputeAggTransformOp::ArrowComputeAggTransformOp(const Engine* engine, std
                     /*executor=*/nullptr,
                     engine != nullptr ? engine->function_registry() : nullptr) {}
 
-ArrowComputeAggTransformOp::~ArrowComputeAggTransformOp() = default;
+ArrowComputeAggPipeOp::~ArrowComputeAggPipeOp() = default;
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::NextOutputBatch() {
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggPipeOp::NextOutputBatch() {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
@@ -414,7 +414,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggTransformOp::N
                                   std::move(reordered));
 }
 
-pipeline::PipelinePipe ArrowComputeAggTransformOp::Pipe(const pipeline::PipelineContext&) {
+pipeline::PipelinePipe ArrowComputeAggPipeOp::Pipe(const pipeline::PipelineContext&) {
   return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
                 std::optional<pipeline::Batch> input) -> pipeline::OpResult {
     if (!input.has_value()) {
@@ -429,7 +429,7 @@ pipeline::PipelinePipe ArrowComputeAggTransformOp::Pipe(const pipeline::Pipeline
   };
 }
 
-pipeline::PipelineDrain ArrowComputeAggTransformOp::Drain(const pipeline::PipelineContext&) {
+pipeline::PipelineDrain ArrowComputeAggPipeOp::Drain(const pipeline::PipelineContext&) {
   return [this](const pipeline::PipelineContext&, const task::TaskContext&,
                 pipeline::ThreadId) -> pipeline::OpResult {
     ARROW_RETURN_NOT_OK(FinalizeIfNeeded());
@@ -445,7 +445,7 @@ pipeline::PipelineDrain ArrowComputeAggTransformOp::Drain(const pipeline::Pipeli
   };
 }
 
-arrow::Status ArrowComputeAggTransformOp::ConsumeBatch(std::shared_ptr<arrow::RecordBatch> batch) {
+arrow::Status ArrowComputeAggPipeOp::ConsumeBatch(std::shared_ptr<arrow::RecordBatch> batch) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
@@ -555,7 +555,7 @@ arrow::Status ArrowComputeAggTransformOp::ConsumeBatch(std::shared_ptr<arrow::Re
   return arrow::Status::OK();
 }
 
-arrow::Status ArrowComputeAggTransformOp::FinalizeIfNeeded() {
+arrow::Status ArrowComputeAggPipeOp::FinalizeIfNeeded() {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");
   }
@@ -614,7 +614,7 @@ arrow::Status ArrowComputeAggTransformOp::FinalizeIfNeeded() {
   return arrow::Status::OK();
 }
 
-arrow::Status ArrowComputeAggTransformOp::ConsumeBatchStableDictionary(
+arrow::Status ArrowComputeAggPipeOp::ConsumeBatchStableDictionary(
     std::shared_ptr<arrow::RecordBatch> batch) {
   if (engine_ == nullptr) {
     return arrow::Status::Invalid("engine must not be null");

@@ -22,51 +22,55 @@ struct CounterState {
   int64_t num_rows = 0;
 };
 
-class CountingSinkOp final : public SinkOp {
+class CountingSinkOp final : public pipeline::SinkOp {
  public:
   explicit CountingSinkOp(std::shared_ptr<CounterState> state) : state_(std::move(state)) {}
 
- protected:
-  arrow::Result<OperatorStatus> WriteImpl(std::shared_ptr<arrow::RecordBatch> batch) override {
-    if (state_ == nullptr) {
-      return arrow::Status::Invalid("state must not be null");
-    }
-    if (batch == nullptr) {
-      return OperatorStatus::kFinished;
-    }
-    state_->num_rows += batch->num_rows();
-    return OperatorStatus::kNeedInput;
+  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override {
+    return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                  std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+      if (state_ == nullptr) {
+        return arrow::Status::Invalid("state must not be null");
+      }
+      if (!input.has_value()) {
+        return pipeline::OpOutput::PipeSinkNeedsMore();
+      }
+      auto batch = std::move(*input);
+      if (batch == nullptr) {
+        return pipeline::OpOutput::PipeSinkNeedsMore();
+      }
+      state_->num_rows += batch->num_rows();
+      return pipeline::OpOutput::PipeSinkNeedsMore();
+    };
   }
 
  private:
   std::shared_ptr<CounterState> state_;
 };
 
-class EmitCountSourceOp final : public SourceOp {
+class EmitCountSourceOp final : public pipeline::SourceOp {
  public:
   explicit EmitCountSourceOp(std::shared_ptr<CounterState> state) : state_(std::move(state)) {}
 
- protected:
-  arrow::Result<OperatorStatus> ReadImpl(std::shared_ptr<arrow::RecordBatch>* batch) override {
-    if (batch == nullptr) {
-      return arrow::Status::Invalid("batch out must not be null");
-    }
-    if (state_ == nullptr) {
-      return arrow::Status::Invalid("state must not be null");
-    }
-    if (emitted_) {
-      *batch = nullptr;
-      return OperatorStatus::kFinished;
-    }
+  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override {
+    return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                  pipeline::ThreadId) -> pipeline::OpResult {
+      if (state_ == nullptr) {
+        return arrow::Status::Invalid("state must not be null");
+      }
+      if (emitted_) {
+        return pipeline::OpOutput::Finished();
+      }
 
-    auto schema = arrow::schema({arrow::field("rows", arrow::int64())});
-    arrow::Int64Builder builder;
-    ARROW_RETURN_NOT_OK(builder.Append(state_->num_rows));
-    std::shared_ptr<arrow::Array> array;
-    ARROW_RETURN_NOT_OK(builder.Finish(&array));
-    *batch = arrow::RecordBatch::Make(schema, /*num_rows=*/1, {array});
-    emitted_ = true;
-    return OperatorStatus::kHasOutput;
+      auto schema = arrow::schema({arrow::field("rows", arrow::int64())});
+      arrow::Int64Builder builder;
+      ARROW_RETURN_NOT_OK(builder.Append(state_->num_rows));
+      std::shared_ptr<arrow::Array> array;
+      ARROW_RETURN_NOT_OK(builder.Finish(&array));
+      auto batch = arrow::RecordBatch::Make(schema, /*num_rows=*/1, {array});
+      emitted_ = true;
+      return pipeline::OpOutput::Finished(std::move(batch));
+    };
   }
 
  private:
@@ -85,14 +89,14 @@ arrow::Status RunBreakerPlanSmoke() {
 
   ARROW_ASSIGN_OR_RAISE(const auto build_stage, builder->AddStage());
   ARROW_RETURN_NOT_OK(builder->SetStageSink(
-      build_stage, [counter_id](PlanTaskContext* ctx) -> arrow::Result<SinkOpPtr> {
+      build_stage, [counter_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SinkOp>> {
         ARROW_ASSIGN_OR_RAISE(auto state, ctx->GetBreakerState<CounterState>(counter_id));
         return std::make_unique<CountingSinkOp>(std::move(state));
       }));
 
   ARROW_ASSIGN_OR_RAISE(const auto convergent_stage, builder->AddStage());
   ARROW_RETURN_NOT_OK(builder->SetStageSource(
-      convergent_stage, [counter_id](PlanTaskContext* ctx) -> arrow::Result<SourceOpPtr> {
+      convergent_stage, [counter_id](PlanTaskContext* ctx) -> arrow::Result<std::unique_ptr<pipeline::SourceOp>> {
         ARROW_ASSIGN_OR_RAISE(auto state, ctx->GetBreakerState<CounterState>(counter_id));
         return std::make_unique<EmitCountSourceOp>(std::move(state));
       }));

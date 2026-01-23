@@ -1,4 +1,4 @@
-#include "tiforth/pipeline.h"
+#include "tiforth/stash/pipeline.h"
 
 #include <utility>
 

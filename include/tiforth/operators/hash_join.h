@@ -16,7 +16,7 @@
 #include "tiforth/detail/arena.h"
 #include "tiforth/detail/key_hash_table.h"
 #include "tiforth/detail/scratch_bytes.h"
-#include "tiforth/operators.h"
+#include "tiforth/pipeline/op/op.h"
 
 namespace arrow {
 class Array;
@@ -33,14 +33,14 @@ struct JoinKey {
   std::vector<std::string> right;
 };
 
-class HashJoinTransformOp final : public TransformOp {
+class HashJoinPipeOp final : public pipeline::PipeOp {
  public:
-  HashJoinTransformOp(const Engine* engine, std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches,
-                      JoinKey key, arrow::MemoryPool* memory_pool = nullptr);
+  HashJoinPipeOp(const Engine* engine,
+                 std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches, JoinKey key,
+                 arrow::MemoryPool* memory_pool = nullptr);
 
- protected:
-  arrow::Result<OperatorStatus> TransformImpl(
-      std::shared_ptr<arrow::RecordBatch>* batch) override;
+  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
+  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
 
  private:
   using Decimal128Bytes = std::array<uint8_t, 16>;
@@ -60,6 +60,7 @@ class HashJoinTransformOp final : public TransformOp {
   arrow::Status BuildIndex();
   arrow::Result<std::shared_ptr<arrow::Schema>> BuildOutputSchema(
       const std::shared_ptr<arrow::Schema>& left_schema) const;
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> Probe(const arrow::RecordBatch& batch);
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> build_batches_;
   JoinKey key_;

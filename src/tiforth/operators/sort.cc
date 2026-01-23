@@ -24,8 +24,7 @@
 
 namespace tiforth {
 
-SortTransformOp::SortTransformOp(const Engine* engine, std::vector<SortKey> keys,
-                                 arrow::MemoryPool* memory_pool)
+SortPipeOp::SortPipeOp(const Engine* engine, std::vector<SortKey> keys, arrow::MemoryPool* memory_pool)
     : keys_(std::move(keys)),
       exec_context_(memory_pool != nullptr
                         ? memory_pool
@@ -33,7 +32,7 @@ SortTransformOp::SortTransformOp(const Engine* engine, std::vector<SortKey> keys
                     /*executor=*/nullptr,
                     engine != nullptr ? engine->function_registry() : nullptr) {}
 
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortTransformOp::SortAll() {
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortPipeOp::SortAll() {
   if (keys_.size() != 1) {
     return arrow::Status::NotImplemented("MS6B supports exactly one sort key");
   }
@@ -225,40 +224,51 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortTransformOp::SortAll() {
   return arrow::RecordBatch::Make(output_schema_, total_rows, std::move(sorted_columns));
 }
 
-arrow::Result<OperatorStatus> SortTransformOp::TransformImpl(std::shared_ptr<arrow::RecordBatch>* batch) {
-  if (*batch == nullptr) {
-    if (!output_emitted_) {
-      if (!buffered_.empty()) {
-        ARROW_ASSIGN_OR_RAISE(*batch, SortAll());
-      } else {
-        batch->reset();
-      }
-      output_emitted_ = true;
-      return OperatorStatus::kHasOutput;
+pipeline::PipelinePipe SortPipeOp::Pipe(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
+                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+    if (!input.has_value()) {
+      return pipeline::OpOutput::PipeSinkNeedsMore();
     }
-    if (!eos_forwarded_) {
-      eos_forwarded_ = true;
-      batch->reset();
-      return OperatorStatus::kHasOutput;
+    if (drained_) {
+      return arrow::Status::Invalid("sort received input after drain");
     }
-    batch->reset();
-    return OperatorStatus::kHasOutput;
-  }
+    auto batch = std::move(*input);
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("sort input batch must not be null");
+    }
 
-  if (output_emitted_) {
-    return arrow::Status::Invalid("sort received input after end-of-stream");
-  }
-
-  const auto& input = **batch;
+    const auto& in = *batch;
+    if (in.schema() == nullptr) {
+      return arrow::Status::Invalid("sort input schema must not be null");
+    }
   if (output_schema_ == nullptr) {
-    output_schema_ = input.schema();
-  } else if (!output_schema_->Equals(*input.schema(), /*check_metadata=*/true)) {
+      output_schema_ = in.schema();
+    } else if (!output_schema_->Equals(*in.schema(), /*check_metadata=*/true)) {
     return arrow::Status::Invalid("sort input schema mismatch");
   }
 
-  buffered_.push_back(std::move(*batch));
-  batch->reset();
-  return OperatorStatus::kNeedInput;
+    buffered_.push_back(std::move(batch));
+    return pipeline::OpOutput::PipeSinkNeedsMore();
+  };
+}
+
+pipeline::PipelineDrain SortPipeOp::Drain(const pipeline::PipelineContext&) {
+  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
+                pipeline::ThreadId) -> pipeline::OpResult {
+    if (drained_) {
+      return pipeline::OpOutput::Finished();
+    }
+    drained_ = true;
+    if (buffered_.empty()) {
+      return pipeline::OpOutput::Finished();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, SortAll());
+    if (out == nullptr) {
+      return arrow::Status::Invalid("sort output batch must not be null");
+    }
+    return pipeline::OpOutput::Finished(std::move(out));
+  };
 }
 
 }  // namespace tiforth
