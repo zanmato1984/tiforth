@@ -8,7 +8,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
 namespace arrow {
 class Array;
@@ -17,21 +17,23 @@ class Schema;
 }  // namespace arrow
 
 namespace tiforth {
-
 class Engine;
+}  // namespace tiforth
 
+namespace tiforth::op {
 struct SortKey {
   std::string name;
   bool ascending = true;
   bool nulls_first = false;
 };
 
-class SortPipeOp final : public pipeline::PipeOp {
+class SortPipeOp final : public PipeOp {
  public:
   SortPipeOp(const Engine* engine, std::vector<SortKey> keys, arrow::MemoryPool* memory_pool = nullptr);
 
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
+  PipelinePipe Pipe() override;
+  PipelineDrain Drain() override;
+  std::unique_ptr<SourceOp> ImplicitSource() override;
 
  private:
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortAll();
@@ -45,4 +47,4 @@ class SortPipeOp final : public pipeline::PipeOp {
   arrow::compute::ExecContext exec_context_;
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::op

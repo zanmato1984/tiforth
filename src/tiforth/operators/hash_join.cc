@@ -33,7 +33,7 @@
 #include "tiforth/detail/scratch_bytes.h"
 #include "tiforth/type_metadata.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
 namespace {
 }  // namespace
@@ -671,11 +671,10 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashJoinPipeOp::Impl::Probe(
   return arrow::RecordBatch::Make(output_schema_, out_rows, std::move(out_arrays));
 }
 
-pipeline::PipelinePipe HashJoinPipeOp::Pipe(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+PipelinePipe HashJoinPipeOp::Pipe() {
+  return [this](const TaskContext&, ThreadId, std::optional<Batch> input) -> OpResult {
     if (!input.has_value()) {
-      return pipeline::OpOutput::PipeSinkNeedsMore();
+      return OpOutput::PipeSinkNeedsMore();
     }
     auto batch = std::move(*input);
     if (batch == nullptr) {
@@ -688,13 +687,14 @@ pipeline::PipelinePipe HashJoinPipeOp::Pipe(const pipeline::PipelineContext&) {
     if (out == nullptr) {
       return arrow::Status::Invalid("hash join output batch must not be null");
     }
-    return pipeline::OpOutput::PipeEven(std::move(out));
+    return OpOutput::PipeEven(std::move(out));
   };
 }
 
-pipeline::PipelineDrain HashJoinPipeOp::Drain(const pipeline::PipelineContext&) {
-  return [](const pipeline::PipelineContext&, const task::TaskContext&,
-            pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
+PipelineDrain HashJoinPipeOp::Drain() {
+  return [](const TaskContext&, ThreadId) -> OpResult { return OpOutput::Finished(); };
 }
 
-}  // namespace tiforth
+std::unique_ptr<SourceOp> HashJoinPipeOp::ImplicitSource() { return nullptr; }
+
+}  // namespace tiforth::op

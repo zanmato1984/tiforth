@@ -22,7 +22,7 @@
 #include "tiforth/detail/arrow_memory_pool_resource.h"
 #include "tiforth/type_metadata.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
 SortPipeOp::SortPipeOp(const Engine* engine, std::vector<SortKey> keys, arrow::MemoryPool* memory_pool)
     : keys_(std::move(keys)),
@@ -224,11 +224,10 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> SortPipeOp::SortAll() {
   return arrow::RecordBatch::Make(output_schema_, total_rows, std::move(sorted_columns));
 }
 
-pipeline::PipelinePipe SortPipeOp::Pipe(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+PipelinePipe SortPipeOp::Pipe() {
+  return [this](const TaskContext&, ThreadId, std::optional<Batch> input) -> OpResult {
     if (!input.has_value()) {
-      return pipeline::OpOutput::PipeSinkNeedsMore();
+      return OpOutput::PipeSinkNeedsMore();
     }
     if (drained_) {
       return arrow::Status::Invalid("sort received input after drain");
@@ -242,33 +241,34 @@ pipeline::PipelinePipe SortPipeOp::Pipe(const pipeline::PipelineContext&) {
     if (in.schema() == nullptr) {
       return arrow::Status::Invalid("sort input schema must not be null");
     }
-  if (output_schema_ == nullptr) {
+    if (output_schema_ == nullptr) {
       output_schema_ = in.schema();
     } else if (!output_schema_->Equals(*in.schema(), /*check_metadata=*/true)) {
-    return arrow::Status::Invalid("sort input schema mismatch");
-  }
+      return arrow::Status::Invalid("sort input schema mismatch");
+    }
 
     buffered_.push_back(std::move(batch));
-    return pipeline::OpOutput::PipeSinkNeedsMore();
+    return OpOutput::PipeSinkNeedsMore();
   };
 }
 
-pipeline::PipelineDrain SortPipeOp::Drain(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                pipeline::ThreadId) -> pipeline::OpResult {
+PipelineDrain SortPipeOp::Drain() {
+  return [this](const TaskContext&, ThreadId) -> OpResult {
     if (drained_) {
-      return pipeline::OpOutput::Finished();
+      return OpOutput::Finished();
     }
     drained_ = true;
     if (buffered_.empty()) {
-      return pipeline::OpOutput::Finished();
+      return OpOutput::Finished();
     }
     ARROW_ASSIGN_OR_RAISE(auto out, SortAll());
     if (out == nullptr) {
       return arrow::Status::Invalid("sort output batch must not be null");
     }
-    return pipeline::OpOutput::Finished(std::move(out));
+    return OpOutput::Finished(std::move(out));
   };
 }
 
-}  // namespace tiforth
+std::unique_ptr<SourceOp> SortPipeOp::ImplicitSource() { return nullptr; }
+
+}  // namespace tiforth::op

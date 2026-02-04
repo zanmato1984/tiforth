@@ -9,15 +9,17 @@
 #include <arrow/result.h>
 
 #include "tiforth/operators/agg_defs.h"
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
 namespace arrow {
 class MemoryPool;
 }  // namespace arrow
 
 namespace tiforth {
-
 class Engine;
+}  // namespace tiforth
+
+namespace tiforth::op {
 
 struct ArrowComputeAggOptions {
   // When enabled, for binary/string group keys, encode keys into stable int32 dictionary codes
@@ -28,15 +30,16 @@ struct ArrowComputeAggOptions {
   bool stable_dictionary_encode_binary_keys = false;
 };
 
-class ArrowComputeAggPipeOp final : public pipeline::PipeOp {
+class ArrowComputeAggPipeOp final : public PipeOp {
  public:
   ArrowComputeAggPipeOp(const Engine* engine, std::vector<AggKey> keys, std::vector<AggFunc> aggs,
                         ArrowComputeAggOptions options = {},
                         arrow::MemoryPool* memory_pool = nullptr);
   ~ArrowComputeAggPipeOp() override;
 
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
+  PipelinePipe Pipe() override;
+  PipelineDrain Drain() override;
+  std::unique_ptr<SourceOp> ImplicitSource() override;
 
  private:
   arrow::Status ConsumeBatch(std::shared_ptr<arrow::RecordBatch> batch);
@@ -61,4 +64,4 @@ class ArrowComputeAggPipeOp final : public pipeline::PipeOp {
   bool finalized_ = false;
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::op

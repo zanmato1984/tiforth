@@ -5,17 +5,17 @@ Arrow compute.
 
 ## 1) Operator model
 
-Public interfaces: `include/tiforth/pipeline/op/op.h` (also via `include/tiforth/tiforth.h`).
+Public interfaces: `include/tiforth/broken_pipeline_traits.h` (also via `include/tiforth/tiforth.h`).
 
 TiForth defines three operator kinds:
 
-- `pipeline::SourceOp`: produces batches (`Source`)
-- `pipeline::PipeOp`: transforms batches (`Pipe`) and flushes at end-of-stream (`Drain`)
-- `pipeline::SinkOp`: consumes batches (`Sink`) and may schedule backend work (`Backend`)
+- `tiforth::SourceOp`: produces batches (`Source`)
+- `tiforth::PipeOp`: transforms batches (`Pipe`) and flushes at end-of-stream (`Drain`)
+- `tiforth::SinkOp`: consumes batches (`Sink`) and may schedule backend work (`Backend`)
 
 ### Output protocol
 
-Operators communicate with `pipeline::OpOutput`:
+Operators communicate with `tiforth::OpOutput`:
 
 - `PipeSinkNeedsMore`: sink/pipe is ready for more input
 - `PipeEven`: pipe produced one output batch for this input
@@ -27,7 +27,7 @@ Operators communicate with `pipeline::OpOutput`:
 
 ### End-of-stream (EOS)
 
-EOS is represented as `pipeline::OpOutput::Finished()` from the upstream source. There is no `nullptr` batch EOS marker.
+EOS is represented as `tiforth::OpOutput::Finished()` from the upstream source. There is no `nullptr` batch EOS marker.
 
 Rules:
 
@@ -42,12 +42,12 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Pass-through
 
-- `tiforth::PassThroughPipeOp` (`pass_through.h`)
+- `tiforth::op::PassThroughPipeOp` (`pass_through.h`)
 - Behavior: forwards input batch as-is.
 
 ### Filter
 
-- `tiforth::FilterPipeOp` (`filter.h`)
+- `tiforth::op::FilterPipeOp` (`filter.h`)
 - Input: any schema
 - Output: same schema (rows filtered)
 - Predicate: `tiforth::Expr` evaluated via Arrow compute; must produce a boolean array of length `num_rows`.
@@ -56,7 +56,7 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Projection
 
-- `tiforth::ProjectionPipeOp` (`projection.h`)
+- `tiforth::op::ProjectionPipeOp` (`projection.h`)
 - Input: any schema
 - Output: new schema with one field per `ProjectionExpr {name, expr}`
 - Compilation: expressions compiled once on first batch schema and reused.
@@ -68,7 +68,7 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Hash aggregation (group-by)
 
-- `tiforth::HashAggState` / `tiforth::HashAggSinkOp` / `tiforth::HashAggResultSourceOp` (`hash_agg.h`)
+- `tiforth::op::HashAggState` / `tiforth::op::HashAggSinkOp` / `tiforth::op::HashAggResultSourceOp` (`hash_agg.h`)
 - Driven by Arrow `Grouper` + grouped `hash_*` kernels (no Acero).
 - Breaker shape:
   - `HashAggSinkOp`: per-`ThreadId` partial aggregation (grouper + per-agg kernel states)
@@ -83,7 +83,7 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Hash join (inner join)
 
-- `tiforth::HashJoinPipeOp` (`hash_join.h`)
+- `tiforth::op::HashJoinPipeOp` (`hash_join.h`)
 - Build side:
   - provided as a vector of `RecordBatch` at operator construction time
   - concatenated and indexed on first probe batch
@@ -102,7 +102,7 @@ Public headers live under `include/tiforth/operators/`.
 
 ### Sort
 
-- `tiforth::SortPipeOp` (`sort.h`)
+- `tiforth::op::SortPipeOp` (`sort.h`)
 - Current limitations (common path):
   - exactly 1 sort key
   - `ascending=true`, `nulls_first=false` only (ASC with NULLS LAST)

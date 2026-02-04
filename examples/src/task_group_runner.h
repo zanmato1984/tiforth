@@ -10,11 +10,12 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 
+#include "blocked_resumer.h"
 #include "tiforth/tiforth.h"
 
 namespace tiforth_example {
 
-class SimpleResumer final : public tiforth::task::Resumer {
+class SimpleResumer final : public tiforth::Resumer {
  public:
   void Resume() override { resumed_.store(true, std::memory_order_release); }
   bool IsResumed() const override { return resumed_.load(std::memory_order_acquire); }
@@ -23,28 +24,103 @@ class SimpleResumer final : public tiforth::task::Resumer {
   std::atomic_bool resumed_{false};
 };
 
-class ResumersAwaiter final : public tiforth::task::Awaiter {
+class ResumersAwaiter final : public tiforth::Awaiter {
  public:
-  explicit ResumersAwaiter(tiforth::task::Resumers resumers) : resumers_(std::move(resumers)) {}
-  const tiforth::task::Resumers& resumers() const { return resumers_; }
+  explicit ResumersAwaiter(tiforth::Resumers resumers) : resumers_(std::move(resumers)) {}
+  const tiforth::Resumers& resumers() const { return resumers_; }
 
  private:
-  tiforth::task::Resumers resumers_;
+  tiforth::Resumers resumers_;
 };
 
-inline tiforth::task::TaskContext MakeTaskContext() {
-  tiforth::task::TaskContext task_ctx;
-  task_ctx.resumer_factory = []() -> arrow::Result<tiforth::task::ResumerPtr> {
+inline tiforth::TaskContext MakeTaskContext() {
+  tiforth::TaskContext task_ctx;
+  task_ctx.resumer_factory = []() -> arrow::Result<tiforth::ResumerPtr> {
     return std::make_shared<SimpleResumer>();
   };
-  task_ctx.any_awaiter_factory =
-      [](tiforth::task::Resumers resumers) -> arrow::Result<tiforth::task::AwaiterPtr> {
+  task_ctx.awaiter_factory =
+      [](tiforth::Resumers resumers) -> arrow::Result<tiforth::AwaiterPtr> {
     return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
   return task_ctx;
 }
 
-inline arrow::Status DriveAwaiter(const tiforth::task::AwaiterPtr& awaiter) {
+inline arrow::Status ValidatePipelineForExample(const tiforth::Pipeline& pipeline) {
+  if (pipeline.Sink() == nullptr) {
+    return arrow::Status::Invalid("pipeline sink must not be null");
+  }
+  for (const auto& ch : pipeline.Channels()) {
+    if (ch.source_op == nullptr) {
+      return arrow::Status::Invalid("pipeline channel source must not be null");
+    }
+    for (const auto* pipe : ch.pipe_ops) {
+      if (pipe == nullptr) {
+        return arrow::Status::Invalid("pipeline pipe op must not be null");
+      }
+    }
+  }
+  return arrow::Status::OK();
+}
+
+inline arrow::Result<tiforth::TaskGroups> CompileToTaskGroups(const tiforth::Pipeline& pipeline,
+                                                             std::size_t dop) {
+  if (dop == 0) {
+    return arrow::Status::Invalid("dop must be positive");
+  }
+  ARROW_RETURN_NOT_OK(ValidatePipelineForExample(pipeline));
+  auto exec = bp::Compile(pipeline, dop);
+
+  tiforth::TaskGroups groups;
+  groups.reserve(exec.Pipelinexes().size() + 8);
+
+  if (exec.Sink().backend.has_value()) {
+    groups.push_back(*exec.Sink().backend);
+  }
+
+  for (const auto& seg : exec.Pipelinexes()) {
+    std::vector<tiforth::SourceOp*> sources;
+    sources.reserve(seg.Channels().size());
+    for (const auto& ch : seg.Channels()) {
+      if (ch.source_op == nullptr) {
+        return arrow::Status::Invalid("pipeline channel source must not be null");
+      }
+      bool seen = false;
+      for (auto* existing : sources) {
+        if (existing == ch.source_op) {
+          seen = true;
+          break;
+        }
+      }
+      if (!seen) {
+        sources.push_back(ch.source_op);
+      }
+    }
+
+    for (auto* src : sources) {
+      if (auto backend = src->Backend(); backend.has_value()) {
+        groups.push_back(std::move(*backend));
+      }
+    }
+
+    for (auto* src : sources) {
+      auto frontends = src->Frontend();
+      for (auto& g : frontends) {
+        groups.push_back(std::move(g));
+      }
+    }
+
+    auto stage = seg.PipeExec().TaskGroup();
+    groups.emplace_back(seg.Name(), stage.Task(), stage.NumTasks(), stage.Continuation());
+  }
+
+  for (const auto& g : exec.Sink().frontend) {
+    groups.push_back(g);
+  }
+
+  return groups;
+}
+
+inline arrow::Status DriveAwaiter(const tiforth::AwaiterPtr& awaiter) {
   if (awaiter == nullptr) {
     return arrow::Status::Invalid("awaiter must not be null");
   }
@@ -53,27 +129,27 @@ inline arrow::Status DriveAwaiter(const tiforth::task::AwaiterPtr& awaiter) {
     return arrow::Status::Invalid("expected ResumersAwaiter");
   }
   for (const auto& resumer : resumers_awaiter->resumers()) {
-    auto blocked = std::dynamic_pointer_cast<tiforth::task::BlockedResumer>(resumer);
+    auto blocked = std::dynamic_pointer_cast<tiforth::BlockedResumer>(resumer);
     if (blocked == nullptr) {
       return arrow::Status::Invalid("example runner only supports BlockedResumer");
     }
     switch (blocked->kind()) {
-      case tiforth::task::BlockedKind::kIOIn:
-      case tiforth::task::BlockedKind::kIOOut: {
+      case tiforth::BlockedKind::kIOIn:
+      case tiforth::BlockedKind::kIOOut: {
         ARROW_ASSIGN_OR_RAISE(const auto next, blocked->ExecuteIO());
         if (!next.has_value()) {
           blocked->Resume();
         }
         break;
       }
-      case tiforth::task::BlockedKind::kWaiting: {
+      case tiforth::BlockedKind::kWaiting: {
         ARROW_ASSIGN_OR_RAISE(const auto next, blocked->Await());
         if (!next.has_value()) {
           blocked->Resume();
         }
         break;
       }
-      case tiforth::task::BlockedKind::kWaitForNotify:
+      case tiforth::BlockedKind::kWaitForNotify:
         ARROW_RETURN_NOT_OK(blocked->Notify());
         blocked->Resume();
         break;
@@ -82,11 +158,8 @@ inline arrow::Status DriveAwaiter(const tiforth::task::AwaiterPtr& awaiter) {
   return arrow::Status::OK();
 }
 
-inline arrow::Status RunTaskGroupToCompletion(const tiforth::task::TaskGroup& group,
-                                              const tiforth::task::TaskContext& task_ctx) {
-  if (!group.GetTask()) {
-    return arrow::Status::Invalid("task group must have a task");
-  }
+inline arrow::Status RunTaskGroupToCompletion(const tiforth::TaskGroup& group,
+                                              const tiforth::TaskContext& task_ctx) {
   if (group.NumTasks() == 0) {
     return arrow::Status::Invalid("task group num_tasks must be positive");
   }
@@ -97,10 +170,10 @@ inline arrow::Status RunTaskGroupToCompletion(const tiforth::task::TaskGroup& gr
 
   std::vector<std::thread> threads;
   threads.reserve(group.NumTasks());
-  for (tiforth::task::TaskId task_id = 0; task_id < group.NumTasks(); ++task_id) {
+  for (tiforth::TaskId task_id = 0; task_id < group.NumTasks(); ++task_id) {
     threads.emplace_back([&, task_id]() {
       while (true) {
-        auto st_res = group.GetTask()(task_ctx, task_id);
+        auto st_res = group.Task()(task_ctx, task_id);
         if (!st_res.ok()) {
           if (!has_error.exchange(true)) {
             std::lock_guard<std::mutex> lock(mu);
@@ -150,8 +223,8 @@ inline arrow::Status RunTaskGroupToCompletion(const tiforth::task::TaskGroup& gr
     return first_error.ok() ? arrow::Status::Invalid("task group failed") : first_error;
   }
 
-  if (group.GetContinuation().has_value()) {
-    const auto& cont = *group.GetContinuation();
+  if (group.Continuation().has_value()) {
+    const auto& cont = *group.Continuation();
     while (true) {
       ARROW_ASSIGN_OR_RAISE(auto st, cont(task_ctx));
       if (st.IsFinished()) {
@@ -178,8 +251,8 @@ inline arrow::Status RunTaskGroupToCompletion(const tiforth::task::TaskGroup& gr
   return arrow::Status::OK();
 }
 
-inline arrow::Status RunTaskGroupsToCompletion(const tiforth::task::TaskGroups& groups,
-                                               const tiforth::task::TaskContext& task_ctx) {
+inline arrow::Status RunTaskGroupsToCompletion(const tiforth::TaskGroups& groups,
+                                               const tiforth::TaskContext& task_ctx) {
   for (const auto& group : groups) {
     ARROW_RETURN_NOT_OK(RunTaskGroupToCompletion(group, task_ctx));
   }
@@ -187,4 +260,3 @@ inline arrow::Status RunTaskGroupsToCompletion(const tiforth::task::TaskGroups& 
 }
 
 }  // namespace tiforth_example
-

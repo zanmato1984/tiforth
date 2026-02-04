@@ -4,5 +4,7 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(Arrow CONFIG REQUIRED)
 find_dependency(ArrowCompute CONFIG REQUIRED)
+find_dependency(ArrowAcero CONFIG REQUIRED)
+find_dependency(broken_pipeline CONFIG REQUIRED)
 
 include("${CMAKE_CURRENT_LIST_DIR}/tiforthTargets.cmake")

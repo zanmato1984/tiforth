@@ -10,23 +10,30 @@
 
 namespace {
 
-class EmptySourceOp final : public tiforth::pipeline::SourceOp {
+class EmptySourceOp final : public tiforth::SourceOp {
  public:
-  tiforth::pipeline::PipelineSource Source(const tiforth::pipeline::PipelineContext&) override {
-    return [](const tiforth::pipeline::PipelineContext&, const tiforth::task::TaskContext&,
-              tiforth::pipeline::ThreadId) -> tiforth::pipeline::OpResult {
-      return tiforth::pipeline::OpOutput::Finished();
+  tiforth::PipelineSource Source() override {
+    return [](const tiforth::TaskContext&, tiforth::ThreadId) -> tiforth::OpResult {
+      return tiforth::OpOutput::Finished();
     };
   }
+
+  tiforth::TaskGroups Frontend() override { return {}; }
+  std::optional<tiforth::TaskGroup> Backend() override { return std::nullopt; }
 };
 
-class NullSinkOp final : public tiforth::pipeline::SinkOp {
+class NullSinkOp final : public tiforth::SinkOp {
  public:
-  tiforth::pipeline::PipelineSink Sink(const tiforth::pipeline::PipelineContext&) override {
-    return [](const tiforth::pipeline::PipelineContext&, const tiforth::task::TaskContext&,
-              tiforth::pipeline::ThreadId, std::optional<tiforth::pipeline::Batch>)
-               -> tiforth::pipeline::OpResult { return tiforth::pipeline::OpOutput::PipeSinkNeedsMore(); };
+  tiforth::PipelineSink Sink() override {
+    return [](const tiforth::TaskContext&, tiforth::ThreadId,
+              std::optional<tiforth::Batch>) -> tiforth::OpResult {
+      return tiforth::OpOutput::PipeSinkNeedsMore();
+    };
   }
+
+  tiforth::TaskGroups Frontend() override { return {}; }
+  std::optional<tiforth::TaskGroup> Backend() override { return std::nullopt; }
+  std::unique_ptr<tiforth::SourceOp> ImplicitSource() override { return nullptr; }
 };
 
 arrow::Status RunTiForthSmoke() {
@@ -36,18 +43,17 @@ arrow::Status RunTiForthSmoke() {
   EmptySourceOp source_op;
   NullSinkOp sink_op;
 
-  tiforth::pipeline::LogicalPipeline::Channel channel;
+  tiforth::LogicalPipeline::Channel channel;
   channel.source_op = &source_op;
   channel.pipe_ops = {};
 
-  tiforth::pipeline::LogicalPipeline logical_pipeline{
+  tiforth::LogicalPipeline logical_pipeline{
       "NoArrowSmoke",
-      std::vector<tiforth::pipeline::LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<tiforth::LogicalPipeline::Channel>{std::move(channel)},
       &sink_op};
 
   ARROW_ASSIGN_OR_RAISE(auto task_groups,
-                        tiforth::pipeline::CompileToTaskGroups(tiforth::pipeline::PipelineContext{},
-                                                              logical_pipeline, /*dop=*/1));
+                        tiforth_example::CompileToTaskGroups(logical_pipeline, /*dop=*/1));
 
   auto task_ctx = tiforth_example::MakeTaskContext();
   return tiforth_example::RunTaskGroupsToCompletion(task_groups, task_ctx);

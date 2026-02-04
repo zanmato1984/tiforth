@@ -11,14 +11,13 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 
-#include "tiforth/task/blocked_resumer.h"
-#include "tiforth/task/task_context.h"
-#include "tiforth/task/task_group.h"
-#include "tiforth/task/task_status.h"
+#include "tiforth/broken_pipeline_traits.h"
+
+#include "test_blocked_resumer.h"
 
 namespace tiforth::test {
 
-class SimpleResumer final : public task::Resumer {
+class SimpleResumer final : public Resumer {
  public:
   void Resume() override { resumed_.store(true, std::memory_order_release); }
   bool IsResumed() const override { return resumed_.load(std::memory_order_acquire); }
@@ -27,49 +26,123 @@ class SimpleResumer final : public task::Resumer {
   std::atomic_bool resumed_{false};
 };
 
-class ResumersAwaiter final : public task::Awaiter {
+class ResumersAwaiter final : public Awaiter {
  public:
-  explicit ResumersAwaiter(task::Resumers resumers) : resumers_(std::move(resumers)) {}
+  explicit ResumersAwaiter(Resumers resumers) : resumers_(std::move(resumers)) {}
 
-  const task::Resumers& resumers() const { return resumers_; }
+  const Resumers& resumers() const { return resumers_; }
 
  private:
-  task::Resumers resumers_;
+  Resumers resumers_;
 };
 
-inline task::TaskContext MakeTestTaskContext() {
-  task::TaskContext task_ctx;
-  task_ctx.resumer_factory = []() -> arrow::Result<task::ResumerPtr> {
+inline TaskContext MakeTestTaskContext() {
+  TaskContext task_ctx;
+  task_ctx.resumer_factory = []() -> arrow::Result<ResumerPtr> {
     return std::make_shared<SimpleResumer>();
   };
-  task_ctx.any_awaiter_factory = [](task::Resumers resumers) -> arrow::Result<task::AwaiterPtr> {
+  task_ctx.awaiter_factory = [](Resumers resumers) -> arrow::Result<AwaiterPtr> {
     return std::make_shared<ResumersAwaiter>(std::move(resumers));
   };
   return task_ctx;
 }
 
-inline arrow::Status DriveBlockedResumer(const task::BlockedResumerPtr& resumer) {
+inline arrow::Status ValidatePipelineForTests(const Pipeline& pipeline) {
+  if (pipeline.Sink() == nullptr) {
+    return arrow::Status::Invalid("pipeline sink must not be null");
+  }
+  for (const auto& ch : pipeline.Channels()) {
+    if (ch.source_op == nullptr) {
+      return arrow::Status::Invalid("pipeline channel source must not be null");
+    }
+    for (const auto* pipe : ch.pipe_ops) {
+      if (pipe == nullptr) {
+        return arrow::Status::Invalid("pipeline pipe op must not be null");
+      }
+    }
+  }
+  return arrow::Status::OK();
+}
+
+inline arrow::Result<TaskGroups> CompileToTaskGroups(const Pipeline& pipeline, std::size_t dop) {
+  if (dop == 0) {
+    return arrow::Status::Invalid("dop must be positive");
+  }
+  ARROW_RETURN_NOT_OK(ValidatePipelineForTests(pipeline));
+  auto exec = bp::Compile(pipeline, dop);
+
+  TaskGroups groups;
+  groups.reserve(exec.Pipelinexes().size() + 8);
+
+  if (exec.Sink().backend.has_value()) {
+    groups.push_back(*exec.Sink().backend);
+  }
+
+  for (const auto& seg : exec.Pipelinexes()) {
+    std::vector<SourceOp*> sources;
+    sources.reserve(seg.Channels().size());
+    for (const auto& ch : seg.Channels()) {
+      if (ch.source_op == nullptr) {
+        return arrow::Status::Invalid("pipeline channel source must not be null");
+      }
+      bool seen = false;
+      for (auto* existing : sources) {
+        if (existing == ch.source_op) {
+          seen = true;
+          break;
+        }
+      }
+      if (!seen) {
+        sources.push_back(ch.source_op);
+      }
+    }
+
+    for (auto* src : sources) {
+      if (auto backend = src->Backend(); backend.has_value()) {
+        groups.push_back(std::move(*backend));
+      }
+    }
+
+    for (auto* src : sources) {
+      auto frontends = src->Frontend();
+      for (auto& g : frontends) {
+        groups.push_back(std::move(g));
+      }
+    }
+
+    auto stage = seg.PipeExec().TaskGroup();
+    groups.emplace_back(seg.Name(), stage.Task(), stage.NumTasks(), stage.Continuation());
+  }
+
+  for (const auto& g : exec.Sink().frontend) {
+    groups.push_back(g);
+  }
+
+  return groups;
+}
+
+inline arrow::Status DriveBlockedResumer(const BlockedResumerPtr& resumer) {
   if (resumer == nullptr) {
     return arrow::Status::Invalid("blocked resumer must not be null");
   }
 
   switch (resumer->kind()) {
-    case task::BlockedKind::kIOIn:
-    case task::BlockedKind::kIOOut: {
+    case BlockedKind::kIOIn:
+    case BlockedKind::kIOOut: {
       ARROW_ASSIGN_OR_RAISE(const auto next, resumer->ExecuteIO());
       if (!next.has_value()) {
         resumer->Resume();
       }
       return arrow::Status::OK();
     }
-    case task::BlockedKind::kWaiting: {
+    case BlockedKind::kWaiting: {
       ARROW_ASSIGN_OR_RAISE(const auto next, resumer->Await());
       if (!next.has_value()) {
         resumer->Resume();
       }
       return arrow::Status::OK();
     }
-    case task::BlockedKind::kWaitForNotify: {
+    case BlockedKind::kWaitForNotify: {
       ARROW_RETURN_NOT_OK(resumer->Notify());
       resumer->Resume();
       return arrow::Status::OK();
@@ -78,7 +151,7 @@ inline arrow::Status DriveBlockedResumer(const task::BlockedResumerPtr& resumer)
   return arrow::Status::Invalid("unknown blocked resumer kind");
 }
 
-inline arrow::Status DriveAwaiter(const task::AwaiterPtr& awaiter) {
+inline arrow::Status DriveAwaiter(const AwaiterPtr& awaiter) {
   if (awaiter == nullptr) {
     return arrow::Status::Invalid("awaiter must not be null");
   }
@@ -92,7 +165,7 @@ inline arrow::Status DriveAwaiter(const task::AwaiterPtr& awaiter) {
     if (resumer == nullptr) {
       return arrow::Status::Invalid("awaiter resumer must not be null");
     }
-    auto blocked = std::dynamic_pointer_cast<task::BlockedResumer>(resumer);
+    auto blocked = std::dynamic_pointer_cast<BlockedResumer>(resumer);
     if (blocked == nullptr) {
       return arrow::Status::Invalid("test runner can only drive BlockedResumer");
     }
@@ -102,8 +175,8 @@ inline arrow::Status DriveAwaiter(const task::AwaiterPtr& awaiter) {
   return arrow::Status::OK();
 }
 
-inline arrow::Status RunTaskToCompletion(const task::Task& task, const task::TaskContext& task_ctx,
-                                         task::TaskId task_id) {
+inline arrow::Status RunTaskToCompletion(const Task& task, const TaskContext& task_ctx,
+                                         TaskId task_id) {
   while (true) {
     ARROW_ASSIGN_OR_RAISE(auto status, task(task_ctx, task_id));
     if (status.IsFinished()) {
@@ -127,11 +200,7 @@ inline arrow::Status RunTaskToCompletion(const task::Task& task, const task::Tas
   }
 }
 
-inline arrow::Status RunTaskGroupToCompletion(const task::TaskGroup& group,
-                                              const task::TaskContext& task_ctx) {
-  if (!group.GetTask()) {
-    return arrow::Status::Invalid("task group must have a task");
-  }
+inline arrow::Status RunTaskGroupToCompletion(const TaskGroup& group, const TaskContext& task_ctx) {
   if (group.NumTasks() == 0) {
     return arrow::Status::Invalid("task group num_tasks must be positive");
   }
@@ -142,9 +211,9 @@ inline arrow::Status RunTaskGroupToCompletion(const task::TaskGroup& group,
 
   std::vector<std::thread> threads;
   threads.reserve(group.NumTasks());
-  for (task::TaskId task_id = 0; task_id < group.NumTasks(); ++task_id) {
+  for (TaskId task_id = 0; task_id < group.NumTasks(); ++task_id) {
     threads.emplace_back([&, task_id]() {
-      auto st = RunTaskToCompletion(group.GetTask(), task_ctx, task_id);
+      auto st = RunTaskToCompletion(group.Task(), task_ctx, task_id);
       if (st.ok()) {
         return;
       }
@@ -166,8 +235,8 @@ inline arrow::Status RunTaskGroupToCompletion(const task::TaskGroup& group,
     return first_error;
   }
 
-  if (group.GetContinuation().has_value()) {
-    const auto& cont = *group.GetContinuation();
+  if (group.Continuation().has_value()) {
+    const auto& cont = *group.Continuation();
     while (true) {
       ARROW_ASSIGN_OR_RAISE(auto st, cont(task_ctx));
       if (st.IsFinished()) {
@@ -194,8 +263,8 @@ inline arrow::Status RunTaskGroupToCompletion(const task::TaskGroup& group,
   return arrow::Status::OK();
 }
 
-inline arrow::Status RunTaskGroupsToCompletion(const task::TaskGroups& groups,
-                                               const task::TaskContext& task_ctx) {
+inline arrow::Status RunTaskGroupsToCompletion(const TaskGroups& groups,
+                                               const TaskContext& task_ctx) {
   for (const auto& group : groups) {
     ARROW_RETURN_NOT_OK(RunTaskGroupToCompletion(group, task_ctx));
   }
@@ -203,4 +272,3 @@ inline arrow::Status RunTaskGroupsToCompletion(const task::TaskGroups& groups,
 }
 
 }  // namespace tiforth::test
-

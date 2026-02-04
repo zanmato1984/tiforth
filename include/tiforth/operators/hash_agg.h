@@ -9,7 +9,7 @@
 #include <arrow/type_fwd.h>
 
 #include "tiforth/operators/agg_defs.h"
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
 namespace arrow {
 class MemoryPool;
@@ -22,30 +22,34 @@ class Grouper;
 }  // namespace arrow
 
 namespace tiforth {
-
 class Engine;
+}  // namespace tiforth
 
+namespace tiforth::op {
 class HashAggState;
 
-class HashAggSinkOp final : public pipeline::SinkOp {
+class HashAggSinkOp final : public SinkOp {
  public:
   explicit HashAggSinkOp(std::shared_ptr<HashAggState> state);
 
-  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override;
-  task::TaskGroups Frontend(const pipeline::PipelineContext&) override;
-  std::unique_ptr<pipeline::SourceOp> ImplicitSource(const pipeline::PipelineContext&) override;
+  PipelineSink Sink() override;
+  TaskGroups Frontend() override;
+  std::optional<TaskGroup> Backend() override;
+  std::unique_ptr<SourceOp> ImplicitSource() override;
 
  private:
   std::shared_ptr<HashAggState> state_;
 };
 
-class HashAggResultSourceOp final : public pipeline::SourceOp {
+class HashAggResultSourceOp final : public SourceOp {
  public:
   HashAggResultSourceOp(std::shared_ptr<HashAggState> state, int64_t max_output_rows = 65536);
   HashAggResultSourceOp(std::shared_ptr<HashAggState> state, int64_t start_row, int64_t end_row,
                         int64_t max_output_rows = 65536);
 
-  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override;
+  PipelineSource Source() override;
+  TaskGroups Frontend() override;
+  std::optional<TaskGroup> Backend() override;
 
  private:
   std::shared_ptr<HashAggState> state_;
@@ -79,7 +83,7 @@ class HashAggState final {
 
   arrow::MemoryPool* memory_pool() const;
 
-  arrow::Status Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status Consume(ThreadId thread_id, const arrow::RecordBatch& batch);
   arrow::Status MergeAndFinalize();
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> OutputBatch();
 
@@ -88,4 +92,4 @@ class HashAggState final {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::op

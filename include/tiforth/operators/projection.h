@@ -9,7 +9,7 @@
 #include <arrow/result.h>
 
 #include "tiforth/expr.h"
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
 namespace arrow {
 class Array;
@@ -17,21 +17,22 @@ class MemoryPool;
 class Schema;
 }  // namespace arrow
 
-namespace tiforth {
+namespace tiforth::op {
 
 struct ProjectionExpr {
   std::string name;
   ExprPtr expr;
 };
 
-class ProjectionPipeOp final : public pipeline::PipeOp {
+class ProjectionPipeOp final : public PipeOp {
  public:
   ProjectionPipeOp(const Engine* engine, std::vector<ProjectionExpr> exprs,
                    arrow::MemoryPool* memory_pool = nullptr);
   ~ProjectionPipeOp() override;
 
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
+  PipelinePipe Pipe() override;
+  PipelineDrain Drain() override;
+  std::unique_ptr<SourceOp> ImplicitSource() override;
 
  private:
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> Project(const arrow::RecordBatch& input);
@@ -48,4 +49,4 @@ class ProjectionPipeOp final : public pipeline::PipeOp {
   arrow::compute::ExecContext exec_context_;
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::op

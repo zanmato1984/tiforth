@@ -9,8 +9,9 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 
-#include "tiforth/pipeline/op/op.h"
-#include "tiforth/task/blocked_resumer.h"
+#include "tiforth/broken_pipeline_traits.h"
+
+#include "test_blocked_resumer.h"
 
 namespace tiforth::test {
 
@@ -41,7 +42,7 @@ struct PilotAsyncOptions {
 // - Pipe blocks with IO/await/notify states.
 // - Unblocks by buffering output and producing it via continuation (Pipe called with nullopt).
 // - Can inject an error at a configured phase.
-class PilotAsyncPipeOp final : public pipeline::PipeOp {
+class PilotAsyncPipeOp final : public PipeOp {
  public:
   explicit PilotAsyncPipeOp(PilotAsyncOptions options) : options_(std::move(options)) {
     if (options_.block_cycles <= 0) {
@@ -49,9 +50,8 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
     }
   }
 
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                  std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+  PipelinePipe Pipe() override {
+    return [this](const TaskContext&, ThreadId, std::optional<Batch> input) -> OpResult {
       if (options_.error_point == PilotErrorPoint::kPipe) {
         return options_.error_status;
       }
@@ -60,9 +60,9 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
         if (buffered_output_ != nullptr) {
           auto out = std::move(buffered_output_);
           buffered_output_.reset();
-          return pipeline::OpOutput::PipeEven(std::move(out));
+          return OpOutput::PipeEven(std::move(out));
         }
-        return pipeline::OpOutput::PipeSinkNeedsMore();
+        return OpOutput::PipeSinkNeedsMore();
       }
 
       if (state_ != State::kIdle) {
@@ -80,29 +80,27 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
       switch (options_.block_kind) {
         case PilotBlockKind::kIOIn:
           state_ = State::kBlockedIO;
-          return pipeline::OpOutput::Blocked(
-              std::make_shared<PilotResumer>(this, task::BlockedKind::kIOIn));
+          return OpOutput::Blocked(std::make_shared<PilotResumer>(this, BlockedKind::kIOIn));
         case PilotBlockKind::kIOOut:
           state_ = State::kBlockedIO;
-          return pipeline::OpOutput::Blocked(
-              std::make_shared<PilotResumer>(this, task::BlockedKind::kIOOut));
+          return OpOutput::Blocked(std::make_shared<PilotResumer>(this, BlockedKind::kIOOut));
         case PilotBlockKind::kWaiting:
           state_ = State::kBlockedWait;
-          return pipeline::OpOutput::Blocked(
-              std::make_shared<PilotResumer>(this, task::BlockedKind::kWaiting));
+          return OpOutput::Blocked(std::make_shared<PilotResumer>(this, BlockedKind::kWaiting));
         case PilotBlockKind::kWaitForNotify:
           state_ = State::kWaitForNotify;
-          return pipeline::OpOutput::Blocked(
-              std::make_shared<PilotResumer>(this, task::BlockedKind::kWaitForNotify));
+          return OpOutput::Blocked(
+              std::make_shared<PilotResumer>(this, BlockedKind::kWaitForNotify));
       }
       return arrow::Status::Invalid("unknown pilot block kind");
     };
   }
 
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override {
-    return [](const pipeline::PipelineContext&, const task::TaskContext&,
-              pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
+  PipelineDrain Drain() override {
+    return [](const TaskContext&, ThreadId) -> OpResult { return OpOutput::Finished(); };
   }
+
+  std::unique_ptr<SourceOp> ImplicitSource() override { return nullptr; }
 
  private:
   enum class State {
@@ -112,16 +110,16 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
     kWaitForNotify,
   };
 
-  class PilotResumer final : public task::BlockedResumer {
+  class PilotResumer final : public BlockedResumer {
    public:
-    PilotResumer(PilotAsyncPipeOp* op, task::BlockedKind kind) : op_(op), kind_(kind) {}
+    PilotResumer(PilotAsyncPipeOp* op, BlockedKind kind) : op_(op), kind_(kind) {}
 
     void Resume() override { resumed_.store(true, std::memory_order_release); }
     bool IsResumed() const override { return resumed_.load(std::memory_order_acquire); }
 
-    task::BlockedKind kind() const override { return kind_; }
+    BlockedKind kind() const override { return kind_; }
 
-    arrow::Result<std::optional<task::BlockedKind>> ExecuteIO() override {
+    arrow::Result<std::optional<BlockedKind>> ExecuteIO() override {
       if (op_ == nullptr) {
         return arrow::Status::Invalid("pilot resumer has null operator");
       }
@@ -131,7 +129,7 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
       if (op_->state_ != State::kBlockedIO) {
         return arrow::Status::Invalid("pilot operator is not in IO state");
       }
-      if (kind_ != task::BlockedKind::kIOIn && kind_ != task::BlockedKind::kIOOut) {
+      if (kind_ != BlockedKind::kIOIn && kind_ != BlockedKind::kIOOut) {
         return arrow::Status::Invalid("pilot resumer kind is not IO");
       }
       if (op_->remaining_block_cycles_ <= 0) {
@@ -144,7 +142,7 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
       return std::nullopt;
     }
 
-    arrow::Result<std::optional<task::BlockedKind>> Await() override {
+    arrow::Result<std::optional<BlockedKind>> Await() override {
       if (op_ == nullptr) {
         return arrow::Status::Invalid("pilot resumer has null operator");
       }
@@ -154,7 +152,7 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
       if (op_->state_ != State::kBlockedWait) {
         return arrow::Status::Invalid("pilot operator is not in await state");
       }
-      if (kind_ != task::BlockedKind::kWaiting) {
+      if (kind_ != BlockedKind::kWaiting) {
         return arrow::Status::Invalid("pilot resumer kind is not Waiting");
       }
       if (op_->remaining_block_cycles_ <= 0) {
@@ -177,7 +175,7 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
       if (op_->state_ != State::kWaitForNotify) {
         return arrow::Status::Invalid("pilot operator is not waiting for notify");
       }
-      if (kind_ != task::BlockedKind::kWaitForNotify) {
+      if (kind_ != BlockedKind::kWaitForNotify) {
         return arrow::Status::Invalid("pilot resumer kind is not WaitForNotify");
       }
       op_->BufferAndReset();
@@ -186,7 +184,7 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
 
    private:
     PilotAsyncPipeOp* op_ = nullptr;
-    task::BlockedKind kind_;
+    BlockedKind kind_;
     std::atomic_bool resumed_{false};
   };
 
@@ -206,4 +204,3 @@ class PilotAsyncPipeOp final : public pipeline::PipeOp {
 };
 
 }  // namespace tiforth::test
-

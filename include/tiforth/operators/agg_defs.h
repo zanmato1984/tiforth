@@ -4,7 +4,7 @@
 
 #include "tiforth/expr.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
 struct AggKey {
   std::string name;
@@ -19,5 +19,4 @@ struct AggFunc {
   ExprPtr arg;  // unused for "count_all"
 };
 
-}  // namespace tiforth
-
+}  // namespace tiforth::op

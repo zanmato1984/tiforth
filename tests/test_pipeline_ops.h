@@ -10,38 +10,40 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
 namespace tiforth::test {
 
-class VectorSourceOp final : public pipeline::SourceOp {
+class VectorSourceOp final : public SourceOp {
  public:
   explicit VectorSourceOp(std::vector<std::shared_ptr<arrow::RecordBatch>> batches)
       : batches_(std::move(batches)) {}
 
-  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                  pipeline::ThreadId thread_id) -> pipeline::OpResult {
+  PipelineSource Source() override {
+    return [this](const TaskContext&, ThreadId thread_id) -> OpResult {
       if (thread_id != 0) {
         return arrow::Status::Invalid("VectorSourceOp only supports thread_id=0");
       }
       if (next_ >= batches_.size()) {
-        return pipeline::OpOutput::Finished();
+        return OpOutput::Finished();
       }
       auto batch = batches_[next_++];
       if (batch == nullptr) {
         return arrow::Status::Invalid("source batch must not be null");
       }
-      return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
+      return OpOutput::SourcePipeHasMore(std::move(batch));
     };
   }
+
+  TaskGroups Frontend() override { return {}; }
+  std::optional<TaskGroup> Backend() override { return std::nullopt; }
 
  private:
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
   std::size_t next_ = 0;
 };
 
-class PartitionedVectorSourceOp final : public pipeline::SourceOp {
+class PartitionedVectorSourceOp final : public SourceOp {
  public:
   using Partitions = std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>;
 
@@ -49,9 +51,8 @@ class PartitionedVectorSourceOp final : public pipeline::SourceOp {
       : partitions_(std::move(partitions)),
         offsets_(partitions_ != nullptr ? partitions_->size() : 0, 0) {}
 
-  pipeline::PipelineSource Source(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                  pipeline::ThreadId thread_id) -> pipeline::OpResult {
+  PipelineSource Source() override {
+    return [this](const TaskContext&, ThreadId thread_id) -> OpResult {
       if (partitions_ == nullptr) {
         return arrow::Status::Invalid("partitions must not be null");
       }
@@ -65,15 +66,18 @@ class PartitionedVectorSourceOp final : public pipeline::SourceOp {
       auto& offset = offsets_[thread_id];
       const auto& batches = (*partitions_)[thread_id];
       if (offset >= batches.size()) {
-        return pipeline::OpOutput::Finished();
+        return OpOutput::Finished();
       }
       auto batch = batches[offset++];
       if (batch == nullptr) {
         return arrow::Status::Invalid("source batch must not be null");
       }
-      return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
+      return OpOutput::SourcePipeHasMore(std::move(batch));
     };
   }
+
+  TaskGroups Frontend() override { return {}; }
+  std::optional<TaskGroup> Backend() override { return std::nullopt; }
 
  private:
   std::shared_ptr<const Partitions> partitions_;
@@ -89,16 +93,16 @@ inline std::shared_ptr<PartitionedVectorSourceOp::Partitions> RoundRobinPartitio
   return partitions;
 }
 
-class CollectSinkOp final : public pipeline::SinkOp {
+class CollectSinkOp final : public SinkOp {
  public:
   using OutputsByThread = std::vector<std::vector<std::shared_ptr<arrow::RecordBatch>>>;
 
   explicit CollectSinkOp(OutputsByThread* outputs_by_thread)
       : outputs_by_thread_(outputs_by_thread) {}
 
-  pipeline::PipelineSink Sink(const pipeline::PipelineContext&) override {
-    return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId thread_id,
-                  std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+  PipelineSink Sink() override {
+    return [this](const TaskContext&, ThreadId thread_id,
+                  std::optional<Batch> input) -> OpResult {
       if (outputs_by_thread_ == nullptr) {
         return arrow::Status::Invalid("outputs_by_thread must not be null");
       }
@@ -106,15 +110,19 @@ class CollectSinkOp final : public pipeline::SinkOp {
         return arrow::Status::Invalid("thread_id out of range");
       }
       if (!input.has_value()) {
-        return pipeline::OpOutput::PipeSinkNeedsMore();
+        return OpOutput::PipeSinkNeedsMore();
       }
       auto batch = std::move(*input);
       if (batch != nullptr) {
         (*outputs_by_thread_)[thread_id].push_back(std::move(batch));
       }
-      return pipeline::OpOutput::PipeSinkNeedsMore();
+      return OpOutput::PipeSinkNeedsMore();
     };
   }
+
+  TaskGroups Frontend() override { return {}; }
+  std::optional<TaskGroup> Backend() override { return std::nullopt; }
+  std::unique_ptr<SourceOp> ImplicitSource() override { return nullptr; }
 
  private:
   OutputsByThread* outputs_by_thread_ = nullptr;
@@ -132,4 +140,3 @@ inline std::vector<std::shared_ptr<arrow::RecordBatch>> FlattenOutputs(
 }
 
 }  // namespace tiforth::test
-

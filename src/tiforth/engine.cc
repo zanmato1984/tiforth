@@ -30,8 +30,8 @@ arrow::Result<std::unique_ptr<Engine>> Engine::Create(EngineOptions options) {
     return arrow::Status::Invalid("EngineOptions.function_registry must not be null");
   }
   ARROW_RETURN_NOT_OK(
-      functions::RegisterTiforthFunctions(options.function_registry.get(),
-                                          arrow::compute::GetFunctionRegistry()));
+      function::RegisterTiforthFunctions(options.function_registry.get(),
+                                         arrow::compute::GetFunctionRegistry()));
 
   return std::unique_ptr<Engine>(new Engine(std::move(options)));
 }

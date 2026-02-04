@@ -6,15 +6,8 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 #include "tiforth/spill.h"
-#include "tiforth/pipeline/logical_pipeline.h"
-#include "tiforth/pipeline/pipeline_context.h"
-#include "tiforth/pipeline/task_groups.h"
-#include "tiforth/task/blocked_resumer.h"
-#include "tiforth/task/task_context.h"
-#include "tiforth/task/task_group.h"
-#include "tiforth/task/task_status.h"
 #include "tiforth/type_metadata.h"
 
 #include "tiforth/operators/filter.h"

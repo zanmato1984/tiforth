@@ -20,10 +20,12 @@ trap cleanup EXIT
 cmake --build "${BUILD_DIR}"
 cmake --install "${BUILD_DIR}" --prefix "${PREFIX}"
 
-# Ensure internal-only headers are not installed, while public dependencies remain.
-test ! -f "${PREFIX}/include/tiforth/detail/arrow_compute.h"
-test ! -f "${PREFIX}/include/tiforth/detail/expr_compiler.h"
-test -f "${PREFIX}/include/tiforth/detail/tidb_collation_lut.h"
+# Ensure internal / removed APIs are not installed.
+test ! -d "${PREFIX}/include/tiforth/pipeline"
+test ! -d "${PREFIX}/include/tiforth/task"
+test ! -d "${PREFIX}/include/tiforth_c"
+test ! -f "${PREFIX}/include/tiforth/blocked_resumer.h"
+test -f "${PREFIX}/include/tiforth/broken_pipeline_traits.h"
 
 cat >"${CONSUMER_DIR}/CMakeLists.txt" <<'EOF'
 cmake_minimum_required(VERSION 3.23)

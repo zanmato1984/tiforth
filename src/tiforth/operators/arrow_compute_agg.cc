@@ -27,7 +27,7 @@
 #include "tiforth/detail/arrow_compute.h"
 #include "tiforth/engine.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
 struct ArrowComputeAggPipeOp::ExecState {
   ExecState() : input_producer(input_gen.producer()) {}
@@ -414,36 +414,36 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ArrowComputeAggPipeOp::NextOu
                                   std::move(reordered));
 }
 
-pipeline::PipelinePipe ArrowComputeAggPipeOp::Pipe(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+PipelinePipe ArrowComputeAggPipeOp::Pipe() {
+  return [this](const TaskContext&, ThreadId, std::optional<Batch> input) -> OpResult {
     if (!input.has_value()) {
-      return pipeline::OpOutput::PipeSinkNeedsMore();
+      return OpOutput::PipeSinkNeedsMore();
     }
     auto batch = std::move(*input);
     if (batch == nullptr) {
       return arrow::Status::Invalid("arrow compute agg input batch must not be null");
     }
     ARROW_RETURN_NOT_OK(ConsumeBatch(std::move(batch)));
-    return pipeline::OpOutput::PipeSinkNeedsMore();
+    return OpOutput::PipeSinkNeedsMore();
   };
 }
 
-pipeline::PipelineDrain ArrowComputeAggPipeOp::Drain(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                pipeline::ThreadId) -> pipeline::OpResult {
+PipelineDrain ArrowComputeAggPipeOp::Drain() {
+  return [this](const TaskContext&, ThreadId) -> OpResult {
     ARROW_RETURN_NOT_OK(FinalizeIfNeeded());
     if (exec_state_ == nullptr) {
-      return pipeline::OpOutput::Finished();
+      return OpOutput::Finished();
     }
     ARROW_ASSIGN_OR_RAISE(auto batch, NextOutputBatch());
     if (batch != nullptr) {
-      return pipeline::OpOutput::SourcePipeHasMore(std::move(batch));
+      return OpOutput::SourcePipeHasMore(std::move(batch));
     }
     exec_state_.reset();
-    return pipeline::OpOutput::Finished();
+    return OpOutput::Finished();
   };
 }
+
+std::unique_ptr<SourceOp> ArrowComputeAggPipeOp::ImplicitSource() { return nullptr; }
 
 arrow::Status ArrowComputeAggPipeOp::ConsumeBatch(std::shared_ptr<arrow::RecordBatch> batch) {
   if (engine_ == nullptr) {
@@ -884,4 +884,4 @@ arrow::Status ArrowComputeAggPipeOp::ConsumeBatchStableDictionary(
   return arrow::Status::OK();
 }
 
-}  // namespace tiforth
+}  // namespace tiforth::op

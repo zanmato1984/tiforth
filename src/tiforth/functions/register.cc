@@ -2,7 +2,7 @@
 
 #include <arrow/compute/registry.h>
 
-namespace tiforth::functions {
+namespace tiforth::function {
 
 arrow::Status RegisterScalarArithmeticFunctions(arrow::compute::FunctionRegistry* registry,
                                                 arrow::compute::FunctionRegistry* fallback_registry);
@@ -32,4 +32,4 @@ arrow::Status RegisterTiforthFunctions(arrow::compute::FunctionRegistry* registr
   return arrow::Status::OK();
 }
 
-}  // namespace tiforth::functions
+}  // namespace tiforth::function

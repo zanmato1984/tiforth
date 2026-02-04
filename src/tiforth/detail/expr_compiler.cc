@@ -18,8 +18,8 @@
 #include "tiforth/detail/arrow_compute.h"
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
-#include "tiforth/functions/scalar/comparison/collated_compare.h"
-#include "tiforth/functions/scalar/temporal/mytime.h"
+#include "tiforth/functions/scalar_collated_compare.h"
+#include "tiforth/functions/scalar_mytime.h"
 #include "tiforth/type_metadata.h"
 
 namespace tiforth::detail {
@@ -251,14 +251,14 @@ arrow::Result<TypedExpr> CompileCall(const arrow::Schema& schema, const Call& ca
       }
       if (has_string) {
         ARROW_ASSIGN_OR_RAISE(const auto collation_id, ResolveStringCollationId(args));
-        auto unique_options = functions::MakeCollatedCompareOptions(collation_id);
+        auto unique_options = function::MakeCollatedCompareOptions(collation_id);
         options = std::shared_ptr<arrow::compute::FunctionOptions>(std::move(unique_options));
         function_name = CollatedCompareName(function_name);
       }
     } else if (IsMyTimeFunction(function_name) && HasMyTimeArgs(args)) {
       ARROW_ASSIGN_OR_RAISE(const auto mytime, ResolveMyTimeType(args));
       if (mytime.has_value()) {
-        auto unique_options = functions::MakeMyTimeOptions(mytime->id, mytime->datetime_fsp);
+        auto unique_options = function::MakeMyTimeOptions(mytime->id, mytime->datetime_fsp);
         options = std::shared_ptr<arrow::compute::FunctionOptions>(std::move(unique_options));
       }
 

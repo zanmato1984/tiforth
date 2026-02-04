@@ -29,7 +29,7 @@
 #include "tiforth/expr.h"
 #include "tiforth/type_metadata.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
 namespace {
 
@@ -223,13 +223,13 @@ struct HashAggState::Impl {
   const GrouperFactory& grouper_factory() const { return grouper_factory_; }
   arrow::MemoryPool* memory_pool() const { return exec_context_.memory_pool(); }
 
-  arrow::Status Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status Consume(ThreadId thread_id, const arrow::RecordBatch& batch);
   arrow::Status MergeAndFinalize();
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> OutputBatch();
 
  private:
   arrow::Status InitIfNeeded(const arrow::RecordBatch& batch);
-  arrow::Status ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch);
+  arrow::Status ConsumeBatch(ThreadId thread_id, const arrow::RecordBatch& batch);
   arrow::Status Merge();
   arrow::Status Finalize();
 
@@ -341,7 +341,7 @@ arrow::Status HashAggState::Impl::InitIfNeeded(const arrow::RecordBatch& batch) 
   return arrow::Status::OK();
 }
 
-arrow::Status HashAggState::Impl::Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Impl::Consume(ThreadId thread_id, const arrow::RecordBatch& batch) {
   if (finalized_) {
     return arrow::Status::Invalid("hash agg state is finalized");
   }
@@ -352,7 +352,7 @@ arrow::Status HashAggState::Impl::Consume(pipeline::ThreadId thread_id, const ar
   return ConsumeBatch(thread_id, batch);
 }
 
-arrow::Status HashAggState::Impl::ConsumeBatch(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Impl::ConsumeBatch(ThreadId thread_id, const arrow::RecordBatch& batch) {
   if (compiled_ == nullptr) {
     return arrow::Status::Invalid("hash agg is missing compiled expressions");
   }
@@ -720,7 +720,7 @@ arrow::MemoryPool* HashAggState::memory_pool() const {
   return impl_ != nullptr ? impl_->memory_pool() : nullptr;
 }
 
-arrow::Status HashAggState::Consume(pipeline::ThreadId thread_id, const arrow::RecordBatch& batch) {
+arrow::Status HashAggState::Consume(ThreadId thread_id, const arrow::RecordBatch& batch) {
   if (impl_ == nullptr) {
     return arrow::Status::Invalid("hash agg state implementation must not be null");
   }
@@ -743,42 +743,42 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> HashAggState::OutputBatch() {
 
 HashAggSinkOp::HashAggSinkOp(std::shared_ptr<HashAggState> state) : state_(std::move(state)) {}
 
-pipeline::PipelineSink HashAggSinkOp::Sink(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                pipeline::ThreadId thread_id, std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+PipelineSink HashAggSinkOp::Sink() {
+  return [this](const TaskContext&, ThreadId thread_id,
+                std::optional<Batch> input) -> OpResult {
     if (state_ == nullptr) {
       return arrow::Status::Invalid("hash agg state must not be null");
     }
     if (!input.has_value()) {
-      return pipeline::OpOutput::PipeSinkNeedsMore();
+      return OpOutput::PipeSinkNeedsMore();
     }
     auto batch = std::move(*input);
     if (batch == nullptr) {
       return arrow::Status::Invalid("hash agg input batch must not be null");
     }
     ARROW_RETURN_NOT_OK(state_->Consume(thread_id, *batch));
-    return pipeline::OpOutput::PipeSinkNeedsMore();
+    return OpOutput::PipeSinkNeedsMore();
   };
 }
 
-task::TaskGroups HashAggSinkOp::Frontend(const pipeline::PipelineContext&) {
-  task::Task merge_finalize{
+TaskGroups HashAggSinkOp::Frontend() {
+  Task merge_finalize{
       "HashAggMergeFinalize",
-      [state = state_](const task::TaskContext&, task::TaskId) -> task::TaskResult {
+      [state = state_](const TaskContext&, TaskId) -> TaskResult {
         if (state == nullptr) {
           return arrow::Status::Invalid("hash agg state must not be null");
         }
         ARROW_RETURN_NOT_OK(state->MergeAndFinalize());
-        return task::TaskStatus::Finished();
+        return TaskStatus::Finished();
       }};
-  task::TaskGroups groups;
-  groups.emplace_back("HashAggMergeFinalize", std::move(merge_finalize), /*num_tasks=*/1,
-                      /*continuation=*/std::nullopt,
-                      /*notify_finish=*/task::TaskGroup::NotifyFinishFunc{});
+  TaskGroups groups;
+  groups.emplace_back("HashAggMergeFinalize", std::move(merge_finalize), /*num_tasks=*/1);
   return groups;
 }
 
-std::unique_ptr<pipeline::SourceOp> HashAggSinkOp::ImplicitSource(const pipeline::PipelineContext&) {
+std::optional<TaskGroup> HashAggSinkOp::Backend() { return std::nullopt; }
+
+std::unique_ptr<SourceOp> HashAggSinkOp::ImplicitSource() {
   return std::make_unique<HashAggResultSourceOp>(state_);
 }
 
@@ -797,9 +797,8 @@ HashAggResultSourceOp::HashAggResultSourceOp(std::shared_ptr<HashAggState> state
       next_row_(start_row),
       max_output_rows_(max_output_rows) {}
 
-pipeline::PipelineSource HashAggResultSourceOp::Source(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&,
-                pipeline::ThreadId) -> pipeline::OpResult {
+PipelineSource HashAggResultSourceOp::Source() {
+  return [this](const TaskContext&, ThreadId) -> OpResult {
     if (state_ == nullptr) {
       return arrow::Status::Invalid("hash agg state must not be null");
     }
@@ -818,7 +817,7 @@ pipeline::PipelineSource HashAggResultSourceOp::Source(const pipeline::PipelineC
 
     ARROW_ASSIGN_OR_RAISE(auto output, state_->OutputBatch());
     if (output == nullptr) {
-      return pipeline::OpOutput::Finished();
+      return OpOutput::Finished();
     }
 
     const int64_t total_rows = output->num_rows();
@@ -828,28 +827,32 @@ pipeline::PipelineSource HashAggResultSourceOp::Source(const pipeline::PipelineC
 
     if (total_rows == 0) {
       if (emitted_empty_) {
-        return pipeline::OpOutput::Finished();
+        return OpOutput::Finished();
       }
       emitted_empty_ = true;
-      return pipeline::OpOutput::SourcePipeHasMore(std::move(output));
+      return OpOutput::SourcePipeHasMore(std::move(output));
     }
 
     const int64_t effective_end =
         (end_row_ < 0 || end_row_ > total_rows) ? total_rows : end_row_;
     if (next_row_ >= effective_end || next_row_ >= total_rows) {
-      return pipeline::OpOutput::Finished();
+      return OpOutput::Finished();
     }
 
     const int64_t remaining = effective_end - next_row_;
     const int64_t length = std::min(max_output_rows_, remaining);
     if (length <= 0) {
-      return pipeline::OpOutput::Finished();
+      return OpOutput::Finished();
     }
 
     auto slice = output->Slice(next_row_, length);
     next_row_ += length;
-    return pipeline::OpOutput::SourcePipeHasMore(std::move(slice));
+    return OpOutput::SourcePipeHasMore(std::move(slice));
   };
 }
 
-}  // namespace tiforth
+TaskGroups HashAggResultSourceOp::Frontend() { return {}; }
+
+std::optional<TaskGroup> HashAggResultSourceOp::Backend() { return std::nullopt; }
+
+}  // namespace tiforth::op

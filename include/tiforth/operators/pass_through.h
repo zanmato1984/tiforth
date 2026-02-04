@@ -1,29 +1,29 @@
 #pragma once
 
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
-class PassThroughPipeOp final : public pipeline::PipeOp {
+class PassThroughPipeOp final : public PipeOp {
  public:
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override {
-    return [](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-              std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+  PipelinePipe Pipe() override {
+    return [](const TaskContext&, ThreadId, std::optional<Batch> input) -> OpResult {
       if (!input.has_value()) {
-        return pipeline::OpOutput::PipeSinkNeedsMore();
+        return OpOutput::PipeSinkNeedsMore();
       }
       auto batch = std::move(*input);
       if (batch == nullptr) {
         return arrow::Status::Invalid("pass-through input batch must not be null");
       }
-      return pipeline::OpOutput::PipeEven(std::move(batch));
+      return OpOutput::PipeEven(std::move(batch));
     };
   }
 
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override {
-    return [](const pipeline::PipelineContext&, const task::TaskContext&,
-              pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
+  PipelineDrain Drain() override {
+    return [](const TaskContext&, ThreadId) -> OpResult { return OpOutput::Finished(); };
   }
+
+  std::unique_ptr<SourceOp> ImplicitSource() override { return nullptr; }
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::op

@@ -7,7 +7,7 @@
 #include <arrow/result.h>
 
 #include "tiforth/expr.h"
-#include "tiforth/pipeline/op/op.h"
+#include "tiforth/broken_pipeline_traits.h"
 
 namespace arrow {
 class Array;
@@ -15,15 +15,16 @@ class MemoryPool;
 class Schema;
 }  // namespace arrow
 
-namespace tiforth {
+namespace tiforth::op {
 
-class FilterPipeOp final : public pipeline::PipeOp {
+class FilterPipeOp final : public PipeOp {
  public:
   FilterPipeOp(const Engine* engine, ExprPtr predicate, arrow::MemoryPool* memory_pool = nullptr);
   ~FilterPipeOp() override;
 
-  pipeline::PipelinePipe Pipe(const pipeline::PipelineContext&) override;
-  pipeline::PipelineDrain Drain(const pipeline::PipelineContext&) override;
+  PipelinePipe Pipe() override;
+  PipelineDrain Drain() override;
+  std::unique_ptr<SourceOp> ImplicitSource() override;
 
  private:
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> Filter(const arrow::RecordBatch& input);
@@ -37,4 +38,4 @@ class FilterPipeOp final : public pipeline::PipeOp {
   arrow::compute::ExecContext exec_context_;
 };
 
-}  // namespace tiforth
+}  // namespace tiforth::op

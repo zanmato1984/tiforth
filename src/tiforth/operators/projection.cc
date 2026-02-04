@@ -11,7 +11,7 @@
 #include "tiforth/engine.h"
 #include "tiforth/type_metadata.h"
 
-namespace tiforth {
+namespace tiforth::op {
 
 struct ProjectionPipeOp::Compiled {
   std::vector<CompiledExpr> exprs;
@@ -148,11 +148,10 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> ProjectionPipeOp::Project(
   return arrow::RecordBatch::Make(output_schema_, input.num_rows(), std::move(arrays));
 }
 
-pipeline::PipelinePipe ProjectionPipeOp::Pipe(const pipeline::PipelineContext&) {
-  return [this](const pipeline::PipelineContext&, const task::TaskContext&, pipeline::ThreadId,
-                std::optional<pipeline::Batch> input) -> pipeline::OpResult {
+PipelinePipe ProjectionPipeOp::Pipe() {
+  return [this](const TaskContext&, ThreadId, std::optional<Batch> input) -> OpResult {
     if (!input.has_value()) {
-      return pipeline::OpOutput::PipeSinkNeedsMore();
+      return OpOutput::PipeSinkNeedsMore();
     }
     auto batch = std::move(*input);
     if (batch == nullptr) {
@@ -162,13 +161,14 @@ pipeline::PipelinePipe ProjectionPipeOp::Pipe(const pipeline::PipelineContext&) 
     if (out == nullptr) {
       return arrow::Status::Invalid("projection output batch must not be null");
     }
-    return pipeline::OpOutput::PipeEven(std::move(out));
+    return OpOutput::PipeEven(std::move(out));
   };
 }
 
-pipeline::PipelineDrain ProjectionPipeOp::Drain(const pipeline::PipelineContext&) {
-  return [](const pipeline::PipelineContext&, const task::TaskContext&,
-            pipeline::ThreadId) -> pipeline::OpResult { return pipeline::OpOutput::Finished(); };
+PipelineDrain ProjectionPipeOp::Drain() {
+  return [](const TaskContext&, ThreadId) -> OpResult { return OpOutput::Finished(); };
 }
 
-}  // namespace tiforth
+std::unique_ptr<SourceOp> ProjectionPipeOp::ImplicitSource() { return nullptr; }
+
+}  // namespace tiforth::op
