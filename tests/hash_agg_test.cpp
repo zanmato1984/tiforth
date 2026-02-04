@@ -143,13 +143,13 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPlan(
     auto source_op = std::make_unique<test::VectorSourceOp>(inputs);
     auto sink_op = std::make_unique<op::HashAggSinkOp>(agg_state);
 
-    LogicalPipeline::Channel channel;
+    Pipeline::Channel channel;
     channel.source_op = source_op.get();
     channel.pipe_ops = {};
 
-    LogicalPipeline logical_pipeline{
+    Pipeline logical_pipeline{
         "HashAggBuild",
-        std::vector<LogicalPipeline::Channel>{std::move(channel)},
+        std::vector<Pipeline::Channel>{std::move(channel)},
         sink_op.get()};
 
     ARROW_ASSIGN_OR_RAISE(auto task_groups,
@@ -165,13 +165,13 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPlan(
     test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
     auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-    LogicalPipeline::Channel channel;
+    Pipeline::Channel channel;
     channel.source_op = source_op.get();
     channel.pipe_ops = {};
 
-    LogicalPipeline logical_pipeline{
+    Pipeline logical_pipeline{
         "HashAggResult",
-        std::vector<LogicalPipeline::Channel>{std::move(channel)},
+        std::vector<Pipeline::Channel>{std::move(channel)},
         sink_op.get()};
 
     ARROW_ASSIGN_OR_RAISE(auto task_groups,

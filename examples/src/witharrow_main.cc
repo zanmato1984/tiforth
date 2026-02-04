@@ -94,13 +94,13 @@ arrow::Status RunTiForthSmoke() {
   std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
   auto sink_op = std::make_unique<CollectSinkOp>(&outputs);
 
-  tiforth::LogicalPipeline::Channel channel;
+  tiforth::Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops = {};
 
-  tiforth::LogicalPipeline logical_pipeline{
+  tiforth::Pipeline logical_pipeline{
       "Smoke",
-      std::vector<tiforth::LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<tiforth::Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(auto task_groups,
@@ -143,16 +143,16 @@ arrow::Status RunTiForthProjectionSmoke() {
   std::vector<std::shared_ptr<arrow::RecordBatch>> outputs;
   auto sink_op = std::make_unique<CollectSinkOp>(&outputs);
 
-  tiforth::LogicalPipeline::Channel channel;
+  tiforth::Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  tiforth::LogicalPipeline logical_pipeline{
+  tiforth::Pipeline logical_pipeline{
       "Projection",
-      std::vector<tiforth::LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<tiforth::Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(auto task_groups,

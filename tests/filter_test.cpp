@@ -99,16 +99,16 @@ arrow::Status RunFilterGreaterThan() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "FilterGreater",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -177,16 +177,16 @@ arrow::Status RunFilterDropsNullPredicate() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "FilterNullPredicate",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -232,16 +232,16 @@ arrow::Status RunFilterTruthyInt32() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "FilterTruthyInt32",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -291,16 +291,16 @@ arrow::Status RunFilterTruthyString() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "FilterTruthyString",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(

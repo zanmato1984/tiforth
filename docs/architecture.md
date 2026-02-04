@@ -32,14 +32,14 @@ An `Engine` is the “host context” for execution. It owns/points to:
 Public APIs:
 
 - `tiforth::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/broken_pipeline_traits.h`)
-- `tiforth::LogicalPipeline` (`include/tiforth/broken_pipeline_traits.h`)
+- `tiforth::Pipeline` (`include/tiforth/broken_pipeline_traits.h`)
 - `bp::Compile(...) -> tiforth::PipelineExec` (`include/broken_pipeline/pipeline_exec.h`)
 - `tiforth::{Task,TaskGroup,TaskContext,TaskStatus}` (`include/tiforth/broken_pipeline_traits.h`)
 
 Model:
 
-- A `LogicalPipeline` describes operator wiring (N channels → 1 sink).
-- Broken Pipeline compiles a `LogicalPipeline` into a `PipelineExec`.
+- A `Pipeline` describes operator wiring (N channels → 1 sink).
+- Broken Pipeline compiles a `Pipeline` into a `PipelineExec`.
 - Hosts schedule/execute the returned task groups using their own threading/executor.
 
 Execution is **host-driven** and incremental:

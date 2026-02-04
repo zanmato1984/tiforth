@@ -68,13 +68,13 @@ arrow::Status RunPassThroughReaderSmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops = {};
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "PassThroughReader",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(

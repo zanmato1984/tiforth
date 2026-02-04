@@ -43,13 +43,13 @@ arrow::Status RunTiForthSmoke() {
   EmptySourceOp source_op;
   NullSinkOp sink_op;
 
-  tiforth::LogicalPipeline::Channel channel;
+  tiforth::Pipeline::Channel channel;
   channel.source_op = &source_op;
   channel.pipe_ops = {};
 
-  tiforth::LogicalPipeline logical_pipeline{
+  tiforth::Pipeline logical_pipeline{
       "NoArrowSmoke",
-      std::vector<tiforth::LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<tiforth::Pipeline::Channel>{std::move(channel)},
       &sink_op};
 
   ARROW_ASSIGN_OR_RAISE(auto task_groups,

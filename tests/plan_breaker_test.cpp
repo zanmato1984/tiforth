@@ -104,13 +104,13 @@ arrow::Status RunBreakerPlanSmoke() {
         std::vector<std::shared_ptr<arrow::RecordBatch>>{batch});
     auto sink_op = std::make_unique<CountingSinkOp>(counter_state);
 
-    LogicalPipeline::Channel channel;
+    Pipeline::Channel channel;
     channel.source_op = source_op.get();
     channel.pipe_ops = {};
 
-    LogicalPipeline logical_pipeline{
+    Pipeline logical_pipeline{
         "BreakerBuild",
-        std::vector<LogicalPipeline::Channel>{std::move(channel)},
+        std::vector<Pipeline::Channel>{std::move(channel)},
         sink_op.get()};
 
     ARROW_ASSIGN_OR_RAISE(auto task_groups,
@@ -127,13 +127,13 @@ arrow::Status RunBreakerPlanSmoke() {
     test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
     auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-    LogicalPipeline::Channel channel;
+    Pipeline::Channel channel;
     channel.source_op = source_op.get();
     channel.pipe_ops = {};
 
-    LogicalPipeline logical_pipeline{
+    Pipeline logical_pipeline{
         "BreakerConvergent",
-        std::vector<LogicalPipeline::Channel>{std::move(channel)},
+        std::vector<Pipeline::Channel>{std::move(channel)},
         sink_op.get()};
 
     ARROW_ASSIGN_OR_RAISE(auto task_groups,

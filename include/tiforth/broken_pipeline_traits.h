@@ -73,9 +73,6 @@ using SinkOp = bp::SinkOp<BrokenPipelineTraits>;
 using Pipeline = bp::Pipeline<BrokenPipelineTraits>;
 using PipelineChannel = Pipeline::Channel;
 
-// Back-compat alias: old TiForth terminology used "LogicalPipeline".
-using LogicalPipeline = Pipeline;
-
 using PipelineExec = bp::PipelineExec<BrokenPipelineTraits>;
 using Pipelinexe = bp::Pipelinexe<BrokenPipelineTraits>;
 using PipeExec = bp::PipeExec<BrokenPipelineTraits>;

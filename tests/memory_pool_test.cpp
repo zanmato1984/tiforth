@@ -114,16 +114,16 @@ arrow::Status RunMemoryPoolSmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "MemoryPoolSort",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -165,16 +165,16 @@ arrow::Result<int64_t> RunCollatedSortBytesAllocated(int32_t collation_id) {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "CollatedSortBytesAllocated",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -211,16 +211,16 @@ arrow::Status RunHashJoinMemoryPoolSmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "MemoryPoolHashJoin",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -265,13 +265,13 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
         std::vector<std::shared_ptr<arrow::RecordBatch>>{batch});
     auto sink_op = std::make_unique<op::HashAggSinkOp>(agg_state);
 
-    LogicalPipeline::Channel channel;
+    Pipeline::Channel channel;
     channel.source_op = source_op.get();
     channel.pipe_ops = {};
 
-    LogicalPipeline logical_pipeline{
+    Pipeline logical_pipeline{
         "HashAggBuildBytes",
-        std::vector<LogicalPipeline::Channel>{std::move(channel)},
+        std::vector<Pipeline::Channel>{std::move(channel)},
         sink_op.get()};
 
     ARROW_ASSIGN_OR_RAISE(auto task_groups,
@@ -288,13 +288,13 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
     test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
     auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-    LogicalPipeline::Channel channel;
+    Pipeline::Channel channel;
     channel.source_op = source_op.get();
     channel.pipe_ops = {};
 
-    LogicalPipeline logical_pipeline{
+    Pipeline logical_pipeline{
         "HashAggResultBytes",
-        std::vector<LogicalPipeline::Channel>{std::move(channel)},
+        std::vector<Pipeline::Channel>{std::move(channel)},
         sink_op.get()};
 
     ARROW_ASSIGN_OR_RAISE(auto task_groups,

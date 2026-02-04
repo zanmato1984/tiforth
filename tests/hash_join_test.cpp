@@ -99,16 +99,16 @@ arrow::Status RunHashJoinSmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "HashJoinSmoke",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -185,16 +185,16 @@ arrow::Status RunHashJoinTwoKeySmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "HashJoinTwoKey",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -276,16 +276,16 @@ arrow::Status RunHashJoinGeneralCiStringKeySmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "HashJoinGeneralCi",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(
@@ -372,16 +372,16 @@ arrow::Status RunHashJoinUnicode0900StringKeySmoke() {
   test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
   auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  LogicalPipeline::Channel channel;
+  Pipeline::Channel channel;
   channel.source_op = source_op.get();
   channel.pipe_ops.reserve(pipe_ops.size());
   for (auto& op : pipe_ops) {
     channel.pipe_ops.push_back(op.get());
   }
 
-  LogicalPipeline logical_pipeline{
+  Pipeline logical_pipeline{
       "HashJoinUnicode0900",
-      std::vector<LogicalPipeline::Channel>{std::move(channel)},
+      std::vector<Pipeline::Channel>{std::move(channel)},
       sink_op.get()};
 
   ARROW_ASSIGN_OR_RAISE(

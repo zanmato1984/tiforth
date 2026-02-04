@@ -4,7 +4,7 @@ TiForth exposes a small set of stable “host APIs” for building and executing
 
 - C++ API:
   - `tiforth::Engine`
-  - `tiforth::{SourceOp,PipeOp,SinkOp,LogicalPipeline}`
+  - `tiforth::{SourceOp,PipeOp,SinkOp,Pipeline}`
   - `bp::Compile(...) -> tiforth::PipelineExec`
   - `tiforth::{Task,TaskGroup,TaskContext,TaskStatus,Awaiter,Resumer}`
 
@@ -30,9 +30,9 @@ On creation, the engine registers TiForth functions into its registry.
 
 ### Building a logical pipeline
 
-A `tiforth::LogicalPipeline` is composed of:
+A `tiforth::Pipeline` is composed of:
 
-- N **channels** (`LogicalPipeline::Channel`), each with:
+- N **channels** (`Pipeline::Channel`), each with:
   - a `SourceOp*`
   - zero or more `PipeOp*` in order
 - One `SinkOp*` shared by all channels.
@@ -57,17 +57,17 @@ pipe_ops.push_back(std::make_unique<tiforth::op::ProjectionPipeOp>(
 
 auto sink_op = /* host-defined SinkOp */;
 
-tiforth::LogicalPipeline::Channel channel;
+tiforth::Pipeline::Channel channel;
 channel.source_op = source_op.get();
 for (auto& op : pipe_ops) channel.pipe_ops.push_back(op.get());
 
-tiforth::LogicalPipeline logical_pipeline{
+tiforth::Pipeline logical_pipeline{
     "FilterProjection", {std::move(channel)}, sink_op.get()};
 ```
 
-### Compilation: `LogicalPipeline -> PipelineExec`
+### Compilation: `Pipeline -> PipelineExec`
 
-TiForth uses Broken Pipeline for compilation. Use `bp::Compile(...)` to compile a `LogicalPipeline`
+TiForth uses Broken Pipeline for compilation. Use `bp::Compile(...)` to compile a `Pipeline`
 into a `PipelineExec`:
 
 The host is responsible for:
