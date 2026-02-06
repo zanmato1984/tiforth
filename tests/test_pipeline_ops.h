@@ -10,7 +10,7 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 namespace tiforth::test {
 

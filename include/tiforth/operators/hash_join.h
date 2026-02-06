@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 namespace arrow {
 class MemoryPool;

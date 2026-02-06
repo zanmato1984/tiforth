@@ -9,7 +9,7 @@
 #include <arrow/result.h>
 
 #include "tiforth/operators/agg_defs.h"
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 namespace arrow {
 class MemoryPool;

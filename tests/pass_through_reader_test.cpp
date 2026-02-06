@@ -7,7 +7,7 @@
 #include <gtest/gtest.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 #include "test_pipeline_ops.h"
 #include "test_task_group_runner.h"

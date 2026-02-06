@@ -6,7 +6,9 @@
 #include <arrow/result.h>
 #include <arrow/status.h>
 
-#include "tiforth/broken_pipeline_traits.h"
+#include <broken_pipeline/schedule/detail/callback_resumer.h>
+
+#include "tiforth/traits.h"
 
 namespace tiforth {
 
@@ -17,7 +19,7 @@ enum class BlockedKind {
   kIOOut,
 };
 
-class BlockedResumer : public Resumer {
+class BlockedResumer : public bp::schedule::detail::CallbackResumer {
  public:
   ~BlockedResumer() override = default;
 
@@ -32,4 +34,3 @@ class BlockedResumer : public Resumer {
 using BlockedResumerPtr = std::shared_ptr<BlockedResumer>;
 
 }  // namespace tiforth
-

@@ -8,7 +8,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 namespace arrow {
 class Array;

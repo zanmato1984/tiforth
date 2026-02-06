@@ -14,7 +14,7 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/operators/sort.h"
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 #include "tiforth/type_metadata.h"
 
 #include "test_pipeline_ops.h"

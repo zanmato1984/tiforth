@@ -31,10 +31,10 @@ An `Engine` is the “host context” for execution. It owns/points to:
 
 Public APIs:
 
-- `tiforth::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/broken_pipeline_traits.h`)
-- `tiforth::Pipeline` (`include/tiforth/broken_pipeline_traits.h`)
+- `tiforth::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/traits.h`)
+- `tiforth::Pipeline` (`include/tiforth/traits.h`)
 - `bp::Compile(...) -> tiforth::PipelineExec` (`include/broken_pipeline/pipeline_exec.h`)
-- `tiforth::{Task,TaskGroup,TaskContext,TaskStatus}` (`include/tiforth/broken_pipeline_traits.h`)
+- `tiforth::{Task,TaskGroup,TaskContext,TaskStatus}` (`include/tiforth/traits.h`)
 
 Model:
 
@@ -51,7 +51,7 @@ Execution is **host-driven** and incremental:
 
 ### Operator abstraction
 
-Public API: `tiforth::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/broken_pipeline_traits.h`).
+Public API: `tiforth::{SourceOp,PipeOp,SinkOp}` (`include/tiforth/traits.h`).
 
 Key points:
 

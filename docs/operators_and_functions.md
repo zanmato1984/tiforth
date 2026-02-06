@@ -5,7 +5,7 @@ Arrow compute.
 
 ## 1) Operator model
 
-Public interfaces: `include/tiforth/broken_pipeline_traits.h` (also via `include/tiforth/tiforth.h`).
+Public interfaces: `include/tiforth/traits.h` (also via `include/tiforth/tiforth.h`).
 
 TiForth defines three operator kinds:
 

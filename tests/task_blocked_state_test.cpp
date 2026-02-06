@@ -4,10 +4,12 @@
 #include <arrow/status.h>
 #include <arrow/testing/gtest_util.h>
 
+#include <broken_pipeline/schedule/detail/conditional_awaiter.h>
+
 #include <gtest/gtest.h>
 
 #include "tiforth/engine.h"
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 #include "test_pilot_op.h"
 #include "test_pipeline_ops.h"
@@ -141,12 +143,14 @@ arrow::Status RunPilotWaitForNotify() {
   for (int i = 0; i < 8; ++i) {
     ARROW_ASSIGN_OR_RAISE(auto status, group.Task()(task_ctx, /*task_id=*/0));
     if (status.IsBlocked()) {
-      auto awaiter = std::dynamic_pointer_cast<test::ResumersAwaiter>(status.GetAwaiter());
-      if (awaiter == nullptr || awaiter->resumers().size() != 1 ||
-          awaiter->resumers()[0] == nullptr) {
+      auto awaiter =
+          std::dynamic_pointer_cast<bp::schedule::detail::ConditionalAwaiter>(
+              status.GetAwaiter());
+      if (awaiter == nullptr || awaiter->GetResumers().size() != 1 ||
+          awaiter->GetResumers()[0] == nullptr) {
         return arrow::Status::Invalid("expected a single blocked resumer");
       }
-      auto blocked = std::dynamic_pointer_cast<BlockedResumer>(awaiter->resumers()[0]);
+      auto blocked = std::dynamic_pointer_cast<BlockedResumer>(awaiter->GetResumers()[0]);
       if (blocked == nullptr) {
         return arrow::Status::Invalid("expected BlockedResumer");
       }

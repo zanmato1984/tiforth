@@ -6,7 +6,7 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 #include "tiforth/spill.h"
 #include "tiforth/type_metadata.h"
 

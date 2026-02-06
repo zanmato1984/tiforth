@@ -1,3 +1,5 @@
+include("${PROJECT_SOURCE_DIR}/cmake/testing.cmake")
+
 add_tiforth_test(tiforth-smoke-test "${CMAKE_CURRENT_SOURCE_DIR}/smoke_test.cpp")
 add_tiforth_test(tiforth-arrow-array-smoke-test "${CMAKE_CURRENT_SOURCE_DIR}/arrow_array_smoke_test.cpp")
 add_tiforth_test(tiforth-arrow-compute-smoke-test "${CMAKE_CURRENT_SOURCE_DIR}/arrow_compute_smoke_test.cpp")

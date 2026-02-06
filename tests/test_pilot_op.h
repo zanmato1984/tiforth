@@ -1,15 +1,16 @@
 #pragma once
 
-#include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <thread>
 #include <utility>
 
 #include <arrow/result.h>
 #include <arrow/status.h>
 
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 #include "test_blocked_resumer.h"
 
@@ -56,42 +57,67 @@ class PilotAsyncPipeOp final : public PipeOp {
         return options_.error_status;
       }
 
-      if (!input.has_value()) {
-        if (buffered_output_ != nullptr) {
-          auto out = std::move(buffered_output_);
-          buffered_output_.reset();
-          return OpOutput::PipeEven(std::move(out));
+      std::shared_ptr<arrow::RecordBatch> output;
+      std::shared_ptr<PilotResumer> resumer;
+
+      {
+        std::lock_guard<std::mutex> lock(state_mu_);
+        if (async_error_.has_value()) {
+          auto status = *async_error_;
+          async_error_.reset();
+          return status;
         }
-        return OpOutput::PipeSinkNeedsMore();
+
+        if (!input.has_value()) {
+          if (buffered_output_ != nullptr) {
+            output = std::move(buffered_output_);
+            buffered_output_.reset();
+          } else {
+            return OpOutput::PipeSinkNeedsMore();
+          }
+        } else {
+          if (state_ != State::kIdle) {
+            return arrow::Status::Invalid("pilot operator is not idle");
+          }
+
+          auto batch = std::move(*input);
+          if (batch == nullptr) {
+            return arrow::Status::Invalid("pilot input batch must not be null");
+          }
+
+          pending_input_ = std::move(batch);
+          remaining_block_cycles_ = options_.block_cycles;
+
+          switch (options_.block_kind) {
+            case PilotBlockKind::kIOIn:
+              state_ = State::kBlockedIO;
+              resumer = std::make_shared<PilotResumer>(this, BlockedKind::kIOIn);
+              break;
+            case PilotBlockKind::kIOOut:
+              state_ = State::kBlockedIO;
+              resumer = std::make_shared<PilotResumer>(this, BlockedKind::kIOOut);
+              break;
+            case PilotBlockKind::kWaiting:
+              state_ = State::kBlockedWait;
+              resumer = std::make_shared<PilotResumer>(this, BlockedKind::kWaiting);
+              break;
+            case PilotBlockKind::kWaitForNotify:
+              state_ = State::kWaitForNotify;
+              resumer = std::make_shared<PilotResumer>(this, BlockedKind::kWaitForNotify);
+              break;
+          }
+        }
       }
 
-      if (state_ != State::kIdle) {
-        return arrow::Status::Invalid("pilot operator is not idle");
+      if (output != nullptr) {
+        return OpOutput::PipeEven(std::move(output));
       }
 
-      auto batch = std::move(*input);
-      if (batch == nullptr) {
-        return arrow::Status::Invalid("pilot input batch must not be null");
+      if (resumer != nullptr) {
+        resumer->StartAutoResume();
+        return OpOutput::Blocked(std::move(resumer));
       }
 
-      pending_input_ = std::move(batch);
-      remaining_block_cycles_ = options_.block_cycles;
-
-      switch (options_.block_kind) {
-        case PilotBlockKind::kIOIn:
-          state_ = State::kBlockedIO;
-          return OpOutput::Blocked(std::make_shared<PilotResumer>(this, BlockedKind::kIOIn));
-        case PilotBlockKind::kIOOut:
-          state_ = State::kBlockedIO;
-          return OpOutput::Blocked(std::make_shared<PilotResumer>(this, BlockedKind::kIOOut));
-        case PilotBlockKind::kWaiting:
-          state_ = State::kBlockedWait;
-          return OpOutput::Blocked(std::make_shared<PilotResumer>(this, BlockedKind::kWaiting));
-        case PilotBlockKind::kWaitForNotify:
-          state_ = State::kWaitForNotify;
-          return OpOutput::Blocked(
-              std::make_shared<PilotResumer>(this, BlockedKind::kWaitForNotify));
-      }
       return arrow::Status::Invalid("unknown pilot block kind");
     };
   }
@@ -110,14 +136,20 @@ class PilotAsyncPipeOp final : public PipeOp {
     kWaitForNotify,
   };
 
-  class PilotResumer final : public BlockedResumer {
+  class PilotResumer final : public BlockedResumer,
+                             public std::enable_shared_from_this<PilotResumer> {
    public:
     PilotResumer(PilotAsyncPipeOp* op, BlockedKind kind) : op_(op), kind_(kind) {}
 
-    void Resume() override { resumed_.store(true, std::memory_order_release); }
-    bool IsResumed() const override { return resumed_.load(std::memory_order_acquire); }
-
     BlockedKind kind() const override { return kind_; }
+
+    void StartAutoResume() {
+      if (kind_ == BlockedKind::kWaitForNotify) {
+        return;
+      }
+      auto self = shared_from_this();
+      std::thread([self]() { self->Drive(); }).detach();
+    }
 
     arrow::Result<std::optional<BlockedKind>> ExecuteIO() override {
       if (op_ == nullptr) {
@@ -126,11 +158,12 @@ class PilotAsyncPipeOp final : public PipeOp {
       if (op_->options_.error_point == PilotErrorPoint::kExecuteIO) {
         return op_->options_.error_status;
       }
-      if (op_->state_ != State::kBlockedIO) {
-        return arrow::Status::Invalid("pilot operator is not in IO state");
-      }
       if (kind_ != BlockedKind::kIOIn && kind_ != BlockedKind::kIOOut) {
         return arrow::Status::Invalid("pilot resumer kind is not IO");
+      }
+      std::lock_guard<std::mutex> lock(op_->state_mu_);
+      if (op_->state_ != State::kBlockedIO) {
+        return arrow::Status::Invalid("pilot operator is not in IO state");
       }
       if (op_->remaining_block_cycles_ <= 0) {
         return arrow::Status::Invalid("pilot operator IO cycle counter underflow");
@@ -138,7 +171,7 @@ class PilotAsyncPipeOp final : public PipeOp {
       if (--op_->remaining_block_cycles_ > 0) {
         return kind_;
       }
-      op_->BufferAndReset();
+      op_->BufferAndResetLocked();
       return std::nullopt;
     }
 
@@ -149,11 +182,12 @@ class PilotAsyncPipeOp final : public PipeOp {
       if (op_->options_.error_point == PilotErrorPoint::kAwait) {
         return op_->options_.error_status;
       }
-      if (op_->state_ != State::kBlockedWait) {
-        return arrow::Status::Invalid("pilot operator is not in await state");
-      }
       if (kind_ != BlockedKind::kWaiting) {
         return arrow::Status::Invalid("pilot resumer kind is not Waiting");
+      }
+      std::lock_guard<std::mutex> lock(op_->state_mu_);
+      if (op_->state_ != State::kBlockedWait) {
+        return arrow::Status::Invalid("pilot operator is not in await state");
       }
       if (op_->remaining_block_cycles_ <= 0) {
         return arrow::Status::Invalid("pilot operator await cycle counter underflow");
@@ -161,7 +195,7 @@ class PilotAsyncPipeOp final : public PipeOp {
       if (--op_->remaining_block_cycles_ > 0) {
         return kind_;
       }
-      op_->BufferAndReset();
+      op_->BufferAndResetLocked();
       return std::nullopt;
     }
 
@@ -172,25 +206,53 @@ class PilotAsyncPipeOp final : public PipeOp {
       if (op_->options_.error_point == PilotErrorPoint::kNotify) {
         return op_->options_.error_status;
       }
-      if (op_->state_ != State::kWaitForNotify) {
-        return arrow::Status::Invalid("pilot operator is not waiting for notify");
-      }
       if (kind_ != BlockedKind::kWaitForNotify) {
         return arrow::Status::Invalid("pilot resumer kind is not WaitForNotify");
       }
-      op_->BufferAndReset();
+      std::lock_guard<std::mutex> lock(op_->state_mu_);
+      if (op_->state_ != State::kWaitForNotify) {
+        return arrow::Status::Invalid("pilot operator is not waiting for notify");
+      }
+      op_->BufferAndResetLocked();
       return arrow::Status::OK();
     }
 
    private:
+    void Drive() {
+      while (true) {
+        arrow::Result<std::optional<BlockedKind>> step =
+            (kind_ == BlockedKind::kWaiting) ? Await() : ExecuteIO();
+        if (!step.ok()) {
+          if (op_ != nullptr) {
+            op_->RecordAsyncError(step.status());
+          }
+          Resume();
+          return;
+        }
+        if (!step->has_value()) {
+          Resume();
+          return;
+        }
+        std::this_thread::yield();
+      }
+    }
+
     PilotAsyncPipeOp* op_ = nullptr;
     BlockedKind kind_;
-    std::atomic_bool resumed_{false};
   };
 
-  void BufferAndReset() {
+  void BufferAndResetLocked() {
     buffered_output_ = std::move(pending_input_);
     pending_input_.reset();
+    remaining_block_cycles_ = 0;
+    state_ = State::kIdle;
+  }
+
+  void RecordAsyncError(const arrow::Status& status) {
+    std::lock_guard<std::mutex> lock(state_mu_);
+    async_error_ = status;
+    pending_input_.reset();
+    buffered_output_.reset();
     remaining_block_cycles_ = 0;
     state_ = State::kIdle;
   }
@@ -198,6 +260,8 @@ class PilotAsyncPipeOp final : public PipeOp {
   PilotAsyncOptions options_;
   State state_ = State::kIdle;
 
+  std::mutex state_mu_;
+  std::optional<arrow::Status> async_error_;
   int32_t remaining_block_cycles_ = 0;
   std::shared_ptr<arrow::RecordBatch> pending_input_;
   std::shared_ptr<arrow::RecordBatch> buffered_output_;

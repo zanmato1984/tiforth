@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tiforth/broken_pipeline_traits.h"
+#include "tiforth/traits.h"
 
 namespace tiforth::op {
 
