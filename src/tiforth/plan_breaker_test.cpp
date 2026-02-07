@@ -32,6 +32,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthPlanBreakerTest);
+
+
 namespace {
 
 struct CounterState {
@@ -184,7 +187,7 @@ arrow::Status RunBreakerPlanSmoke() {
 
 }  // namespace
 
-TEST(TiForthPlanBreakerTest, BuildThenConvergent) {
+TIFORTH_SCHEDULER_TEST(TiForthPlanBreakerTest, BuildThenConvergent) {
   auto status = RunBreakerPlanSmoke();
   ASSERT_OK(status);
 }

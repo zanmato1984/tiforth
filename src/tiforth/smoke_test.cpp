@@ -30,6 +30,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthSmokeTest);
+
+
 namespace {
 
 arrow::Status RunSmoke() {
@@ -74,7 +77,7 @@ arrow::Status RunSmoke() {
 
 }  // namespace
 
-TEST(TiForthSmokeTest, Lifecycle) {
+TIFORTH_SCHEDULER_TEST(TiForthSmokeTest, Lifecycle) {
   auto status = RunSmoke();
   ASSERT_OK(status);
 }

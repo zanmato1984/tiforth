@@ -36,6 +36,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthHashJoinTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -451,22 +454,22 @@ arrow::Status RunHashJoinUnicode0900StringKeySmoke() {
 
 }  // namespace
 
-TEST(TiForthHashJoinTest, InnerJoinInt32Key) {
+TIFORTH_SCHEDULER_TEST(TiForthHashJoinTest, InnerJoinInt32Key) {
   auto status = RunHashJoinSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthHashJoinTest, InnerJoinTwoKeyBinaryAndInt32) {
+TIFORTH_SCHEDULER_TEST(TiForthHashJoinTest, InnerJoinTwoKeyBinaryAndInt32) {
   auto status = RunHashJoinTwoKeySmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthHashJoinTest, InnerJoinGeneralCiStringKey) {
+TIFORTH_SCHEDULER_TEST(TiForthHashJoinTest, InnerJoinGeneralCiStringKey) {
   auto status = RunHashJoinGeneralCiStringKeySmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthHashJoinTest, InnerJoinUnicode0900StringKey) {
+TIFORTH_SCHEDULER_TEST(TiForthHashJoinTest, InnerJoinUnicode0900StringKey) {
   auto status = RunHashJoinUnicode0900StringKeySmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }

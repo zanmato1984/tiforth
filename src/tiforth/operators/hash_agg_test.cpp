@@ -44,6 +44,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthHashAggTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -598,10 +601,10 @@ arrow::Status RunHashAggMultiKey() {
 
 }  // namespace
 
-TEST(TiForthHashAggTest, GroupByAndAggregates) { ASSERT_OK(RunHashAggSmoke()); }
-TEST(TiForthHashAggTest, ComputedKeyAndArg) { ASSERT_OK(RunHashAggComputedExpr()); }
-TEST(TiForthHashAggTest, StringKey) { ASSERT_OK(RunHashAggStringKey()); }
-TEST(TiForthHashAggTest, CollatedStringKey) { ASSERT_OK(RunHashAggCollatedStringKey()); }
-TEST(TiForthHashAggTest, MultiKey) { ASSERT_OK(RunHashAggMultiKey()); }
+TIFORTH_SCHEDULER_TEST(TiForthHashAggTest, GroupByAndAggregates) { ASSERT_OK(RunHashAggSmoke()); }
+TIFORTH_SCHEDULER_TEST(TiForthHashAggTest, ComputedKeyAndArg) { ASSERT_OK(RunHashAggComputedExpr()); }
+TIFORTH_SCHEDULER_TEST(TiForthHashAggTest, StringKey) { ASSERT_OK(RunHashAggStringKey()); }
+TIFORTH_SCHEDULER_TEST(TiForthHashAggTest, CollatedStringKey) { ASSERT_OK(RunHashAggCollatedStringKey()); }
+TIFORTH_SCHEDULER_TEST(TiForthHashAggTest, MultiKey) { ASSERT_OK(RunHashAggMultiKey()); }
 
 }  // namespace tiforth

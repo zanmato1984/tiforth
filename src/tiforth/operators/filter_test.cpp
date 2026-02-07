@@ -36,6 +36,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthFilterTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -346,22 +349,22 @@ arrow::Status RunFilterTruthyString() {
 
 }  // namespace
 
-TEST(TiForthFilterTest, GreaterThan) {
+TIFORTH_SCHEDULER_TEST(TiForthFilterTest, GreaterThan) {
   auto status = RunFilterGreaterThan();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthFilterTest, DropsNullPredicate) {
+TIFORTH_SCHEDULER_TEST(TiForthFilterTest, DropsNullPredicate) {
   auto status = RunFilterDropsNullPredicate();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthFilterTest, TruthyInt32) {
+TIFORTH_SCHEDULER_TEST(TiForthFilterTest, TruthyInt32) {
   auto status = RunFilterTruthyInt32();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthFilterTest, TruthyString) {
+TIFORTH_SCHEDULER_TEST(TiForthFilterTest, TruthyString) {
   auto status = RunFilterTruthyString();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }

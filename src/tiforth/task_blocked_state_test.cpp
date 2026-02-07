@@ -19,6 +19,7 @@
 #include <arrow/testing/gtest_util.h>
 
 #include <broken_pipeline/schedule/detail/conditional_awaiter.h>
+#include <broken_pipeline/schedule/detail/future_awaiter.h>
 
 #include <gtest/gtest.h>
 
@@ -32,6 +33,22 @@
 namespace tiforth {
 
 namespace {
+
+arrow::Result<std::vector<std::shared_ptr<Resumer>>> GetAwaiterResumers(
+    const AwaiterPtr& awaiter) {
+  if (awaiter == nullptr) {
+    return arrow::Status::Invalid("expected non-null awaiter");
+  }
+  if (auto conditional =
+          std::dynamic_pointer_cast<bp::schedule::detail::ConditionalAwaiter>(awaiter)) {
+    return conditional->GetResumers();
+  }
+  if (auto future =
+          std::dynamic_pointer_cast<bp::schedule::detail::FutureAwaiter>(awaiter)) {
+    return future->GetResumers();
+  }
+  return arrow::Status::Invalid("unexpected awaiter type");
+}
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
     const std::shared_ptr<arrow::Schema>& schema, const std::vector<int32_t>& values) {
@@ -157,14 +174,11 @@ arrow::Status RunPilotWaitForNotify() {
   for (int i = 0; i < 8; ++i) {
     ARROW_ASSIGN_OR_RAISE(auto status, group.Task()(task_ctx, /*task_id=*/0));
     if (status.IsBlocked()) {
-      auto awaiter =
-          std::dynamic_pointer_cast<bp::schedule::detail::ConditionalAwaiter>(
-              status.GetAwaiter());
-      if (awaiter == nullptr || awaiter->GetResumers().size() != 1 ||
-          awaiter->GetResumers()[0] == nullptr) {
+      ARROW_ASSIGN_OR_RAISE(auto resumers, GetAwaiterResumers(status.GetAwaiter()));
+      if (resumers.size() != 1 || resumers[0] == nullptr) {
         return arrow::Status::Invalid("expected a single blocked resumer");
       }
-      auto blocked = std::dynamic_pointer_cast<BlockedResumer>(awaiter->GetResumers()[0]);
+      auto blocked = std::dynamic_pointer_cast<BlockedResumer>(resumers[0]);
       if (blocked == nullptr) {
         return arrow::Status::Invalid("expected BlockedResumer");
       }
@@ -208,12 +222,18 @@ arrow::Status RunPilotWaitForNotify() {
 
 }  // namespace
 
-TEST(TiForthTaskBlockedStateTest, PilotErrorPropagation) {
+TIFORTH_CALLBACK_SCHEDULER_TEST_SUITE(TiForthTaskBlockedStateTest);
+
+TIFORTH_SCHEDULER_TEST(TiForthTaskBlockedStateTest, PilotErrorPropagation) {
   ASSERT_OK(RunPilotErrorPropagation());
 }
 
-TEST(TiForthTaskBlockedStateTest, PilotIOIn) { ASSERT_OK(RunPilotIOIn()); }
+TIFORTH_SCHEDULER_TEST(TiForthTaskBlockedStateTest, PilotIOIn) {
+  ASSERT_OK(RunPilotIOIn());
+}
 
-TEST(TiForthTaskBlockedStateTest, PilotWaitForNotify) { ASSERT_OK(RunPilotWaitForNotify()); }
+TIFORTH_SCHEDULER_TEST(TiForthTaskBlockedStateTest, PilotWaitForNotify) {
+  ASSERT_OK(RunPilotWaitForNotify());
+}
 
 }  // namespace tiforth

@@ -40,6 +40,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthMemoryPoolTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -323,12 +326,12 @@ arrow::Result<int64_t> RunHashAggBytesAllocated(int32_t collation_id) {
 
 }  // namespace
 
-TEST(TiForthMemoryPoolTest, SortUsesEnginePool) {
+TIFORTH_SCHEDULER_TEST(TiForthMemoryPoolTest, SortUsesEnginePool) {
   auto status = RunMemoryPoolSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthMemoryPoolTest, CollatedSortUsesEnginePoolForSortKeys) {
+TIFORTH_SCHEDULER_TEST(TiForthMemoryPoolTest, CollatedSortUsesEnginePoolForSortKeys) {
   auto bytes_binary = RunCollatedSortBytesAllocated(/*collation_id=*/63);
   ASSERT_TRUE(bytes_binary.ok()) << bytes_binary.status().ToString();
 
@@ -339,12 +342,12 @@ TEST(TiForthMemoryPoolTest, CollatedSortUsesEnginePoolForSortKeys) {
       << "expected collated sort to allocate additional sort-key memory through the engine pool";
 }
 
-TEST(TiForthMemoryPoolTest, HashJoinUsesEnginePool) {
+TIFORTH_SCHEDULER_TEST(TiForthMemoryPoolTest, HashJoinUsesEnginePool) {
   auto status = RunHashJoinMemoryPoolSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthMemoryPoolTest, HashAggUsesEnginePool) {
+TIFORTH_SCHEDULER_TEST(TiForthMemoryPoolTest, HashAggUsesEnginePool) {
   auto bytes_binary = RunHashAggBytesAllocated(/*collation_id=*/63);
   ASSERT_TRUE(bytes_binary.ok()) << bytes_binary.status().ToString();
 

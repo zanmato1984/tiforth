@@ -28,6 +28,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthPassThroughReaderTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBatch(
@@ -112,7 +115,7 @@ arrow::Status RunPassThroughReaderSmoke() {
 
 }  // namespace
 
-TEST(TiForthPassThroughReaderTest, RecordBatchReader) {
+TIFORTH_SCHEDULER_TEST(TiForthPassThroughReaderTest, RecordBatchReader) {
   auto status = RunPassThroughReaderSmoke();
   ASSERT_OK(status);
 }

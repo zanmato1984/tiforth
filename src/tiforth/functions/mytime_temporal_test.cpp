@@ -34,6 +34,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthMyTimeTest);
+
+
 namespace {
 
 uint64_t PackMyDateTime(uint16_t year, uint8_t month, uint8_t day, uint16_t hour, uint8_t minute,
@@ -284,7 +287,7 @@ arrow::Status RunPackedMyTimeExtractSmoke() {
 
 }  // namespace
 
-TEST(TiForthMyTimeTest, PackedExtract) {
+TIFORTH_SCHEDULER_TEST(TiForthMyTimeTest, PackedExtract) {
   auto status = RunPackedMyTimeExtractSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }

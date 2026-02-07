@@ -30,6 +30,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthProjectionTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(const std::vector<int32_t>& values) {
@@ -146,7 +149,7 @@ arrow::Status RunProjectionSmoke() {
 
 }  // namespace
 
-TEST(TiForthProjectionTest, ProjectionAdd) {
+TIFORTH_SCHEDULER_TEST(TiForthProjectionTest, ProjectionAdd) {
   auto status = RunProjectionSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }

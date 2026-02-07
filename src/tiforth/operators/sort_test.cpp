@@ -36,6 +36,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthSortTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -236,30 +239,30 @@ arrow::Status RunStringSort(int32_t collation_id, const std::vector<int32_t>& ex
 
 }  // namespace
 
-TEST(TiForthSortTest, SortInt32AscNullsLast) {
+TIFORTH_SCHEDULER_TEST(TiForthSortTest, SortInt32AscNullsLast) {
   auto status = RunSortSmoke();
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthSortTest, SortStringBinaryCollation) {
+TIFORTH_SCHEDULER_TEST(TiForthSortTest, SortStringBinaryCollation) {
   // Binary collation: "a" < "a " < "b", nulls last.
   auto status = RunStringSort(/*collation_id=*/63, /*expected_vs=*/{2, 1, 3, 4});
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthSortTest, SortStringPaddingBinaryCollation) {
+TIFORTH_SCHEDULER_TEST(TiForthSortTest, SortStringPaddingBinaryCollation) {
   // Padding BIN: "a " == "a", stable (keeps input order 1 then 2).
   auto status = RunStringSort(/*collation_id=*/46, /*expected_vs=*/{1, 2, 3, 4});
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthSortTest, SortStringGeneralCiCollation) {
+TIFORTH_SCHEDULER_TEST(TiForthSortTest, SortStringGeneralCiCollation) {
   // General CI uses weight strings with padding semantics (trailing ASCII spaces trimmed).
   auto status = RunStringSort(/*collation_id=*/45, /*expected_vs=*/{1, 2, 3, 4});
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthSortTest, SortStringUnicode0900Collation) {
+TIFORTH_SCHEDULER_TEST(TiForthSortTest, SortStringUnicode0900Collation) {
   // Unicode 0900 AI CI is NO PAD: "a" < "a " (space is significant).
   auto status = RunStringSort(/*collation_id=*/255, /*expected_vs=*/{2, 1, 3, 4});
   ASSERT_TRUE(status.ok()) << status.ToString();

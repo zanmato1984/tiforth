@@ -43,6 +43,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthParallelHashAggPipelineTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -249,7 +252,7 @@ arrow::Status RunParallelHashAggTwoStagePipeline() {
 
 }  // namespace
 
-TEST(TiForthParallelHashAggPipelineTest, TwoStageParallel) {
+TIFORTH_SCHEDULER_TEST(TiForthParallelHashAggPipelineTest, TwoStageParallel) {
   ASSERT_OK(RunParallelHashAggTwoStagePipeline());
 }
 

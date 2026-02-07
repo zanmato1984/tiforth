@@ -32,6 +32,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthCollationCompareTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeBinaryBatch(
@@ -270,42 +273,42 @@ arrow::Status RunFilterEqualsFields(std::pair<std::string, int32_t> lhs_col,
 
 }  // namespace
 
-TEST(TiForthCollationCompareTest, BinaryNoPadding) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, BinaryNoPadding) {
   // BINARY: "a " != "a".
   auto status = RunFilterEquals(/*collation_id=*/63, {"a ", "a"}, "a", /*expected_rows=*/1);
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthCollationCompareTest, PaddingBinaryTrimsSpaces) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, PaddingBinaryTrimsSpaces) {
   // UTF8MB4_BIN (PAD SPACE): "a " == "a".
   auto status = RunFilterEquals(/*collation_id=*/46, {"a ", "a"}, "a", /*expected_rows=*/2);
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthCollationCompareTest, LargeBinaryPaddingBinaryTrimsSpaces) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, LargeBinaryPaddingBinaryTrimsSpaces) {
   auto status = RunFilterEqualsLargeBinary(/*collation_id=*/46, {"a ", "a"}, "a", /*expected_rows=*/2);
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthCollationCompareTest, GeneralCiCaseInsensitive) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, GeneralCiCaseInsensitive) {
   // UTF8_GENERAL_CI: "A" == "a", trims trailing spaces.
   auto status = RunFilterEquals(/*collation_id=*/33, {"A", "a", "a ", "b"}, "a", /*expected_rows=*/3);
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthCollationCompareTest, UnicodeCi0400CaseInsensitive) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, UnicodeCi0400CaseInsensitive) {
   // UTF8_UNICODE_CI: "A" == "a", trims trailing spaces.
   auto status = RunFilterEquals(/*collation_id=*/192, {"A", "a", "a ", "b"}, "a", /*expected_rows=*/3);
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthCollationCompareTest, UnicodeCi0900NoPadding) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, UnicodeCi0900NoPadding) {
   // UTF8MB4_0900_AI_CI: "A" == "a", but NO PAD so "a " != "a".
   auto status = RunFilterEquals(/*collation_id=*/255, {"A", "a ", "b"}, "a", /*expected_rows=*/1);
   ASSERT_TRUE(status.ok()) << status.ToString();
 }
 
-TEST(TiForthCollationCompareTest, CoerceBinaryAndPaddingBinary) {
+TIFORTH_SCHEDULER_TEST(TiForthCollationCompareTest, CoerceBinaryAndPaddingBinary) {
   // Mixed collation compare should be accepted on the common path; BINARY wins over PAD SPACE BIN.
   auto status = RunFilterEqualsFields(
       /*lhs_col=*/{"s_bin", 63},

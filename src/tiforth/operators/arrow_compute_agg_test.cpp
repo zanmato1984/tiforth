@@ -43,6 +43,9 @@
 
 namespace tiforth {
 
+TIFORTH_SCHEDULER_TEST_SUITE(TiForthArrowComputeAggTest);
+
+
 namespace {
 
 arrow::Result<std::shared_ptr<arrow::Array>> MakeInt32Array(
@@ -579,12 +582,12 @@ arrow::Status RunArrowComputeAggMultiKey() {
 
 }  // namespace
 
-TEST(TiForthArrowComputeAggTest, GroupByAndAggregates) { ASSERT_OK(RunArrowComputeAggSmoke()); }
-TEST(TiForthArrowComputeAggTest, ComputedKeyAndArg) { ASSERT_OK(RunArrowComputeAggComputedExpr()); }
-TEST(TiForthArrowComputeAggTest, StringKey) { ASSERT_OK(RunArrowComputeAggStringKey()); }
-TEST(TiForthArrowComputeAggTest, StringKeyStableDict) {
+TIFORTH_SCHEDULER_TEST(TiForthArrowComputeAggTest, GroupByAndAggregates) { ASSERT_OK(RunArrowComputeAggSmoke()); }
+TIFORTH_SCHEDULER_TEST(TiForthArrowComputeAggTest, ComputedKeyAndArg) { ASSERT_OK(RunArrowComputeAggComputedExpr()); }
+TIFORTH_SCHEDULER_TEST(TiForthArrowComputeAggTest, StringKey) { ASSERT_OK(RunArrowComputeAggStringKey()); }
+TIFORTH_SCHEDULER_TEST(TiForthArrowComputeAggTest, StringKeyStableDict) {
   ASSERT_OK(RunArrowComputeAggStringKeyStableDict());
 }
-TEST(TiForthArrowComputeAggTest, MultiKey) { ASSERT_OK(RunArrowComputeAggMultiKey()); }
+TIFORTH_SCHEDULER_TEST(TiForthArrowComputeAggTest, MultiKey) { ASSERT_OK(RunArrowComputeAggMultiKey()); }
 
 }  // namespace tiforth
