@@ -31,8 +31,8 @@
 #include "tiforth/operators/filter.h"
 #include "tiforth/traits.h"
 
-#include "test_pipeline_ops.h"
-#include "test_task_group_runner.h"
+#include "tiforth/testing/test_pipeline_ops.h"
+#include "tiforth/testing/test_task_group_runner.h"
 
 namespace tiforth {
 

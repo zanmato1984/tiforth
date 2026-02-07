@@ -41,8 +41,4 @@ include(cmake/find/broken_pipeline.cmake)
 
 add_subdirectory(src/tiforth)
 
-if(TIFORTH_BUILD_TESTS)
-  add_subdirectory(tests)
-endif()
-
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/install.cmake")

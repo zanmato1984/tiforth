@@ -26,7 +26,7 @@
 
 #include "tiforth/traits.h"
 
-#include "test_blocked_resumer.h"
+#include "tiforth/testing/test_blocked_resumer.h"
 
 namespace tiforth::test {
 

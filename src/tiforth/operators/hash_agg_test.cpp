@@ -23,8 +23,8 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -35,11 +35,12 @@
 
 #include "tiforth/engine.h"
 #include "tiforth/expr.h"
-#include "tiforth/operators/arrow_compute_agg.h"
+#include "tiforth/operators/hash_agg.h"
 #include "tiforth/traits.h"
+#include "tiforth/type_metadata.h"
 
-#include "test_pipeline_ops.h"
-#include "test_task_group_runner.h"
+#include "tiforth/testing/test_pipeline_ops.h"
+#include "tiforth/testing/test_task_group_runner.h"
 
 namespace tiforth {
 
@@ -103,6 +104,25 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeStringKeyBatch(
   return arrow::RecordBatch::Make(schema, static_cast<int64_t>(keys.size()), {s_array, v_array});
 }
 
+arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeStringKeyBatchWithSchema(
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::vector<std::optional<std::string>>& keys,
+    const std::vector<std::optional<int32_t>>& values) {
+  if (schema == nullptr) {
+    return arrow::Status::Invalid("schema must not be null");
+  }
+  if (schema->num_fields() != 2) {
+    return arrow::Status::Invalid("expected 2 fields in schema");
+  }
+  if (keys.size() != values.size()) {
+    return arrow::Status::Invalid("keys and values must have the same length");
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto s_array, MakeStringArray(keys));
+  ARROW_ASSIGN_OR_RAISE(auto v_array, MakeInt32Array(values));
+  return arrow::RecordBatch::Make(schema, static_cast<int64_t>(keys.size()), {s_array, v_array});
+}
+
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeMultiKeyBatch(
     const std::vector<std::optional<int32_t>>& k_values,
     const std::vector<std::optional<std::string>>& s_values,
@@ -120,9 +140,9 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeMultiKeyBatch(
                                   {k_array, s_array, v_array});
 }
 
-arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
+arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPlan(
     const std::vector<std::shared_ptr<arrow::RecordBatch>>& inputs, const std::vector<op::AggKey>& keys,
-    const std::vector<op::AggFunc>& aggs, op::ArrowComputeAggOptions options = {}) {
+    const std::vector<op::AggFunc>& aggs) {
   ARROW_ASSIGN_OR_RAISE(auto engine, Engine::Create(EngineOptions{}));
   for (const auto& batch : inputs) {
     if (batch == nullptr) {
@@ -130,35 +150,53 @@ arrow::Result<std::vector<std::shared_ptr<arrow::RecordBatch>>> RunAggPipeline(
     }
   }
 
-  auto source_op = std::make_unique<test::VectorSourceOp>(inputs);
+  auto agg_state = std::make_shared<op::HashAggState>(engine.get(), keys, aggs);
 
-  std::vector<std::unique_ptr<PipeOp>> pipe_ops;
-  pipe_ops.push_back(std::make_unique<op::ArrowComputeAggPipeOp>(engine.get(), keys, aggs, options));
+  // Build stage: consume all input into HashAggState.
+  {
+    auto source_op = std::make_unique<test::VectorSourceOp>(inputs);
+    auto sink_op = std::make_unique<op::HashAggSinkOp>(agg_state);
 
-  test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
-  auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
+    Pipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
 
-  Pipeline::Channel channel;
-  channel.source_op = source_op.get();
-  channel.pipe_ops.reserve(pipe_ops.size());
-  for (auto& op : pipe_ops) {
-    channel.pipe_ops.push_back(op.get());
+    Pipeline logical_pipeline{
+        "HashAggBuild",
+        std::vector<Pipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          test::CompileToTaskGroups(logical_pipeline, /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
   }
 
-  Pipeline logical_pipeline{"ArrowComputeAgg", std::vector<Pipeline::Channel>{std::move(channel)},
-                                   sink_op.get()};
+  // Result stage: stream finalized output batches.
+  {
+    auto source_op = std::make_unique<op::HashAggResultSourceOp>(agg_state);
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto task_groups,
-      test::CompileToTaskGroups(logical_pipeline, /*dop=*/1));
+    test::CollectSinkOp::OutputsByThread outputs_by_thread(1);
+    auto sink_op = std::make_unique<test::CollectSinkOp>(&outputs_by_thread);
 
-  auto task_ctx = test::MakeTestTaskContext();
-  ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+    Pipeline::Channel channel;
+    channel.source_op = source_op.get();
+    channel.pipe_ops = {};
 
-  return test::FlattenOutputs(std::move(outputs_by_thread));
+    Pipeline logical_pipeline{
+        "HashAggResult",
+        std::vector<Pipeline::Channel>{std::move(channel)},
+        sink_op.get()};
+
+    ARROW_ASSIGN_OR_RAISE(auto task_groups,
+                          test::CompileToTaskGroups(logical_pipeline, /*dop=*/1));
+    auto task_ctx = test::MakeTestTaskContext();
+    ARROW_RETURN_NOT_OK(test::RunTaskGroupsToCompletion(task_groups, task_ctx));
+    return test::FlattenOutputs(std::move(outputs_by_thread));
+  }
 }
 
-arrow::Status RunArrowComputeAggSmoke() {
+arrow::Status RunHashAggSmoke() {
   std::vector<op::AggKey> keys = {{"k", MakeFieldRef("k")}};
   std::vector<op::AggFunc> aggs;
   aggs.push_back({"cnt_all", "count_all", nullptr});
@@ -173,8 +211,7 @@ arrow::Status RunArrowComputeAggSmoke() {
   ARROW_ASSIGN_OR_RAISE(
       auto batch1, MakeInt32Batch({2, 3, std::nullopt, 4}, {1, 5, std::nullopt, std::nullopt}));
 
-  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
-
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPlan({batch0, batch1}, keys, aggs));
   if (outputs.empty()) {
     return arrow::Status::Invalid("expected at least 1 output batch");
   }
@@ -190,16 +227,13 @@ arrow::Status RunArrowComputeAggSmoke() {
 
   std::map<std::optional<int32_t>, ExpectedAgg> expected;
   expected.emplace(std::optional<int32_t>(1),
-                   ExpectedAgg{2, 1, 10, static_cast<int32_t>(10),
-                               static_cast<int32_t>(10), 10.0});
+                   ExpectedAgg{2, 1, 10, static_cast<int32_t>(10), static_cast<int32_t>(10), 10.0});
   expected.emplace(std::optional<int32_t>(2),
-                   ExpectedAgg{2, 2, 21, static_cast<int32_t>(1),
-                               static_cast<int32_t>(20), 10.5});
+                   ExpectedAgg{2, 2, 21, static_cast<int32_t>(1), static_cast<int32_t>(20), 10.5});
   expected.emplace(std::optional<int32_t>(),
                    ExpectedAgg{2, 1, 7, static_cast<int32_t>(7), static_cast<int32_t>(7), 7.0});
   expected.emplace(std::optional<int32_t>(3),
-                   ExpectedAgg{1, 1, 5, static_cast<int32_t>(5),
-                               static_cast<int32_t>(5), 5.0});
+                   ExpectedAgg{1, 1, 5, static_cast<int32_t>(5), static_cast<int32_t>(5), 5.0});
   expected.emplace(std::optional<int32_t>(4),
                    ExpectedAgg{1, 0, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 
@@ -207,35 +241,19 @@ arrow::Status RunArrowComputeAggSmoke() {
     if (out == nullptr) {
       return arrow::Status::Invalid("expected non-null output batch");
     }
-    if (out->num_columns() != 7) {
-      return arrow::Status::Invalid("unexpected output column count");
-    }
 
-    auto actual_k = out->GetColumnByName("k");
-    auto actual_cnt_all = out->GetColumnByName("cnt_all");
-    auto actual_cnt_v = out->GetColumnByName("cnt_v");
-    auto actual_sum = out->GetColumnByName("sum_v");
-    auto actual_min = out->GetColumnByName("min_v");
-    auto actual_max = out->GetColumnByName("max_v");
-    auto actual_mean = out->GetColumnByName("mean_v");
+    auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("k"));
+    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_v_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_v"));
+    auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
+    auto min_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("min_v"));
+    auto max_array = std::dynamic_pointer_cast<arrow::Int32Array>(out->GetColumnByName("max_v"));
+    auto mean_array = std::dynamic_pointer_cast<arrow::DoubleArray>(out->GetColumnByName("mean_v"));
 
-    if (actual_k == nullptr || actual_cnt_all == nullptr || actual_cnt_v == nullptr ||
-        actual_sum == nullptr || actual_min == nullptr || actual_max == nullptr ||
-        actual_mean == nullptr) {
-      return arrow::Status::Invalid("missing expected output columns");
-    }
-
-    const auto k_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_k);
-    const auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(actual_cnt_all);
-    const auto cnt_v_array = std::dynamic_pointer_cast<arrow::UInt64Array>(actual_cnt_v);
-    const auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(actual_sum);
-    const auto min_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_min);
-    const auto max_array = std::dynamic_pointer_cast<arrow::Int32Array>(actual_max);
-    const auto mean_array = std::dynamic_pointer_cast<arrow::DoubleArray>(actual_mean);
     if (k_array == nullptr || cnt_all_array == nullptr || cnt_v_array == nullptr ||
         sum_array == nullptr || min_array == nullptr || max_array == nullptr ||
         mean_array == nullptr) {
-      return arrow::Status::Invalid("unexpected output column types");
+      return arrow::Status::Invalid("unexpected output types for smoke test");
     }
 
     for (int64_t i = 0; i < out->num_rows(); ++i) {
@@ -243,7 +261,6 @@ arrow::Status RunArrowComputeAggSmoke() {
       if (!k_array->IsNull(i)) {
         key = k_array->Value(i);
       }
-
       const auto it = expected.find(key);
       if (it == expected.end()) {
         return arrow::Status::Invalid("unexpected group key");
@@ -293,11 +310,10 @@ arrow::Status RunArrowComputeAggSmoke() {
   if (!expected.empty()) {
     return arrow::Status::Invalid("missing expected group keys");
   }
-
   return arrow::Status::OK();
 }
 
-arrow::Status RunArrowComputeAggComputedExpr() {
+arrow::Status RunHashAggComputedExpr() {
   auto plus_one = [](ExprPtr arg) {
     return MakeCall("add", {std::move(arg), MakeLiteral(std::make_shared<arrow::Int32Scalar>(1))});
   };
@@ -311,7 +327,7 @@ arrow::Status RunArrowComputeAggComputedExpr() {
                         MakeInt32Batch({1, 2, 1, std::nullopt}, {10, 20, std::nullopt, 7}));
   ARROW_ASSIGN_OR_RAISE(
       auto batch1, MakeInt32Batch({2, 3, std::nullopt, 4}, {1, 5, std::nullopt, std::nullopt}));
-  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPlan({batch0, batch1}, keys, aggs));
 
   struct Expected {
     uint64_t cnt_all;
@@ -368,27 +384,27 @@ arrow::Status RunArrowComputeAggComputedExpr() {
   return arrow::Status::OK();
 }
 
-arrow::Status RunArrowComputeAggStringKey() {
+arrow::Status RunHashAggStringKey() {
   std::vector<op::AggKey> keys = {{"s", MakeFieldRef("s")}};
   std::vector<op::AggFunc> aggs;
   aggs.push_back({"cnt_all", "count_all", nullptr});
   aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
 
-  ARROW_ASSIGN_OR_RAISE(auto batch0,
-                        MakeStringKeyBatch({"a", "b", "a", std::nullopt}, {1, 2, 3, 4}));
   ARROW_ASSIGN_OR_RAISE(
-      auto batch1, MakeStringKeyBatch({"b", "c", std::nullopt, "a"}, {std::nullopt, 5, 6, std::nullopt}));
-  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
+      auto batch0, MakeStringKeyBatch({"a", "b", "a", std::nullopt}, {10, 20, std::nullopt, 7}));
+  ARROW_ASSIGN_OR_RAISE(
+      auto batch1, MakeStringKeyBatch({"b", "c", std::nullopt, "a"}, {1, 5, std::nullopt, std::nullopt}));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPlan({batch0, batch1}, keys, aggs));
 
   struct Expected {
     uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<std::string>, Expected> expected;
-  expected.emplace(std::optional<std::string>("a"), Expected{3, 4});
-  expected.emplace(std::optional<std::string>("b"), Expected{2, 2});
+  expected.emplace(std::optional<std::string>("a"), Expected{3, 10});
+  expected.emplace(std::optional<std::string>("b"), Expected{2, 21});
   expected.emplace(std::optional<std::string>("c"), Expected{1, 5});
-  expected.emplace(std::optional<std::string>(), Expected{2, 10});
+  expected.emplace(std::optional<std::string>(), Expected{2, 7});
 
   for (const auto& out : outputs) {
     if (out == nullptr) {
@@ -433,40 +449,43 @@ arrow::Status RunArrowComputeAggStringKey() {
   return arrow::Status::OK();
 }
 
-arrow::Status RunArrowComputeAggStringKeyStableDict() {
+arrow::Status RunHashAggCollatedStringKey() {
+  auto s_field = arrow::field("s", arrow::utf8());
+  LogicalType logical_type;
+  logical_type.id = LogicalTypeId::kString;
+  logical_type.collation_id = 255;  // UTF8MB4_0900_AI_CI (NO PAD)
+  ARROW_ASSIGN_OR_RAISE(s_field, WithLogicalTypeMetadata(s_field, logical_type));
+
+  auto schema = arrow::schema({s_field, arrow::field("v", arrow::int32())});
+
   std::vector<op::AggKey> keys = {{"s", MakeFieldRef("s")}};
   std::vector<op::AggFunc> aggs;
   aggs.push_back({"cnt_all", "count_all", nullptr});
   aggs.push_back({"sum_v", "sum", MakeFieldRef("v")});
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto batch0, MakeStringKeyBatch({"a", "b", "a", std::nullopt}, {10, 20, std::nullopt, 7}));
-  ARROW_ASSIGN_OR_RAISE(
-      auto batch1, MakeStringKeyBatch({"b", "c", std::nullopt, "a"}, {1, 5, std::nullopt, std::nullopt}));
-
-  op::ArrowComputeAggOptions options;
-  options.stable_dictionary_encode_binary_keys = true;
-  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs, options));
+  ARROW_ASSIGN_OR_RAISE(auto batch0, MakeStringKeyBatchWithSchema(schema, {"a", "A", "b", std::nullopt},
+                                                                  {10, 20, 5, 7}));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPlan({batch0}, keys, aggs));
 
   struct Expected {
     uint64_t cnt_all;
     std::optional<int64_t> sum_v;
   };
   std::map<std::optional<std::string>, Expected> expected;
-  expected.emplace(std::optional<std::string>("a"), Expected{3, 10});
-  expected.emplace(std::optional<std::string>("b"), Expected{2, 21});
-  expected.emplace(std::optional<std::string>("c"), Expected{1, 5});
-  expected.emplace(std::optional<std::string>(), Expected{2, 7});
+  expected.emplace(std::optional<std::string>("a"), Expected{2, 30});
+  expected.emplace(std::optional<std::string>("b"), Expected{1, 5});
+  expected.emplace(std::optional<std::string>(), Expected{1, 7});
 
   for (const auto& out : outputs) {
     if (out == nullptr) {
       return arrow::Status::Invalid("expected non-null output batch");
     }
     auto s_array = std::dynamic_pointer_cast<arrow::StringArray>(out->GetColumnByName("s"));
-    auto cnt_all_array = std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
+    auto cnt_all_array =
+        std::dynamic_pointer_cast<arrow::UInt64Array>(out->GetColumnByName("cnt_all"));
     auto sum_array = std::dynamic_pointer_cast<arrow::Int64Array>(out->GetColumnByName("sum_v"));
     if (s_array == nullptr || cnt_all_array == nullptr || sum_array == nullptr) {
-      return arrow::Status::Invalid("unexpected output types for stable dict string key test");
+      return arrow::Status::Invalid("unexpected output types for collated string key test");
     }
 
     for (int64_t i = 0; i < out->num_rows(); ++i) {
@@ -477,10 +496,9 @@ arrow::Status RunArrowComputeAggStringKeyStableDict() {
 
       const auto it = expected.find(key);
       if (it == expected.end()) {
-        return arrow::Status::Invalid("unexpected group key in stable dict string key test");
+        return arrow::Status::Invalid("unexpected group key in collated string key test");
       }
       const auto exp = it->second;
-
       if (cnt_all_array->IsNull(i) || cnt_all_array->Value(i) != exp.cnt_all) {
         return arrow::Status::Invalid("cnt_all output mismatch");
       }
@@ -491,17 +509,18 @@ arrow::Status RunArrowComputeAggStringKeyStableDict() {
       } else if (!sum_array->IsNull(i)) {
         return arrow::Status::Invalid("sum_v output mismatch");
       }
+
       expected.erase(it);
     }
   }
 
   if (!expected.empty()) {
-    return arrow::Status::Invalid("missing expected group keys in stable dict string key test");
+    return arrow::Status::Invalid("missing expected group keys in collated string key test");
   }
   return arrow::Status::OK();
 }
 
-arrow::Status RunArrowComputeAggMultiKey() {
+arrow::Status RunHashAggMultiKey() {
   std::vector<op::AggKey> keys = {{"k", MakeFieldRef("k")}, {"s", MakeFieldRef("s")}};
   std::vector<op::AggFunc> aggs;
   aggs.push_back({"cnt_all", "count_all", nullptr});
@@ -513,7 +532,7 @@ arrow::Status RunArrowComputeAggMultiKey() {
   ARROW_ASSIGN_OR_RAISE(
       auto batch1, MakeMultiKeyBatch({1, 2, 2, std::nullopt}, {"a", "a", std::nullopt, "a"},
                                      {1, 2, 3, 4}));
-  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPipeline({batch0, batch1}, keys, aggs));
+  ARROW_ASSIGN_OR_RAISE(auto outputs, RunAggPlan({batch0, batch1}, keys, aggs));
 
   struct Expected {
     uint64_t cnt_all;
@@ -579,12 +598,10 @@ arrow::Status RunArrowComputeAggMultiKey() {
 
 }  // namespace
 
-TEST(TiForthArrowComputeAggTest, GroupByAndAggregates) { ASSERT_OK(RunArrowComputeAggSmoke()); }
-TEST(TiForthArrowComputeAggTest, ComputedKeyAndArg) { ASSERT_OK(RunArrowComputeAggComputedExpr()); }
-TEST(TiForthArrowComputeAggTest, StringKey) { ASSERT_OK(RunArrowComputeAggStringKey()); }
-TEST(TiForthArrowComputeAggTest, StringKeyStableDict) {
-  ASSERT_OK(RunArrowComputeAggStringKeyStableDict());
-}
-TEST(TiForthArrowComputeAggTest, MultiKey) { ASSERT_OK(RunArrowComputeAggMultiKey()); }
+TEST(TiForthHashAggTest, GroupByAndAggregates) { ASSERT_OK(RunHashAggSmoke()); }
+TEST(TiForthHashAggTest, ComputedKeyAndArg) { ASSERT_OK(RunHashAggComputedExpr()); }
+TEST(TiForthHashAggTest, StringKey) { ASSERT_OK(RunHashAggStringKey()); }
+TEST(TiForthHashAggTest, CollatedStringKey) { ASSERT_OK(RunHashAggCollatedStringKey()); }
+TEST(TiForthHashAggTest, MultiKey) { ASSERT_OK(RunHashAggMultiKey()); }
 
 }  // namespace tiforth
