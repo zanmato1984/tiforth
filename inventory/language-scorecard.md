@@ -2,7 +2,9 @@
 
 This file is the comparison rubric for **C++** versus **Rust**.
 
-Do not score until the priority concerns and baseline constraints are sufficiently clear.
+The current decision posture is **Rust by default unless blocked**.
+
+That means the scorecard is not trying to erase preference; it is trying to test whether the preference survives contact with real constraints.
 
 ## Suggested Scoring Scale
 
@@ -13,6 +15,15 @@ Do not score until the priority concerns and baseline constraints are sufficient
 - 5 = very strong fit
 
 Scores are optional if narrative comparison is clearer, but both languages should be evaluated against the same dimensions.
+
+## Mandatory Questions Before Any Final Recommendation
+
+1. Can a Rust-first kernel satisfy tiforth's required memory-accounting and spill model?
+2. If not directly, can that gap be isolated behind a narrow lower-level boundary without giving up a Rust-developed kernel?
+3. Can broken-pipeline ideas be adapted cleanly enough for a Rust-first runtime path?
+4. Are the remaining integration costs genuinely blockers, or just engineering work?
+
+If these questions are not answered, the decision is not ready.
 
 ## Dimensions
 
@@ -39,24 +50,24 @@ Scores are optional if narrative comparison is clearer, but both languages shoul
 
 ### Arrow Data-Contract Fit
 
-- weight: TBD
+- weight: high
 - C++: TBD
 - Rust: TBD
-- notes: TBD
+- notes: includes allocator / memory-pool support, accounting hooks, and spill implications
 
 ### Runtime / Concurrency Fit
 
-- weight: TBD
+- weight: high
 - C++: TBD
 - Rust: TBD
-- notes: TBD
+- notes: includes staged execution, cancellation, backpressure, observability, and the ability to keep the kernel primarily Rust even if lower-level escape hatches are needed
 
 ### FFI / Boundary Complexity
 
-- weight: TBD
+- weight: high
 - C++: TBD
 - Rust: TBD
-- notes: TBD
+- notes: especially important if the fallback path is Rust kernel + selective C++ lower layers
 
 ### Build / Debug / Tooling Complexity
 
@@ -67,10 +78,10 @@ Scores are optional if narrative comparison is clearer, but both languages shoul
 
 ### Long-Term Maintenance / Correctness Risk
 
-- weight: TBD
+- weight: high
 - C++: TBD
 - Rust: TBD
-- notes: TBD
+- notes: this dimension should reflect the project's stated preference for Rust safety and agent-friendly development, not treat both languages as culturally neutral
 
 ## Decision Rule
 

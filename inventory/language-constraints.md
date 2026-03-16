@@ -20,9 +20,56 @@ Out of scope:
 
 ## Priority Concerns From Rossi
 
-Pending input.
+### Default Posture
 
-This section should be updated first when Rossi supplies the most important decision axes.
+- Strong default preference: **Rust** for the shared kernel / runtime core.
+- Main reasons: memory and concurrency safety, plus strong fit for agent-driven implementation work.
+- This means the decision process should treat Rust as the default path unless a real blocker is identified.
+
+### Fallback Posture If Rust Hits A Blocker
+
+- Prefer a hybrid design over a full retreat to a C++ kernel.
+- If needed, use C++ for lower-level pieces while keeping the kernel body primarily Rust.
+- Use explicit FFI boundaries only where necessary.
+- Preserve the ability to develop the kernel independently in Rust.
+
+### Candidate Blockers
+
+#### 1. Arrow Memory Pool Support In Rust
+
+Concern:
+
+- Rust Arrow may not yet provide the full memory-pool support tiforth needs.
+- TiDB, TiKV, and TiFlash all require fine-grained memory tracking.
+- Spill support is also expected, so allocation control and accounting are not cosmetic concerns.
+
+Why this matters:
+
+- if Rust cannot support the memory-accounting model tiforth actually needs, the core design may be blocked or forced into awkward workarounds
+- this is a likely blocker candidate rather than a minor inconvenience
+
+#### 2. broken-pipeline Compatibility
+
+Concern:
+
+- `broken-pipeline` is currently C++ and header-only
+- tiforth wants runtime ideas from broken-pipeline, and may want some direct reuse or adaptation path
+
+Important context:
+
+- Rossi owns `broken-pipeline`
+- this lowers the barrier to changing the protocol, introducing a Rust implementation, or reshaping the interface to support a Rust-first kernel
+
+Implication:
+
+- broken-pipeline being in C++ is a serious integration topic, but not automatically a blocker if the protocol can evolve
+
+### Working Decision Bias
+
+The current burden of proof is asymmetric:
+
+- Rust does not need to prove that C++ is impossible
+- C++ needs either a clear positive advantage or a concrete blocker against Rust
 
 ## Baseline Constraints To Investigate
 
@@ -81,8 +128,9 @@ There is an obvious tension between:
 
 - maximizing TiFlash donor leverage and immediate practicality
 - maximizing reboot cleanliness and long-term kernel quality
+- reusing existing C++ runtime ideas quickly versus keeping the kernel genuinely Rust-first
 
-The decision process should make that tension explicit instead of hiding it inside implementation momentum.
+The decision process should make those tensions explicit instead of hiding them inside implementation momentum.
 
 ## Evidence Rules
 

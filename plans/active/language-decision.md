@@ -24,13 +24,17 @@ Because the impact is cross-cutting, the choice should be tracked as a first-cla
 
 ## Current State
 
-The decision question is opened and scaffolded, but Rossi has not yet supplied the highest-priority evaluation concerns.
+The decision question is now constrained by a clear default posture from Rossi:
 
-Until that happens:
+- prefer **Rust** for the shared kernel / runtime core if there is no blocker
+- if blockers exist, prefer a **hybrid path** where low-level pieces may remain or become C++, but the kernel stays primarily Rust and can be developed independently in Rust
+- do not choose C++ for the kernel by inertia alone; it must be justified by concrete blockers
 
-- do not treat either language as the default winner
-- do not land language-specific implementation code for the shared kernel
-- continue shaping the decision task, evidence log, and rubric
+Current focus:
+
+- identify whether any blocker is real, architectural, and near-term
+- decide whether a Rust-first design can absorb those blockers through explicit boundaries
+- avoid accidental commitment to a C++-first kernel just because donor material already exists there
 
 ## Non-Goals
 
@@ -52,11 +56,12 @@ This plan does not decide:
 
 ### Phase 0: Capture Priority Concerns
 
-Record Rossi's top decision criteria and anti-goals.
+Record Rossi's top decision criteria, anti-goals, and default preference.
 
 Exit criteria:
 
-- the highest-priority evaluation axes are written down
+- the Rust-first default posture is written down
+- candidate blockers are explicitly listed
 - obvious non-goals are explicit
 
 ### Phase 1: Inventory Constraints
