@@ -52,6 +52,11 @@ This plan does not decide:
 - a final decision record under `docs/decisions/`
 - optional thin spikes, if paper analysis alone is insufficient
 
+## Immediate Subtasks
+
+- #2 `investigate: rust-first memory accounting and spill blockers`
+- #3 `design: broken-pipeline adaptation path for rust-first tiforth`
+
 ## Work Phases
 
 ### Phase 0: Capture Priority Concerns
@@ -75,6 +80,12 @@ Focus areas:
 - runtime / concurrency / cancellation implications
 - build, debug, test, and FFI complexity
 - donor leverage versus reboot cleanliness
+
+Execution note:
+
+- issue #2 should sharpen the memory-accounting / spill blocker question
+- issue #3 should sharpen the broken-pipeline adaptation question
+- these can run in parallel, but #2 has slightly higher priority because it is the more likely true blocker
 
 Exit criteria:
 
