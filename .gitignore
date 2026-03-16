@@ -1,0 +1,14 @@
+# OS and editor noise
+.DS_Store
+.idea/
+.vscode/
+
+# Generic temp output
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.cache/
+tmp/
+out/
