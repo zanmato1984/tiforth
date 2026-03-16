@@ -34,8 +34,10 @@ This contract should eventually describe:
 - TODO: choose the primary handoff model for the first harness slice
 - TODO: define which runtime events must be observable in tests
 - TODO: define error taxonomy and propagation guarantees
-- TODO: define memory ownership transfer rules between stages
-- TODO: decide how exchange, spill, and retry behaviors fit into the contract
+- TODO: define memory ownership transfer rules between stages, including reservation state and host-allocator-backed Arrow buffers
+- TODO: define how a routed host allocator is presented to the runtime boundary (per query, stage, or operator) and what thread-safety / callback guarantees are required when it originates in Go, C++, or Rust
+- TODO: define operator-managed spill triggers and handoff rules; do not assume transparent spill inside Arrow allocation paths
+- TODO: decide how exchange, spill, and retry behaviors fit into the contract once operator-managed spill is made explicit
 - TODO: decide what part of the runtime is shared versus adapter-owned
 
 ## Initial Boundary

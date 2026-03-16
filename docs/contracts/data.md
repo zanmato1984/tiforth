@@ -31,11 +31,13 @@ This contract should eventually cover:
 ## Open Questions
 
 - TODO: define the canonical batch envelope used by tests, adapters, and future kernels
-- TODO: define ownership and lifetime rules for buffers across stage boundaries
+- TODO: define ownership and lifetime rules for buffers across stage boundaries, including host-allocator-backed Arrow buffers and imported immutable buffers whose free path may live in Go, C++, or Rust
+- TODO: define the milestone-1 Arrow construction path when operators must use a host allocator; specify whether operators use `tiforth`-owned allocator-aware builders, an imported-buffer bridge, or a patched Arrow mutable path
 - TODO: decide how dictionary encoding is treated in the shared contract
 - TODO: specify required support for nested types, if any, in the first milestone
 - TODO: specify decimal and temporal metadata requirements
-- TODO: decide how spill or off-heap behavior is represented, if at all
+- TODO: decide how spill or off-heap behavior is represented, if at all, given that spill is operator-managed rather than transparent inside Arrow allocation paths
+- TODO: define the allocator-routing ownership token or callback ABI that lets adapters hand `tiforth` a safe free path when the originating allocator is outside Rust
 
 ## Initial Boundary
 

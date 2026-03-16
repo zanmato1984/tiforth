@@ -122,31 +122,40 @@ Questions:
 - Which language better matches the maintenance burden tiforth is willing to carry?
 - Which language will make later contributors faster or slower to make correct changes?
 
-## Issue #2 Checkpoint: Memory Accounting And Spill
+## Issue #2 Checkpoint: Memory Accounting, Allocator Routing, And Spill
 
-Status on 2026-03-15:
+Status on 2026-03-16, refined for Rossi's sharper milestone-1 requirement and allocator-origin check:
 
-- Rust-first is **conditionally viable with a narrow lower-level boundary**
-- this concern is not currently strong enough to force a C++ kernel
+- Rust-first remains **conditionally viable**, but the remaining sharp edge is now specifically **allocator routing for Arrow-backed operator construction**
+- memory accounting, admission / reservation control, and operator-managed spill are not currently strong enough to force a C++ kernel
+- stock `arrow-rs` does not route ordinary mutable Arrow growth paths through a host allocator
+- the viable non-patching answer is now narrower and clearer: `tiforth`-owned allocator-aware builders for mutable growth, plus an imported-buffer bridge for finalized immutable buffers
+- allocator origin changes the boundary cost: Rust is the cleanest case, C++ is viable through a shim, and Go is viable only if the retained memory is not an arbitrary Go heap pointer
 
 Minimum day-one requirements that matter for the language decision:
 
 - query / stage / operator attribution for Arrow and non-Arrow memory
-- reservation or admission-control points for large mutable state and batch construction
+- fallible reservation or admission-control points for large mutable state
 - ownership-aware accounting for shared Arrow buffers across slices and stage handoffs
+- a concrete milestone-1 path for host allocator routing into Arrow-backed operator outputs
 - spillable versus unspillable consumer distinction
-- a spill path that can release memory pressure through runtime-managed disk use
+- an operator-managed spill path that can release memory pressure through runtime-managed disk use
 
 Observed upstream facts from the issue #2 investigation:
 
-- current `arrow-rs` (`58.0.0` workspace version) now has claim-based accounting hooks, including recursive `Array::claim`, but its pool support is still accounting-oriented rather than a C++-style allocator / memory-pool policy surface
+- current `arrow-rs` (`58.0.0` workspace version) has claim-based accounting hooks, including recursive `Array::claim`, but its pool support remains tracking-oriented rather than a C++-style allocator / memory-pool policy surface
+- current `arrow-rs` mutable and builder growth paths still allocate through `std::alloc` or ordinary Rust container allocation paths, while `Buffer::from_custom_allocation` mainly helps with imported or finalized immutable buffers
 - current `arrow-rs` `RecordBatch` sizing helpers still document possible overcounting for shared buffers, so precise batch accounting should live in a helper layer rather than rely on a naive summed size API
 - current `datafusion` (`52.3.0` workspace version) demonstrates a Rust-native pattern for fallible reservations, spill-aware consumers, disk spill management, and container-accounting helpers layered above Arrow
+- current `datafusion` also includes an Arrow-facing pool adapter, but that bridge still sits on Arrow's infallible tracking interface and does not by itself make stock Arrow builder growth host-allocator-routed
+- official Go `cgo` pointer rules make a Go-heap-backed long-lived Arrow buffer boundary risky by default, so a Go-origin allocator likely has to route into non-Go memory or a stricter pinned-memory/export handle shape
 
 Implication:
 
-- the blocker candidate is real, but narrower than originally feared
-- the right response is an explicit memory-governor boundary, not an automatic retreat from a Rust-first kernel
+- the broad blocker candidate is narrower than "Rust cannot do memory governance"
+- the specific remaining milestone-1 blocker edge is allocator routing for ordinary Arrow growth paths
+- allocator routing looks viable without abandoning Rust if `tiforth` owns the mutable build path and treats imported immutable buffers as a separate bridge
+- the right response is an explicit memory-governor **plus allocator-routing** boundary, not an automatic retreat from a Rust-first kernel
 
 Detailed evidence:
 
