@@ -25,6 +25,13 @@ Scores are optional if narrative comparison is clearer, but both languages shoul
 
 If these questions are not answered, the decision is not ready.
 
+## Current Checkpoint From Issue #2
+
+- result: Rust-first is **conditionally viable with a narrow lower-level boundary**
+- question 1: provisionally yes, if memory reservation and spill policy live above Arrow allocation internals
+- question 2: provisionally yes, the required boundary appears narrow enough to preserve a Rust-developed kernel
+- detailed note: `inventory/memory-accounting-blocker.md`
+
 ## Dimensions
 
 ### TiFlash Donor Leverage
@@ -51,23 +58,23 @@ If these questions are not answered, the decision is not ready.
 ### Arrow Data-Contract Fit
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: includes allocator / memory-pool support, accounting hooks, and spill implications
+- C++: 5
+- Rust: 4
+- notes: C++ Arrow still has the stronger native allocator / memory-pool surface. Rust Arrow `58.0.0` now has claim-based exact accounting hooks and externally owned buffer support, but normal Arrow allocations still do not route through a fallible quota-enforcing pool. Rust remains viable if tiforth keeps reservation policy and precise batch accounting in a narrow runtime-owned boundary.
 
 ### Runtime / Concurrency Fit
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: includes staged execution, cancellation, backpressure, observability, and the ability to keep the kernel primarily Rust even if lower-level escape hatches are needed
+- C++: 3
+- Rust: 5
+- notes: Issue #2 strengthens Rust here. Current DataFusion `52.3.0` shows Rust-side memory reservations, spillable consumers, fair spill pools, disk spill management, and non-Arrow accounting helpers layered above Arrow. That lines up with tiforth's staged, backpressured runtime direction without requiring a C++-first kernel.
 
 ### FFI / Boundary Complexity
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: especially important if the fallback path is Rust kernel + selective C++ lower layers
+- C++: 4
+- Rust: 3
+- notes: C++ avoids some allocator-boundary work if tiforth later needs direct host memory-pool integration. Rust likely pays for a small memory-governor / imported-buffer boundary, but current evidence suggests that boundary can stay narrow and does not justify giving up a Rust-first kernel.
 
 ### Build / Debug / Tooling Complexity
 
@@ -79,9 +86,9 @@ If these questions are not answered, the decision is not ready.
 ### Long-Term Maintenance / Correctness Risk
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: this dimension should reflect the project's stated preference for Rust safety and agent-friendly development, not treat both languages as culturally neutral
+- C++: 3
+- Rust: 5
+- notes: The memory-accounting gap found in issue #2 is real but bounded. Once the sharp edge is isolated behind a small boundary, Rust keeps the project's preferred safety and maintenance advantages without requiring the kernel body to move into C++.
 
 ## Decision Rule
 

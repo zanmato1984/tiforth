@@ -122,6 +122,36 @@ Questions:
 - Which language better matches the maintenance burden tiforth is willing to carry?
 - Which language will make later contributors faster or slower to make correct changes?
 
+## Issue #2 Checkpoint: Memory Accounting And Spill
+
+Status on 2026-03-15:
+
+- Rust-first is **conditionally viable with a narrow lower-level boundary**
+- this concern is not currently strong enough to force a C++ kernel
+
+Minimum day-one requirements that matter for the language decision:
+
+- query / stage / operator attribution for Arrow and non-Arrow memory
+- reservation or admission-control points for large mutable state and batch construction
+- ownership-aware accounting for shared Arrow buffers across slices and stage handoffs
+- spillable versus unspillable consumer distinction
+- a spill path that can release memory pressure through runtime-managed disk use
+
+Observed upstream facts from the issue #2 investigation:
+
+- current `arrow-rs` (`58.0.0` workspace version) now has claim-based accounting hooks, including recursive `Array::claim`, but its pool support is still accounting-oriented rather than a C++-style allocator / memory-pool policy surface
+- current `arrow-rs` `RecordBatch` sizing helpers still document possible overcounting for shared buffers, so precise batch accounting should live in a helper layer rather than rely on a naive summed size API
+- current `datafusion` (`52.3.0` workspace version) demonstrates a Rust-native pattern for fallible reservations, spill-aware consumers, disk spill management, and container-accounting helpers layered above Arrow
+
+Implication:
+
+- the blocker candidate is real, but narrower than originally feared
+- the right response is an explicit memory-governor boundary, not an automatic retreat from a Rust-first kernel
+
+Detailed evidence:
+
+- see `inventory/memory-accounting-blocker.md`
+
 ## Known Structural Tension
 
 There is an obvious tension between:
