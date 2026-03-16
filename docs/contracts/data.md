@@ -34,12 +34,18 @@ For milestone 1, `tiforth` does **not** need to route its internal Arrow allocat
 
 The required contract is:
 
-- before allocating internal memory for Arrow-backed operator state or output, `tiforth` reports the intended memory to the host
-- the host either admits or denies that reservation request
-- if the host denies the request, `tiforth` must fail that allocation or execution path and must not allocate first
+- before allocating internal memory for Arrow-backed operator state or output, `tiforth` estimates the additional bytes required for the intended peak live growth and reports that request to the host
+- the request is for additional admitted bytes, not a retroactive accounting correction after allocation has already happened
+- the host either admits or denies that reservation request as an all-or-nothing control point
+- if the host denies the request, `tiforth` must fail that allocation or execution path or spill and retry under operator policy, and it must not allocate first
 - if the host admits the request, `tiforth` may allocate internally and then materialize ordinary Arrow buffers
+- if actual growth uses fewer admitted bytes than reserved, `tiforth` returns the excess through `shrink`
+- if later growth needs more bytes, `tiforth` must obtain another reservation before that growth happens
+- when admitted buffers or operator state stop being resident, `tiforth` returns those bytes through `shrink` or final `release`
 
 This keeps host memory control explicit while allowing milestone-1 data construction to use `tiforth`-owned internal allocation paths.
+
+Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 
 ## Open Questions
 
@@ -50,7 +56,6 @@ This keeps host memory control explicit while allowing milestone-1 data construc
 - TODO: specify required support for nested types, if any, in the first milestone
 - TODO: specify decimal and temporal metadata requirements
 - TODO: decide how spill or off-heap behavior is represented, if at all, given that spill is operator-managed rather than transparent inside Arrow allocation paths
-- TODO: define the reservation or admission token / callback ABI that lets adapters approve or deny intended memory before `tiforth` allocates
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first milestone-1 contract
 
 ## Initial Boundary
