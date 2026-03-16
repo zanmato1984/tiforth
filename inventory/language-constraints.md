@@ -39,30 +39,69 @@ Out of scope:
 
 Concern:
 
-- Rust Arrow may not yet provide the full memory-pool support tiforth needs.
+- Rust Arrow may not yet provide the full memory-pool support `tiforth` needs.
 - TiDB, TiKV, and TiFlash all require fine-grained memory tracking.
 - Spill support is also expected, so allocation control and accounting are not cosmetic concerns.
 
 Why this matters:
 
-- if Rust cannot support the memory-accounting model tiforth actually needs, the core design may be blocked or forced into awkward workarounds
+- if Rust cannot support the memory-accounting model `tiforth` actually needs, the core design may be blocked or forced into awkward workarounds
 - this is a likely blocker candidate rather than a minor inconvenience
 
-#### 2. broken-pipeline Compatibility
+#### 2. broken-pipeline Adoption And Contract Ownership
 
 Concern:
 
-- `broken-pipeline` is currently C++ and header-only
-- tiforth wants runtime ideas from broken-pipeline, and may want some direct reuse or adaptation path
+- the original Broken Pipeline project began as a C++ and header-only design lineage
+- `tiforth` wants the Broken Pipeline runtime model, but the project now has a public Rust port and a clarified adoption direction to account for
 
 Important context:
 
 - Rossi owns `broken-pipeline`
-- this lowers the barrier to changing the protocol, introducing a Rust implementation, or reshaping the interface to support a Rust-first kernel
+- Rossi's clarified direction is that `tiforth` should directly adopt and expose the Arrow-bound runtime contract from `broken-pipeline-rs`
+- `tiforth` should be understood as a library of operators and expressions on top of that adopted contract, not as an owner of a separate runtime contract
+- `broken-pipeline-schedule` is for local testing and harness use only, and this is not expected to change later
+- the original C++ Broken Pipeline repository should be treated as provenance and lineage, not as the primary design center
+
+Observed facts from the public `broken-pipeline-rs` repo as inspected on 2026-03-16:
+
+- `broken-pipeline-rs` now exists as a public native Rust port of Broken Pipeline
+- the workspace currently exposes `broken-pipeline`, `broken-pipeline-schedule`, and `broken-pipeline-c`
+- the `broken-pipeline` crate includes the task and operator protocol, pipeline compilation, a Rust `PipeExec` reference runtime, and Arrow-bound traits under `broken_pipeline::traits::arrow`
+- the documented layering keeps a core runtime crate, an optional schedule layer, and a focused C interop layer
+- `broken-pipeline-schedule` is an optional Arrow-bound schedule layer with ready-made schedulers
+- `broken-pipeline-c` is intentionally focused on task-group interop rather than mirroring every internal runtime concept
+- the current crate manifests are marked `publish = false`, so direct dependency currently implies a Git dependency or vendored source rather than crates.io packaging
+
+What `tiforth` should adopt from this:
+
+- the Arrow-bound runtime contract as the shared runtime substrate
+- scheduler-agnostic small-step execution
+- explicit stage boundaries and observable handoff points
+- explicit blocked, yield, finish, cancel, and drain semantics
+- the split between the core runtime protocol and optional auxiliary layers
+
+What `tiforth` should provide on top:
+
+- operators
+- expressions
+- harness expectations around the adopted runtime behavior
+- adapter-facing packaging that does not redefine the runtime substrate
+
+What `tiforth` should treat as secondary or non-goal:
+
+- source-level compatibility with the original C++ header tree
+- the original C++ repository as the active design center
+- `broken-pipeline-schedule` as a shared or production runtime dependency
+- the current `broken-pipeline-c` interop surface unless an adapter milestone explicitly adopts it
 
 Implication:
 
-- broken-pipeline being in C++ is a serious integration topic, but not automatically a blocker if the protocol can evolve
+- `broken-pipeline-rs` is now the primary runtime-contract source to adopt, not merely a protocol donor or an implementation candidate
+- issue #3 no longer asks `tiforth` to invent an independent runtime contract above `broken-pipeline-rs`
+- Rust-first remains viable because the adopted Arrow-bound runtime contract is already native Rust
+- the remaining risks are dependency packaging and any future semantic mismatch, not the absence of a Rust Broken Pipeline runtime path
+- detailed note: see `docs/design/broken-pipeline-adaptation.md`
 
 ### Working Decision Bias
 
@@ -94,7 +133,7 @@ Questions:
 
 Questions:
 
-- How mature is the Arrow story needed by tiforth in each language?
+- How mature is the Arrow story needed by `tiforth` in each language?
 - Where do ownership and buffer-lifetime rules become easier or harder?
 - Does either choice make the shared data contract easier to keep engine-neutral?
 
@@ -102,7 +141,7 @@ Questions:
 
 Questions:
 
-- Which language better supports the runtime properties tiforth likely needs: staged execution, interruption, backpressure, cancellation, observability?
+- Which language better supports the runtime properties `tiforth` likely needs: staged execution, interruption, backpressure, cancellation, observability?
 - Where does concurrency become safer versus more predictable versus more debuggable?
 - How much scheduler freedom is realistically needed in the first milestones?
 
@@ -119,7 +158,7 @@ Questions:
 Questions:
 
 - Which language better protects the project from memory and concurrency bugs in the core?
-- Which language better matches the maintenance burden tiforth is willing to carry?
+- Which language better matches the maintenance burden `tiforth` is willing to carry?
 - Which language will make later contributors faster or slower to make correct changes?
 
 ## Issue #2 Checkpoint: Memory Accounting, Host Admission, And Spill
@@ -167,7 +206,7 @@ There is an obvious tension between:
 
 - maximizing TiFlash donor leverage and immediate practicality
 - maximizing reboot cleanliness and long-term kernel quality
-- reusing existing C++ runtime ideas quickly versus keeping the kernel genuinely Rust-first
+- reusing existing runtime ideas quickly versus keeping the kernel genuinely Rust-first
 
 The decision process should make those tensions explicit instead of hiding them inside implementation momentum.
 
