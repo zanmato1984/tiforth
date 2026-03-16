@@ -52,10 +52,25 @@ This plan does not decide:
 - a final decision record under `docs/decisions/`
 - optional thin spikes, if paper analysis alone is insufficient
 
+## Current Recommendation
+
+The current recommendation is now strong enough to draft as a decision record:
+
+- use **Rust** for the shared kernel / runtime core
+- directly adopt the Arrow-bound runtime contract from `broken-pipeline-rs`
+- treat `broken-pipeline-schedule` as test / harness-only, not a permanent production contract center
+- use reserve-first host memory admission for milestone 1 rather than mandatory direct host-allocator routing for every internal Arrow allocation path
+
 ## Immediate Subtasks
 
 - #2 `investigate: rust-first memory accounting and spill blockers`
 - #3 `design: broken-pipeline adaptation path for rust-first tiforth`
+
+## Next Implementation-Facing Tasks
+
+- #8 `design: host memory admission ABI for tiforth`
+- #9 `design: tiforth dependency boundary over broken-pipeline-rs`
+- #10 `milestone-1: first Arrow-bound operator and expression slice`
 
 ## Work Phases
 
