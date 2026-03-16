@@ -25,6 +25,13 @@ Scores are optional if narrative comparison is clearer, but both languages shoul
 
 If these questions are not answered, the decision is not ready.
 
+## Current Checkpoint From Issue #2
+
+- result: Rust-first is **not blocked for milestone 1; it needs an explicit host reservation or admission contract before internal allocation**
+- question 1: yes for accounting, reservation or admission control, internal allocation after approval, and operator-managed spill
+- question 2: not needed for milestone 1; a special allocator-routing boundary can be deferred unless a later milestone restores mandatory direct host allocator participation in ordinary Arrow growth
+- detailed note: `inventory/memory-accounting-blocker.md`
+
 ## Dimensions
 
 ### TiFlash Donor Leverage
@@ -51,23 +58,23 @@ If these questions are not answered, the decision is not ready.
 ### Arrow Data-Contract Fit
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: includes allocator / memory-pool support, accounting hooks, and spill implications
+- C++: 5
+- Rust: 4
+- notes: C++ Arrow still has the stronger native allocator / memory-pool surface. Rust Arrow `58.0.0` now has claim-based exact accounting hooks and `Buffer::from_custom_allocation`, while normal `MutableBuffer` / builder growth still uses standard Rust allocation paths. Under Rossi's revised milestone-1 contract, that limitation no longer blocks Rust because host memory control happens through reserve-first admission rather than direct allocator routing.
 
 ### Runtime / Concurrency Fit
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: includes staged execution, cancellation, backpressure, observability, and the ability to keep the kernel primarily Rust even if lower-level escape hatches are needed
+- C++: 3
+- Rust: 5
+- notes: Issue #2 now strengthens Rust more directly. Current DataFusion `52.3.0` shows Rust-side memory reservations, spillable consumers, fair spill pools, disk spill management, non-Arrow accounting helpers, and an Arrow claim bridge layered above Arrow. That lines up with tiforth's staged, backpressured runtime direction. The required milestone-1 edge is now a reserve-first host admission contract, not allocator routing for stock Arrow build paths.
 
 ### FFI / Boundary Complexity
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: especially important if the fallback path is Rust kernel + selective C++ lower layers
+- C++: 4
+- Rust: 4
+- notes: Rossi's revised requirement materially narrows the boundary. Milestone 1 now needs a reserve-or-deny ABI plus attribution and release semantics, not direct host allocator routing or long-lived foreign-buffer ownership on every Arrow growth path. That keeps cross-language work real, but much smaller than the earlier allocator-routing memo implied, including for Go-facing hosts.
 
 ### Build / Debug / Tooling Complexity
 
@@ -79,9 +86,9 @@ If these questions are not answered, the decision is not ready.
 ### Long-Term Maintenance / Correctness Risk
 
 - weight: high
-- C++: TBD
-- Rust: TBD
-- notes: this dimension should reflect the project's stated preference for Rust safety and agent-friendly development, not treat both languages as culturally neutral
+- C++: 3
+- Rust: 5
+- notes: The issue #2 gap is now more precisely stated: host admission before allocation is the milestone-1 contract, while direct allocator routing is deferred. That keeps Rust's safety and maintenance advantages intact without requiring the kernel body to move into C++.
 
 ## Decision Rule
 

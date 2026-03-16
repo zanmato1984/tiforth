@@ -122,6 +122,45 @@ Questions:
 - Which language better matches the maintenance burden tiforth is willing to carry?
 - Which language will make later contributors faster or slower to make correct changes?
 
+## Issue #2 Checkpoint: Memory Accounting, Host Admission, And Spill
+
+Status on 2026-03-16, reframed for Rossi's revised milestone-1 requirement:
+
+- Rust-first is now **not blocked for milestone 1**; the required contract is **host reservation or admission before internal allocation, then fail on deny**
+- memory accounting, host reservation or admission control, internal allocation after approval, and operator-managed spill do not currently force a C++ kernel
+- stock `arrow-rs` still does not route ordinary mutable Arrow growth paths through a host allocator, but that is no longer the milestone-1 requirement
+- the earlier allocator-routing sharp edge is therefore demoted from day-one blocker to later optional design work
+- cross-language complexity is materially smaller when the host boundary is admit-or-deny rather than long-lived foreign-buffer ownership
+
+Minimum day-one requirements that matter for the language decision:
+
+- query / stage / operator attribution for Arrow and non-Arrow memory
+- fallible host reservation or admission-control points before internal allocation of large mutable state or Arrow-backed operator output
+- explicit fail-on-deny semantics: no allocation and no continued execution on that path after host rejection
+- ownership-aware accounting for shared Arrow buffers across slices and stage handoffs
+- spillable versus unspillable consumer distinction
+- an operator-managed spill path that can release memory pressure through runtime-managed disk use
+
+Observed upstream facts from the issue #2 investigation:
+
+- current `arrow-rs` (`58.0.0` workspace version) has claim-based accounting hooks, including recursive `Array::claim`, but its pool support remains tracking-oriented rather than a C++-style allocator / memory-pool policy surface
+- current `arrow-rs` mutable and builder growth paths still allocate through `std::alloc` or ordinary Rust container allocation paths, and that is acceptable for milestone 1 so long as host admission happens before allocation rather than through direct allocator routing
+- current `arrow-rs` `RecordBatch` sizing helpers still document possible overcounting for shared buffers, so precise batch accounting should live in a helper layer rather than rely on a naive summed size API
+- current `datafusion` (`52.3.0` workspace version) demonstrates a Rust-native pattern for fallible reservations, spill-aware consumers, disk spill management, and container-accounting helpers layered above Arrow
+- current `datafusion` also includes an Arrow-facing pool adapter, but that bridge still sits on Arrow's infallible tracking interface and does not by itself make stock Arrow builder growth host-allocator-routed
+- official Go `cgo` pointer rules matter much less for an admission-only milestone-1 boundary, because the host no longer needs to hand `tiforth` retained Go-heap-backed Arrow buffers just to enforce day-one memory control
+
+Implication:
+
+- the broad blocker candidate is narrower than "Rust cannot do memory governance"
+- the earlier allocator-routing sharp edge no longer controls the milestone-1 language choice
+- the right response is an explicit memory-governor **plus host-admission** boundary, not an automatic retreat from a Rust-first kernel
+- Rust-first is now better supported for day one, while direct host allocator routing can be revisited only if a later milestone makes it mandatory again
+
+Detailed evidence:
+
+- see `inventory/memory-accounting-blocker.md`
+
 ## Known Structural Tension
 
 There is an obvious tension between:
