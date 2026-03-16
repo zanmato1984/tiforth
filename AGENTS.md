@@ -19,6 +19,7 @@ This file is a table of contents for future agents. The source of truth lives un
 - `inventory/`: extracted catalogs, donor analysis, drift reports
 - `tests/`: harness definitions and fixtures
 - `adapters/`: boundary docs for engine integration points
+- `docs/process/`: project workflow and execution conventions
 
 ## Operating Rules
 
@@ -27,3 +28,4 @@ This file is a table of contents for future agents. The source of truth lives un
 - Preserve Apache Arrow as the data-contract direction and broken-pipeline ideas as runtime inspiration, but do not copy donor implementations by default.
 - Record unresolved decisions as TODOs with context instead of forcing premature choices.
 - Do not add a build system, package manager, CI workflow, or implementation runtime unless a plan explicitly requires it.
+- Every issue must use its own local git worktree. Do not run multiple issue-scoped tasks in the same directory. See `docs/process/worktrees.md`.

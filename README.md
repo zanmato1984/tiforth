@@ -19,3 +19,4 @@ This initial commit is structure and documentation only. It intentionally does n
 - Preserve donor ideas, not donor code, unless a later plan explicitly says otherwise.
 - Prefer explicit TODOs over guessed semantics.
 - Keep concrete implementations out until the harness and contracts are ready.
+- Each issue or parallel workstream must use its own local git worktree; do not reuse one directory for multiple active issue tasks.
