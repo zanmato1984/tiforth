@@ -1,4 +1,4 @@
-# Rust-First Memory Accounting / Allocator Routing / Spill Blocker Check
+# Rust-First Memory Accounting / Host Admission / Spill Blocker Check
 
 Status: issue #2 evidence memo
 
@@ -15,54 +15,56 @@ Related PR:
 
 ## Question
 
-Is a Rust-first `tiforth` kernel blocked by any of the following, once Rossi's sharper milestone-1 requirement is applied?
+Is a Rust-first `tiforth` kernel blocked by any of the following, once Rossi's revised milestone-1 requirement is applied?
 
 1. memory accounting
-2. admission / reservation control
-3. allocator routing for Arrow allocations
+2. host reservation / admission control before allocation
+3. internal allocation after admission
 4. operator-managed spill
 
 ## Refined Conclusion
 
-Result: **Rust-first remains conditionally viable, but milestone 1 now needs an explicit allocator-routing boundary for Arrow-backed operator output**.
+Result: **Rust-first is not blocked for milestone 1. The required contract is reserve with host first, fail on deny, then allocate internally.**
 
 Current evidence supports the following split result:
 
 - memory accounting: viable in Rust today
-- admission / reservation control: viable in Rust today
-- allocator routing for ordinary Arrow growth paths: **not** provided by stock `arrow-rs`
+- host reservation / admission control: viable in Rust today
+- internal Arrow-backed allocation after admission: viable in Rust today with `tiforth`'s own allocator or ordinary Rust allocation paths
 - operator-managed spill: viable in Rust today and should stay above Arrow internals
-- allocator origin matters: Rust and C++ fit this boundary more directly than Go-heap-backed memory
+- direct host allocator routing for ordinary Arrow growth paths is still absent in stock `arrow-rs`, but it is no longer the milestone-1 requirement
 
 This changes the meaning of the earlier checkpoint.
 
-The old phrase, **conditionally viable with a narrow lower-level boundary**, was directionally right but too vague for milestone 1. The required boundary is not just a generic memory governor. It must explicitly solve **host allocator routing into operator-level Arrow build paths**, while distinguishing between:
+The old phrase, **conditionally viable with a narrow lower-level boundary**, over-weighted allocator routing for milestone 1. Rossi's updated instruction narrows the actual day-one contract to a host admission boundary:
 
-- `tiforth`-owned mutable builders that can grow under host allocator control
-- imported immutable buffers that can be adopted after allocation is complete
-- stock Arrow mutable growth paths that still allocate through ordinary Rust allocation machinery
+- `tiforth` reports intended memory before allocating
+- the host either admits or denies that reservation request
+- denial is a hard stop for the pending allocation / execution path
+- once admitted, `tiforth` may allocate internally and continue normally
 
 That means:
 
-- if milestone 1 assumes stock Arrow builders or `MutableBuffer` growth will automatically honor a host allocator, current Rust Arrow is insufficient
-- if milestone 1 accepts an explicit allocator-aware builder / imported-buffer boundary, Rust-first remains viable
-- this is a blocker for a particular milestone shape, not proof that the kernel must become C++
+- if milestone 1 required stock Arrow builders to allocate directly through a host allocator, current Rust Arrow would still be insufficient
+- that is no longer the milestone-1 requirement
+- the remaining work is to define the reserve-first admission ABI and accounting discipline, not to force the kernel into C++
 
 ## Milestone-1 Requirement From Rossi
 
 New direction received on 2026-03-16:
 
-- the host memory allocator must be wired through to `tiforth` operators
-- the routed host allocator may originate in Go, C++, or Rust
-- spill is explicitly managed by operators
-- transparent spill inside Arrow allocation paths should not be assumed or required
+- milestone 1 no longer requires `tiforth` internal Arrow allocations to directly use the host allocator
+- `tiforth` may use its own allocator internally
+- before allocating, `tiforth` must report or reserve the intended memory with the host
+- if the host denies the reservation or admission request, `tiforth` must fail and must not proceed with the allocation or execution path
+- spill remains explicitly operator-managed
 
-This is important because it separates four concerns that were partially blurred together in the earlier checkpoint:
+This is important because it cleanly separates four concerns that were partially blurred together in the earlier checkpoint:
 
 - correct accounting is not the same as admission control
-- admission control is not the same as allocator routing
-- allocator routing is not the same as spill
-- operator-managed spill reduces pressure on Arrow internals, but does not automatically solve allocator routing
+- admission control is not the same as direct allocator routing
+- internal allocation after admission is not the same as host-owned allocation
+- operator-managed spill reduces pressure on Arrow internals, but does not need to be transparent inside Arrow allocation paths
 
 ## Category-By-Category Assessment
 
@@ -83,7 +85,7 @@ What this means:
 - exact batch accounting still needs a helper that deduplicates shared buffers
 - this part of the problem is **not** the remaining language blocker candidate
 
-### 2. Admission / Reservation Control
+### 2. Host Reservation / Admission Control
 
 Current upstream `datafusion` source reports workspace version `52.3.0`.
 
@@ -97,12 +99,11 @@ Observed facts:
 What this means:
 
 - reservation and admission control can live in a Rust runtime layer above Arrow
-- this should be a `tiforth`-owned boundary, not an assumption that Arrow itself will reject growth pre-allocation
-- this part of the problem is also **not** what forces a C++ kernel
+- this is the actual milestone-1 boundary: ask the host first, then allocate only after approval
+- host denial should be treated as a fail-fast pre-allocation control point rather than an allocate-first reconciliation step
+- this part of the problem is **not** what forces a C++ kernel
 
-### 3. Allocator Routing For Arrow Allocations
-
-This is the sharp remaining edge.
+### 3. Internal Allocation After Admission
 
 Observed facts from current `arrow-rs`:
 
@@ -110,128 +111,36 @@ Observed facts from current `arrow-rs`:
 - `MutableBuffer::reserve` grows by calling `reallocate`, which uses `std::alloc::alloc`, `std::alloc::realloc`, and `std::alloc::dealloc`
 - `BufferBuilder<T>` wraps `MutableBuffer`, so normal buffer-builder growth follows that same allocation path
 - representative higher-level builders are not centrally allocator-routed either; for example, `PrimitiveBuilder::with_capacity` uses `Vec::with_capacity` for values storage before Arrow materialization
-- `Buffer::from_custom_allocation` can adopt externally allocated memory behind an ownership object
+- `Buffer::from_custom_allocation` can still adopt externally allocated memory behind an ownership object when future milestones need that shape
+
+What this means:
+
+- ordinary internal Arrow construction in Rust remains viable once host admission succeeds
+- milestone 1 no longer depends on stock Arrow builders calling into a host allocator
+- `tiforth` may allocate through its own internal allocator after successful host admission
+- direct host allocator routing is now a future design option rather than the milestone-1 blocker
+
+### 3a. Direct Host Allocator Routing Is Deferred, Not Proven
+
+Observed facts:
+
 - `Bytes::try_realloc` only works for `Deallocation::Standard`
 - `MutableBuffer::from_bytes` rejects non-standard deallocation, so custom-owned buffers do not re-enter the normal mutable growth path
+- `Buffer::from_custom_allocation` mainly helps with imported or finalized immutable buffers
 
 What this means:
 
-- externally allocated or custom-owned buffers are enough for **imported** or **finalized immutable** Arrow buffers
-- they are **not** enough to make stock mutable Arrow growth paths honor a host allocator
-- ordinary operator-level Arrow construction still escapes host allocator control unless `tiforth` either avoids those paths or changes them
+- direct host allocator routing for ordinary Arrow growth is still not something stock `arrow-rs` provides today
+- allocator-aware `tiforth` builders, imported-buffer bridges, or Arrow patches remain viable future options if a later milestone needs them
+- those options no longer decide milestone-1 viability or the Rust-versus-C++ language question
 
-### 3a. Viable `tiforth`-Owned Boundary Shapes
+### 3b. Host-Origin Impact After The Reframe
 
-Current evidence supports two viable shapes that stay compatible with a Rust-first kernel.
+The cross-language sharp edge is smaller after Rossi's updated requirement.
 
-#### Allocator-Aware `tiforth` Builders
-
-`tiforth` can own its mutable build path instead of delegating ordinary growth to stock Arrow builders.
-
-Shape:
-
-- values, offsets, and validity buffers are allocated and reallocated through a routed host allocator handle
-- the builder performs its own fallible reservation checks before calling that allocator
-- once the operator output is finalized, the resulting memory is wrapped into immutable Arrow buffers through `Buffer::from_custom_allocation` or equivalent finalized ownership transfer
-
-What this solves:
-
-- milestone-1 host allocator routing for operator-managed growth
-- exact control over allocate / reallocate / free boundaries
-- clean separation between runtime reservation policy and Arrow array materialization
-
-What it does **not** solve by itself:
-
-- reuse of stock `MutableBuffer`, `BufferBuilder`, or higher-level builders such as `PrimitiveBuilder`
-
-#### Imported-Buffer Bridge
-
-`tiforth` can also accept memory that was allocated or finalized outside normal Arrow Rust growth paths.
-
-Shape:
-
-- a host-side or lower-level component allocates and possibly fills the final buffer
-- `tiforth` imports the buffer as immutable Arrow storage with an ownership object that knows how to free it
-- this can be used for host-built batches or for a `tiforth` custom builder that finalizes before Arrow wrapping
-
-What this solves:
-
-- adoption of externally allocated immutable buffers
-- zero-copy handoff when the final memory layout is already Arrow-compatible
-
-What it does **not** solve:
-
-- incremental mutable growth through stock Arrow Rust buffer builders
-
-### 3b. Host Allocator Origin Cases
-
-The allocator-origin question now matters as much as the Arrow API question.
-
-#### Rust-Origin Allocator
-
-This is the cleanest case.
-
-- a Rust-first `tiforth` kernel can hold the allocator handle natively
-- allocator-aware `tiforth` builders are fully viable here
-- an imported-buffer bridge is also viable for finalized immutable buffers
-
-Constraint:
-
-- stock Arrow Rust mutable builders still will not route through that allocator unless `tiforth` replaces or patches those growth paths
-
-#### C++-Origin Allocator
-
-This is viable through an explicit FFI boundary.
-
-- the C++ side can expose a stable C ABI or thin shim around a host allocator such as Arrow C++ `MemoryPool`
-- allocator-aware `tiforth` builders can call `allocate` / `reallocate` / `free` through that shim
-- imported immutable buffers are viable if ownership is returned to the C++ side through a drop handle or owner object
-
-Constraint:
-
-- ordinary `arrow-rs` mutable growth still will not route through that C++ allocator without replacing or patching the Arrow Rust growth path
-
-#### Go-Origin Allocator
-
-This is the hardest case and needs the most careful boundary definition.
-
-Observed fact from official `cgo` guidance:
-
-- C code may not keep Go pointers after the call returns unless the pointed-to memory is pinned, and common Go container types such as slices and strings are not a safe general long-lived Arrow buffer boundary
-
-What this means:
-
-- a Go-heap-backed Arrow buffer ownership model is **not** a good general milestone-1 assumption
-- a Go-controlled host allocator can still be viable if it routes allocations into non-Go memory exposed through a C ABI, or into carefully pinned/exported memory with strict lifetime rules
-- imported-buffer bridging from Go is viable only when the underlying memory is safe to retain from Rust after the call boundary
-
-Constraint:
-
-- stock Arrow Rust mutable growth still does not become Go-allocator-routed automatically
-
-### 3c. What Requires Patching Or Replacing Ordinary Arrow Growth Paths
-
-Current evidence now supports a sharper distinction.
-
-Viable without patching stock Arrow:
-
-- `tiforth`-owned allocator-aware builders that materialize Arrow buffers only after growth is complete
-- imported immutable buffers whose ownership is represented by `Buffer::from_custom_allocation`
-- runtime reservation / spill policy above Arrow internals
-
-Not viable without patching or replacing ordinary Arrow growth paths:
-
-- requiring `MutableBuffer`, `BufferBuilder`, `PrimitiveBuilder`, or similar stock Arrow Rust builders to route all allocate / reallocate / free operations through a host allocator
-- assuming imported custom allocations can flow back into `MutableBuffer::from_bytes` and then keep growing through ordinary Arrow paths
-- claiming DataFusion's Arrow-facing accounting bridge is already a full allocator-routing solution
-
-So the stronger milestone-1 requirement does change the blocker assessment:
-
-- stock Rust Arrow is insufficient if the requirement is: **use ordinary Arrow mutable/build paths and still have every relevant allocation routed through the host allocator**
-- Rust-first remains viable if `tiforth` accepts one of these explicit designs:
-  - allocator-aware `tiforth` builders that allocate via the host allocator and hand finished buffers into Arrow
-  - a local or upstream Arrow patch that threads allocator routing through `MutableBuffer`-based growth paths
-  - a similarly explicit imported-buffer bridge that keeps host allocation outside stock Arrow growth
+- a Rust-, C++-, or Go-origin host can expose a reservation or admission ABI without giving `tiforth` long-lived ownership of host-managed memory
+- the boundary now mainly needs request metadata, attribution, and admit-or-deny semantics rather than allocator callbacks on every Arrow growth path
+- official Go `cgo` pointer rules still matter for future retained host-owned buffers, but they matter much less for an admission-only milestone-1 contract
 
 ### 4. Operator-Managed Spill
 
@@ -262,7 +171,7 @@ DataFusion is a useful current reference for:
 
 ### Where DataFusion Is Not Sufficient
 
-DataFusion does **not** remove the milestone-1 allocator-routing problem.
+DataFusion does **not** automatically define the exact milestone-1 `tiforth` contract.
 
 Observed facts:
 
@@ -274,8 +183,8 @@ Observed facts:
 What this means:
 
 - DataFusion is strong evidence for how to separate accounting, reservations, and spill
-- it is **not** evidence that stock Arrow Rust already routes ordinary builder growth through a host allocator
-- it is therefore a reference for the upper layer, not a complete answer for allocator routing
+- it is still **not** evidence that stock Arrow Rust already routes ordinary builder growth through a host allocator
+- that gap simply no longer controls milestone-1 viability, because milestone 1 is now reserve-first rather than allocator-routed
 
 ## What This Means For `tiforth`
 
@@ -289,23 +198,22 @@ Keep in Rust with:
 - a batch-memory helper that deduplicates shared buffers
 - non-Arrow accounting helpers for operator scratch state
 
-### Admission / Reservation Control
+### Host Reservation / Admission Control
 
 Keep in Rust with:
 
 - a runtime-owned memory governor
-- fallible reservations for large mutable state
+- an explicit host reservation or admission request before internal allocation
+- fail-on-deny semantics for the pending allocation / execution path
 - spillable versus unspillable consumer tracking
 
-### Allocator Routing
+### Internal Allocation
 
-Make this an explicit milestone-1 design choice:
+Allow in Rust after successful host admission:
 
-- do **not** assume stock Arrow mutable paths already solve it
-- define when operators use `tiforth` allocator-aware builders versus an imported-buffer bridge
-- treat imported immutable buffers and mutable builder growth as different cases
-- accept that keeping stock Arrow mutable growth in the path will require Arrow patching or local replacement of those builders
-- make the cross-language allocator ABI explicit when the host allocator originates outside Rust
+- `tiforth` may allocate through its own internal allocator or ordinary Rust / Arrow growth paths
+- direct host allocator routing is optional future work, not the day-one contract
+- future imported-buffer or custom-builder work should be tracked separately if a later milestone needs it
 
 ### Spill
 
@@ -313,35 +221,35 @@ Keep it operator-managed:
 
 - spill should react to runtime policy and operator state shape
 - spill does not need to be transparent inside Arrow allocators
-- allocator routing and spill should cooperate, but not be conflated
+- admission control and spill should cooperate, but not be conflated
 
 ## Blocker Assessment After Refinement
 
 - memory accounting: **not a Rust blocker**
-- admission / reservation control: **not a Rust blocker**
+- host reservation / admission control: **not a Rust blocker**
+- internal allocation after admitted reservation: **not a Rust blocker**
 - operator-managed spill: **not a Rust blocker**
-- allocator routing for ordinary Arrow growth paths: **the real remaining milestone-1 blocker edge**
-- Go-origin host allocation is only conditionally viable if the routed memory is not an arbitrary retained Go heap pointer
+- direct host allocator routing for ordinary Arrow growth paths: **not a milestone-1 blocker under Rossi's revised requirement**
+- Go-origin host interaction: an admission-only ABI is viable; the pointer-lifetime sharp edge moves to later imported-buffer work
 
 This is the refined issue #2 result:
 
-- Rust-first is still viable
-- the remaining sharp edge is narrower than "Rust cannot do memory governance"
-- but it is stronger than the earlier memo implied if milestone 1 truly requires host allocator routing inside operator-level Arrow build paths
-- the viable non-patching path is now clearer: `tiforth`-owned builders and imported immutable buffers, with extra caution if the allocator originates in Go
+- Rust-first is not blocked for milestone 1
+- the required contract is reserve with host first, fail on deny, then allocate internally
+- the earlier allocator-routing sharp edge is now future optional work, not the deciding blocker
+- this does not justify an automatic retreat to a C++ kernel
 
 ## Decision Impact
 
-- issue #2 should now be recorded as: **Rust-first is conditionally viable, but milestone 1 requires an explicit Arrow allocator-routing boundary**
-- this does **not** justify an automatic retreat to a C++ kernel
-- it does mean the next design work must define the milestone-1 Arrow construction path, not just speak abstractly about memory pools
-- that design work should explicitly say which path is used for Rust-, C++-, and Go-origin allocator control
-- Arrow C++ still retains a real advantage on allocator-routing surface area because its `MemoryPool` participates directly in allocation, reallocation, and free paths
+- issue #2 should now be recorded as: **Rust-first is not blocked for milestone 1; the required contract is reserve with host first, fail on deny, then allocate internally**
+- this strengthens the Rust-first conclusion relative to the earlier memo
+- the next design work should define the admission ABI, intended-memory estimation rules, and release or shrink semantics
+- if a later milestone reintroduces mandatory direct host allocator routing, that should be reviewed as a separate design question rather than carried as a hidden day-one assumption
 
 ## Notes On Method
 
 - this was treated as a research / evidence task, not an implementation task
-- the only external write in this continuation was the required issue #2 progress comment on 2026-03-16
+- the only external writes in this continuation were the required issue #2 progress comment and the branch update for PR #4
 - no local `tiforth-legacy` checkout was present in this workspace, so donor code was not used for this memo
 - DataFusion was used as evidence and reference, not as an authority
 
