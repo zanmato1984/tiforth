@@ -50,7 +50,7 @@ The milestone-1 dependency boundary is intentionally narrow:
 
 This keeps the production and shared contract centered on the upstream core crate rather than the optional scheduler or the C ABI layer.
 
-### 2. Directly adopted upstream surfaces
+### 2. Directly adopted upstream contract surfaces
 
 The following surfaces are upstream-owned and should be adopted directly instead of being redefined inside `tiforth`:
 
@@ -58,7 +58,8 @@ The following surfaces are upstream-owned and should be adopted directly instead
 - operator attachment traits: `broken_pipeline::{SourceOperator, PipeOperator, SinkOperator}`
 - operator step outputs: `broken_pipeline::OpOutput<Batch>`
 - task and blocking control: `broken_pipeline::{TaskContext, TaskStatus, Awaiter, Resumer, SharedAwaiter, SharedResumer, TaskGroup}` specialized to `ArrowTypes`
-- pipeline construction and execution: `broken_pipeline::{Pipeline, PipelineChannel, compile, PipeExec, PipelineExec, Pipelinexe, SourceExec, SinkExec}`
+
+These names refer to the Rust upstream surface from `broken-pipeline-rs`, not to the original C++ repository.
 
 `tiforth` should keep the adopted runtime state names unchanged. In particular, it should not rename or shadow:
 
