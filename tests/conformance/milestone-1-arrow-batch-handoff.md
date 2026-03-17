@@ -19,8 +19,10 @@ Spec sources:
 
 ## Initial Test Shape
 
-Milestone 1 now has a stable local Rust-side snapshot carrier, `tiforth_kernel::LocalExecutionSnapshot`, plus an exported local fixture carrier, `tiforth_kernel::LocalExecutionFixture`, exercised in `crates/tiforth-kernel/tests/expression_projection.rs` and backed by checked-in JSON fixture artifacts under `tests/conformance/fixtures/local-execution/` for computed handoff, mixed forwarded-plus-computed claims, forwarded-claim passthrough, deny-before-emit, and final-drop release in the current projection slice.
+Milestone 1 now has a stable local Rust-side snapshot carrier, `tiforth_kernel::LocalExecutionSnapshot`, plus an exported local fixture carrier, `tiforth_kernel::LocalExecutionFixture`, exercised in `crates/tiforth-kernel/tests/expression_projection.rs` and backed by checked-in JSON fixture artifacts under `tests/conformance/fixtures/local-execution/` for computed handoff, mixed forwarded-plus-computed claims, forwarded-claim passthrough, forwarded-claim ownership violation, deny-before-emit, and final-drop release in the current projection slice.
 
 The teardown-release case now includes executable mixed-claim cancelled coverage. That checkpoint uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step. The driver remains local harness scaffolding rather than shared-contract surface.
+
+Ownership-violation coverage now also includes one forwarded-claim passthrough checkpoint that waits until sink handoff is observable, then attempts an explicit local early release through the still-live forwarded claim and expects `ownership_contract_violation` before the later teardown drop releases the batch cleanly.
 
 This file remains the higher-level case plan until adapter-visible fixtures or broader harness carriers are defined beyond the current local Rust snapshot.

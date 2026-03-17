@@ -28,6 +28,7 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-computed-before-terminal.json`
 - `projection-computed-finished.json`
 - `projection-mixed-claims-cancelled.json`
+- `projection-passthrough-ownership-violation.json`
 
 ## JSON Shape
 
@@ -62,5 +63,6 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - mixed forwarded-plus-computed claims after final release and terminal completion
 - passthrough claim forwarding before terminal completion
 - passthrough claim forwarding after final release and terminal completion
+- passthrough forwarded-claim ownership violation after sink handoff and clean teardown
 
 Broader adapter-visible fixtures, full `claims[]` serialization, and non-projection harness carriers remain out of scope.
