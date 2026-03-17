@@ -58,6 +58,12 @@ const PROJECTION_PASSTHROUGH_BEFORE_TERMINAL: &str = include_str!(
 const PROJECTION_PASSTHROUGH_FINISHED: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-finished.json",
 );
+const PROJECTION_DUPLICATE_FORWARDED_CLAIM_BEFORE_TERMINAL: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-duplicate-forwarded-claim-before-terminal.json",
+);
+const PROJECTION_DUPLICATE_FORWARDED_CLAIM_FINISHED: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-duplicate-forwarded-claim-finished.json",
+);
 const PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-ownership-violation.json",
 );
@@ -616,6 +622,71 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_PASSTHROUGH_FINISHED,
+    );
+}
+
+#[test]
+fn duplicate_direct_projection_keeps_one_forwarded_claim_identity() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+    let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
+        "Source:a",
+        ConsumerKind::SourceInput,
+        false,
+    ));
+    source_consumer.try_reserve(12).unwrap();
+    let claim = runtime_context.new_claim(source_consumer);
+    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+        "Source",
+        vec![(Arc::clone(&input), vec![vec![claim]])],
+    ));
+    let pipe = Arc::new(ProjectionPipe::new(
+        "Projection",
+        vec![
+            ProjectionExpr::new("a_left", Expr::column(0)),
+            ProjectionExpr::new("a_right", Expr::column(0)),
+        ],
+    ));
+
+    let status = run_pipeline(source, pipe, Arc::clone(&sink), runtime_context.clone()).unwrap();
+    assert!(status.is_finished());
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    let output = &outputs[0];
+    assert_eq!(output.claim_count(), 1);
+    assert_eq!(output.batch().schema().field(0).name(), "a_left");
+    assert_eq!(output.batch().schema().field(1).name(), "a_right");
+    assert_eq!(
+        collect_int32(output.batch().column(0)),
+        vec![Some(1), Some(2), Some(3)]
+    );
+    assert_eq!(
+        collect_int32(output.batch().column(1)),
+        vec![Some(1), Some(2), Some(3)]
+    );
+
+    assert_fixture_json(
+        "projection-duplicate-forwarded-claim-before-terminal",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_DUPLICATE_FORWARDED_CLAIM_BEFORE_TERMINAL,
+    );
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_finished();
+
+    assert_fixture_json(
+        "projection-duplicate-forwarded-claim-finished",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_DUPLICATE_FORWARDED_CLAIM_FINISHED,
     );
 }
 

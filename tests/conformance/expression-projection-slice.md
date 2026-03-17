@@ -5,6 +5,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 ## Canonical Cases
 
 - `column passthrough`: direct column projection preserves values, row count, and output order while forwarding incoming claims without opening a new computed-column consumer
+- `duplicate forwarded claim`: projecting the same claimed input column more than once preserves one forwarded claim identity across the output batch and releases it once at final teardown
 - `direct literal`: `literal<int32>(value)` materializes one `Int32Array` value per input row, with non-null literals staying non-null and `NULL` literals yielding nullable all-null output
 - `missing column`: `column(index)` fails as an execution error before projection emit and sink collection when `index` is out of range for the input schema
 - `add literal`: `add(column(0), literal(1))` produces an `Int32Array` with row-wise addition
@@ -28,6 +29,7 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - nullable `add<int32>` output with null propagation through runtime handoff
 - `add<int32>` overflow execution error before sink collection
 - direct-column claim forwarding without opening a new computed-column consumer
+- duplicate direct-column projection with one forwarded claim identity shared across multiple output columns
 - mixed-claim cancelled teardown after sink handoff via a local explicit cancellation driver
 - forwarded-claim ownership violations after sink handoff via local explicit early-release and early-shrink checkpoints against the directly addressed local consumer behind that live claim
 - claimed-source ownership violation when `ProjectionRuntimeContext` is missing before any source emit or sink collection
@@ -40,6 +42,8 @@ The same local slice also preserves explicit local fixture checkpoints for a dir
 The same local slice now also preserves explicit local fixture checkpoints for a nullable computed `add<int32>` path. That checkpoint confirms the milestone-1 no-shrink path for computed arrays with propagated nulls: the projection-output consumer reserves the full nullable `Int32Array` estimate, keeps those admitted bytes attached to the emitted claim through sink handoff, and releases that unchanged retained size only after the sink-owned batch drops.
 
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
+
+The same local slice now also covers duplicate forwarded-claim passthrough for one claimed source column projected into two output columns. The preserved local fixture output intentionally matches the simple passthrough event shape because `LocalExecutionFixture` records unique live claim counts rather than per-column claim multiplicity, while the executable test separately asserts the duplicated output fields and values.
 
 The local Rust slice now covers a true `cancelled` terminal checkpoint for mixed-claim teardown. That coverage uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step.
 
