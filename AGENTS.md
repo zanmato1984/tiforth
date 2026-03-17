@@ -20,6 +20,8 @@ This file is a table of contents for future agents. The source of truth lives un
 - `tests/`: harness definitions and fixtures
 - `adapters/`: boundary docs for engine integration points
 - `docs/process/`: project workflow and execution conventions
+  - `worktrees.md`: one worktree per active issue/workstream
+  - `issues-and-prs.md`: how issues and PRs must be linked
 
 ## Operating Rules
 
@@ -29,3 +31,4 @@ This file is a table of contents for future agents. The source of truth lives un
 - Record unresolved decisions as TODOs with context instead of forcing premature choices.
 - Do not add a build system, package manager, CI workflow, or implementation runtime unless a plan explicitly requires it.
 - Every issue must use its own local git worktree. Do not run multiple issue-scoped tasks in the same directory. See `docs/process/worktrees.md`.
+- Every PR must link its primary issue. Use `Closes #...` when merge should close the issue; use `Refs #...` when the PR is partial or stacked. See `docs/process/issues-and-prs.md`.
