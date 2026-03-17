@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch};
+use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
 use arrow_schema::{ArrowError, DataType, Field, Schema};
 use broken_pipeline::{
     compile, OpOutput, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator,
@@ -48,6 +48,9 @@ const PROJECTION_OVERFLOW: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-overflow.json",);
 const PROJECTION_MISSING_COLUMN: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-missing-column.json",
+);
+const PROJECTION_UNSUPPORTED_ARITHMETIC_TYPE: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-unsupported-arithmetic-type.json",
 );
 const PROJECTION_PASSTHROUGH_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-before-terminal.json",
@@ -517,6 +520,47 @@ fn missing_column_projection_is_reported_before_projection_output_is_collected()
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_MISSING_COLUMN,
+    );
+}
+
+#[test]
+fn unsupported_arithmetic_type_projection_is_reported_before_projection_output_is_collected() {
+    let input = make_bool_batch(vec![Some(true), Some(false), Some(true)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let error = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        Arc::new(ProjectionPipe::new(
+            "Projection",
+            vec![ProjectionExpr::new(
+                "a_plus_one",
+                Expr::add(Expr::column(0), Expr::literal(Some(1))),
+            )],
+        )),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .expect_err("non-int32 arithmetic projection should fail");
+
+    assert!(error.to_string().contains(
+        "unsupported data type: expected Int32 input for arithmetic at column 0, got Boolean"
+    ));
+    assert!(sink.batches().is_empty());
+    assert!(admission.events().is_empty());
+    runtime_context.record_terminal_error(error.to_string());
+
+    assert_fixture_json(
+        "projection-unsupported-arithmetic-type",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_UNSUPPORTED_ARITHMETIC_TYPE,
     );
 }
 
@@ -996,6 +1040,16 @@ fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
         nullable,
     )]));
     let values: ArrayRef = Arc::new(Int32Array::from(values));
+    Arc::new(RecordBatch::try_new(schema, vec![values]).unwrap())
+}
+
+fn make_bool_batch(values: Vec<Option<bool>>, nullable: bool) -> Batch {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "a",
+        DataType::Boolean,
+        nullable,
+    )]));
+    let values: ArrayRef = Arc::new(BooleanArray::from(values));
     Arc::new(RecordBatch::try_new(schema, vec![values]).unwrap())
 }
 

@@ -8,6 +8,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 - `direct literal`: `literal<int32>(value)` materializes one `Int32Array` value per input row, with non-null literals staying non-null and `NULL` literals yielding nullable all-null output
 - `missing column`: `column(index)` fails as an execution error before projection emit and sink collection when `index` is out of range for the input schema
 - `add literal`: `add(column(0), literal(1))` produces an `Int32Array` with row-wise addition
+- `unsupported arithmetic type`: `add<int32>` fails as an execution error before projection emit and sink collection when any input expression resolves to a non-`int32` column
 - `null propagation`: `add` yields null whenever either operand is null
 - `overflow error`: `add` fails as an execution error before emit when `int32` addition overflows
 - `reserve-first deny`: computed projection fails before allocation when admission rejects the estimated bytes
@@ -23,6 +24,7 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
 - missing-column execution error before projection output collection
+- unsupported-arithmetic-type execution error before projection output collection
 - nullable `add<int32>` output with null propagation through runtime handoff
 - `add<int32>` overflow execution error before sink collection
 - direct-column claim forwarding without opening a new computed-column consumer
@@ -46,6 +48,8 @@ The same local slice now also covers two `ownership_contract_violation` checkpoi
 The same local slice also covers an untracked-handoff `ownership_contract_violation` checkpoint. That checkpoint uses a local source that bypasses runtime tracking, expects the projection receiver to reject the batch before sink collection, and preserves the resulting terminal error through the same local fixture carrier.
 
 The same local slice also covers a missing-runtime-context `ownership_contract_violation` checkpoint for claimed source batches. That checkpoint exercises the existing guard in `StaticRecordBatchSource::new_claimed`, expects the claimed local source to reject the batch before any source emit, and preserves the resulting terminal error through the same local fixture carrier.
+
+The same local slice now also covers an unsupported-arithmetic-type execution-error checkpoint. That checkpoint drives `add<int32>` against a boolean source column, expects the projection receiver to reject the batch before any projection output emit or sink collection, and preserves the resulting terminal error through the same local fixture carrier.
 
 For the current local Rust slice, executable assertions should prefer the exported `tiforth_kernel::LocalExecutionFixture` carrier so projection-path fixture checks stay aligned with the contract-named event surface from `docs/contracts/runtime.md`.
 

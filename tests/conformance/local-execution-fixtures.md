@@ -16,6 +16,7 @@ Related issues:
 - #52 `conformance: add non-null literal local execution fixture checkpoints`
 - #54 `conformance: add missing-column projection checkpoint`
 - #56 `conformance: add nullable computed local execution fixture checkpoints`
+- #58 `conformance: add unsupported arithmetic type projection checkpoint`
 
 ## Purpose
 
@@ -35,6 +36,7 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-computed-finished.json`
 - `projection-mixed-claims-cancelled.json`
 - `projection-missing-column.json`
+- `projection-unsupported-arithmetic-type.json`
 - `projection-claimed-source-runtime-context-ownership-violation.json`
 - `projection-non-null-literal-before-terminal.json`
 - `projection-non-null-literal-finished.json`
@@ -75,6 +77,7 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - computed projection after final release and terminal completion
 - deny-before-emit failure
 - missing-column execution error before projection emit and sink collection
+- unsupported-arithmetic-type execution error before projection emit and sink collection
 - `add<int32>` overflow execution error before sink collection
 - mixed forwarded-plus-computed claims before terminal completion
 - mixed forwarded-plus-computed claims after explicit cancelled teardown
