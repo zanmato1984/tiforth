@@ -93,6 +93,24 @@ impl BatchClaim {
         self.inner.id
     }
 
+    pub fn local_try_shrink(&self, bytes: usize) -> Result<(), TiforthError> {
+        Err(TiforthError::OwnershipContractViolation {
+            detail: format!(
+                "attempted to shrink {bytes} bytes from the consumer for live claim {} while that claim still referenced it",
+                self.id()
+            ),
+        })
+    }
+
+    pub fn local_try_release(&self) -> Result<(), TiforthError> {
+        Err(TiforthError::OwnershipContractViolation {
+            detail: format!(
+                "attempted to release the consumer for live claim {} while that claim still referenced it",
+                self.id()
+            ),
+        })
+    }
+
     fn new(id: u64, consumer: Arc<dyn AdmissionConsumer>) -> Self {
         Self {
             inner: Arc::new(BatchClaimInner { id, consumer }),
