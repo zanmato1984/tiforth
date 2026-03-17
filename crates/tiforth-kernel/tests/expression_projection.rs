@@ -1,10 +1,11 @@
 use std::any::Any;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch};
 use arrow_schema::{ArrowError, DataType, Field, Schema};
 use broken_pipeline::{
-    compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator, TaskStatus,
+    compile, OpOutput, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator,
+    TaskContext, TaskStatus, ThreadId,
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{AdmissionController, ConsumerKind, RecordingAdmissionController};
@@ -34,6 +35,9 @@ const PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION: &str = include_str!(
 );
 const PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-shrink-ownership-violation.json",
+);
+const PROJECTION_UNTRACKED_HANDOFF_OWNERSHIP_VIOLATION: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-untracked-handoff-ownership-violation.json",
 );
 const PROJECTION_MIXED_CLAIMS_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-before-terminal.json",
@@ -318,6 +322,40 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
 }
 
 #[test]
+fn untracked_handoff_violation_is_reported_before_projection_adopts_batch() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let error = run_pipeline(
+        Arc::new(UntrackedRecordBatchSource::new("UntrackedSource", input)),
+        Arc::new(ProjectionPipe::new(
+            "Projection",
+            vec![ProjectionExpr::new("a_copy", Expr::column(0))],
+        )),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .expect_err("untracked handoff should fail before projection adopts the batch");
+
+    assert!(error
+        .to_string()
+        .contains("received an untracked batch handoff"));
+    assert!(sink.batches().is_empty());
+    runtime_context.record_terminal_error(error.to_string());
+
+    assert_fixture_json(
+        "projection-untracked-handoff-ownership-violation",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_UNTRACKED_HANDOFF_OWNERSHIP_VIOLATION,
+    );
+}
+
+#[test]
 fn projection_output_can_carry_forwarded_and_computed_claims_together() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
@@ -501,6 +539,39 @@ fn drive_pipeline_until_sink_handoff(
                 panic!("projection sink-handoff driver should not see cancelled before teardown")
             }
         }
+    }
+}
+
+struct UntrackedRecordBatchSource {
+    name: String,
+    batch: Mutex<Option<Batch>>,
+}
+
+impl UntrackedRecordBatchSource {
+    fn new(name: impl Into<String>, batch: Batch) -> Self {
+        Self {
+            name: name.into(),
+            batch: Mutex::new(Some(batch)),
+        }
+    }
+}
+
+impl SourceOperator<ArrowTypes> for UntrackedRecordBatchSource {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn source(
+        &self,
+        _ctx: &TaskContext<ArrowTypes>,
+        _thread_id: ThreadId,
+    ) -> Result<OpOutput<Batch>, ArrowError> {
+        Ok(OpOutput::Finished(
+            self.batch
+                .lock()
+                .expect("untracked source batch mutex poisoned")
+                .take(),
+        ))
     }
 }
 
