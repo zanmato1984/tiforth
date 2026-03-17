@@ -5,6 +5,7 @@ use crate::error::TiforthError;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConsumerKind {
     ProjectionOutput,
+    SourceInput,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -26,20 +27,25 @@ impl ConsumerSpec {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AdmissionEvent {
-    Open {
+    ConsumerOpened {
         name: String,
         kind: ConsumerKind,
         spillable: bool,
     },
-    TryReserve {
+    ReserveAdmitted {
         name: String,
         bytes: usize,
     },
-    Shrink {
+    ReserveDenied {
+        name: String,
+        bytes: usize,
+        limit: usize,
+    },
+    ConsumerShrunk {
         name: String,
         bytes: usize,
     },
-    Release {
+    ConsumerReleased {
         name: String,
         bytes: usize,
     },
@@ -129,7 +135,7 @@ impl AdmissionController for RecordingAdmissionController {
             .events
             .lock()
             .expect("admission events mutex poisoned")
-            .push(AdmissionEvent::Open {
+            .push(AdmissionEvent::ConsumerOpened {
                 name: spec.name.clone(),
                 kind: spec.kind.clone(),
                 spillable: spec.spillable,
@@ -152,6 +158,15 @@ impl AdmissionConsumer for RecordingAdmissionConsumer {
             .expect("admitted bytes mutex poisoned");
         if let Some(limit) = self.state.limit {
             if *admitted + additional_bytes > limit {
+                self.state
+                    .events
+                    .lock()
+                    .expect("admission events mutex poisoned")
+                    .push(AdmissionEvent::ReserveDenied {
+                        name: self.spec.name.clone(),
+                        bytes: additional_bytes,
+                        limit,
+                    });
                 return Err(TiforthError::AdmissionDenied {
                     consumer: self.spec.name.clone(),
                     requested: additional_bytes,
@@ -169,7 +184,7 @@ impl AdmissionConsumer for RecordingAdmissionConsumer {
             .events
             .lock()
             .expect("admission events mutex poisoned")
-            .push(AdmissionEvent::TryReserve {
+            .push(AdmissionEvent::ReserveAdmitted {
                 name: self.spec.name.clone(),
                 bytes: additional_bytes,
             });
@@ -192,7 +207,7 @@ impl AdmissionConsumer for RecordingAdmissionConsumer {
             .events
             .lock()
             .expect("admission events mutex poisoned")
-            .push(AdmissionEvent::Shrink {
+            .push(AdmissionEvent::ConsumerShrunk {
                 name: self.spec.name.clone(),
                 bytes: actual,
             });
@@ -214,7 +229,7 @@ impl AdmissionConsumer for RecordingAdmissionConsumer {
             .events
             .lock()
             .expect("admission events mutex poisoned")
-            .push(AdmissionEvent::Release {
+            .push(AdmissionEvent::ConsumerReleased {
                 name: self.spec.name.clone(),
                 bytes: released,
             });
