@@ -41,6 +41,9 @@ const PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION: &str = include_str!(
 const PROJECTION_UNTRACKED_HANDOFF_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-untracked-handoff-ownership-violation.json",
 );
+const PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-claimed-source-runtime-context-ownership-violation.json",
+);
 const PROJECTION_MIXED_CLAIMS_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-before-terminal.json",
 );
@@ -352,6 +355,45 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION,
+    );
+}
+
+#[test]
+fn claimed_source_requires_projection_runtime_context_before_source_emit() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
+        "ClaimedSource:a",
+        ConsumerKind::SourceInput,
+        false,
+    ));
+    source_consumer.try_reserve(12).unwrap();
+    let claim = runtime_context.new_claim(source_consumer);
+    let source = StaticRecordBatchSource::new_claimed(
+        "ClaimedSource",
+        vec![(Arc::clone(&input), vec![vec![claim]])],
+    );
+    let scheduler = SequentialCoroScheduler::default();
+    let task_context = scheduler.make_task_context(None);
+
+    let error = source
+        .source(&task_context, 0)
+        .err()
+        .expect("claimed source should require ProjectionRuntimeContext");
+
+    assert!(error
+        .to_string()
+        .contains("requires ProjectionRuntimeContext"));
+    runtime_context.record_terminal_error(error.to_string());
+
+    assert_fixture_json(
+        "projection-claimed-source-runtime-context-ownership-violation",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION,
     );
 }
 
