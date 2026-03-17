@@ -71,7 +71,7 @@ This keeps the issue #10 slice honest about reserve-before-allocate behavior whi
 
 Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path.
 
-Current local tests drive this slice by scheduling only the compiled `pipe_exec().task_group()` helper. That path is sufficient for the current `finished` and error checkpoints, but it does not yet expose an honest cancelled terminal outcome after sink handoff for the local source -> projection -> sink path. Cancellation therefore remains part of the shared runtime contract while executable local cancellation coverage stays deferred until a later issue adds the necessary higher-level orchestration.
+Current local tests now use two local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, plus an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step. That keeps cancelled coverage local to milestone-1 harness scaffolding without inventing a new shared runtime API.
 
 ## Deferred Work
 

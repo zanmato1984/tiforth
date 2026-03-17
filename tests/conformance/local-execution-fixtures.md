@@ -9,6 +9,7 @@ Related issues:
 - #27 `conformance: add file-backed local execution fixtures for milestone-1`
 - #29 `conformance: add mixed-claim local execution fixture checkpoints`
 - #31 `design: define milestone-1 local cancellation coverage boundary`
+- #33 `conformance: add explicit local cancellation driver for milestone-1 fixtures`
 
 ## Purpose
 
@@ -26,6 +27,7 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 
 - `projection-computed-before-terminal.json`
 - `projection-computed-finished.json`
+- `projection-mixed-claims-cancelled.json`
 
 ## JSON Shape
 
@@ -46,7 +48,7 @@ For `error` events, `message` stores the current local Rust execution error text
 
 Ordering guarantees stay per event family only: `admission_events[]` stay ordered within admission observations, and `runtime_events[]` stay ordered within runtime observations. These files do **not** create a merged cross-family total order or add timestamps.
 
-`LocalExecutionFixture` can serialize `cancelled`, but the current checked-in projection fixtures stop at `finished` and `error`. The existing local helper only exercises the compiled projection pipe task group, so any future cancelled fixture must come from higher-level orchestration or an explicit cancellation driver rather than from manually relabeling a finished checkpoint.
+`LocalExecutionFixture` can serialize `cancelled`, and the current checked-in projection fixtures now cover that outcome for the mixed-claim slice. The cancelled checkpoint comes from a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step rather than relabeling a finished run.
 
 ## Current Scope
 
@@ -56,6 +58,7 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - computed projection after final release and terminal completion
 - deny-before-emit failure
 - mixed forwarded-plus-computed claims before terminal completion
+- mixed forwarded-plus-computed claims after explicit cancelled teardown
 - mixed forwarded-plus-computed claims after final release and terminal completion
 - passthrough claim forwarding before terminal completion
 - passthrough claim forwarding after final release and terminal completion

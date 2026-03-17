@@ -2,9 +2,9 @@ use std::any::Any;
 use std::sync::Arc;
 
 use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch};
-use arrow_schema::{DataType, Field, Schema};
+use arrow_schema::{ArrowError, DataType, Field, Schema};
 use broken_pipeline::{
-    compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator,
+    compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator, TaskStatus,
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{AdmissionController, ConsumerKind, RecordingAdmissionController};
@@ -34,6 +34,9 @@ const PROJECTION_MIXED_CLAIMS_BEFORE_TERMINAL: &str = include_str!(
 );
 const PROJECTION_MIXED_CLAIMS_FINISHED: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-finished.json",
+);
+const PROJECTION_MIXED_CLAIMS_CANCELLED: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-cancelled.json",
 );
 
 #[test]
@@ -264,6 +267,61 @@ fn projection_output_can_carry_forwarded_and_computed_claims_together() {
     );
 }
 
+#[test]
+fn projection_cancellation_can_capture_mixed_claim_teardown_after_sink_handoff() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+    let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
+        "Source:a",
+        ConsumerKind::SourceInput,
+        false,
+    ));
+    source_consumer.try_reserve(12).unwrap();
+    let claim = runtime_context.new_claim(source_consumer);
+    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+        "Source",
+        vec![(Arc::clone(&input), vec![vec![claim]])],
+    ));
+
+    drive_pipeline_until_sink_handoff(
+        source,
+        projection_pipe(),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .unwrap();
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    let output = &outputs[0];
+    assert_eq!(output.claim_count(), 2);
+    assert_eq!(output.batch().schema().field(0).name(), "a_copy");
+    assert_eq!(output.batch().schema().field(1).name(), "a_plus_one");
+    assert_eq!(
+        collect_int32(output.batch().column(0)),
+        vec![Some(1), Some(2), Some(3)]
+    );
+    assert_eq!(
+        collect_int32(output.batch().column(1)),
+        vec![Some(2), Some(3), Some(4)]
+    );
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_cancelled();
+
+    assert_fixture_json(
+        "projection-mixed-claims-cancelled",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_MIXED_CLAIMS_CANCELLED,
+    );
+}
+
 fn assert_fixture_json(name: &str, actual: LocalExecutionFixture, expected: &str) {
     let actual = serde_json::to_string_pretty(&actual)
         .expect("LocalExecutionFixture JSON serialization should succeed");
@@ -291,6 +349,45 @@ fn run_pipeline(
     let task_context = scheduler.make_task_context(Some(context));
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
+}
+
+fn drive_pipeline_until_sink_handoff(
+    source: Arc<dyn SourceOperator<ArrowTypes>>,
+    pipe: Arc<dyn PipeOperator<ArrowTypes>>,
+    sink: Arc<CollectSink>,
+    runtime_context: ProjectionRuntimeContext,
+) -> Result<(), ArrowError> {
+    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink.clone();
+
+    let pipeline = Pipeline::<ArrowTypes>::new(
+        "ProjectionPipeline",
+        vec![PipelineChannel::new(source, vec![pipe])],
+        sink_op,
+    );
+
+    let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
+    let scheduler = SequentialCoroScheduler::default();
+    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
+    let task_context = scheduler.make_task_context(Some(context));
+
+    loop {
+        if !sink.batches().is_empty() {
+            return Ok(());
+        }
+
+        match pipe_runtime.step(&task_context, 0)? {
+            TaskStatus::Continue | TaskStatus::Yield => {}
+            TaskStatus::Blocked(_) => {
+                panic!("projection sink-handoff driver does not expect blocked status")
+            }
+            TaskStatus::Finished => {
+                panic!("projection sink-handoff driver finished before sink handoff")
+            }
+            TaskStatus::Cancelled => {
+                panic!("projection sink-handoff driver should not see cancelled before teardown")
+            }
+        }
+    }
 }
 
 fn projection_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
