@@ -16,6 +16,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/expression_projection.rs` for:
 
 - computed projection handoff and final-drop release
+- mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
 - direct-column claim forwarding without opening a new computed-column consumer
 
