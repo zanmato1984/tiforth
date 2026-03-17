@@ -15,7 +15,7 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - string and binary
 - temporal types
 - JSON and other semi-structured values
-- internal intermediate types, if later plans require them
+- internal intermediate types, if later issues or spec work require them
 
 ## Required Semantic Areas
 

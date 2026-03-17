@@ -2,6 +2,8 @@
 
 `tiforth` is docs-first. Implementation work should leave a documentation trail instead of relying on chat history or reviewer memory.
 
+Live execution tracking should stay in GitHub issues and PRs. Repo docs should capture durable knowledge, not running status logs.
+
 ## When A PR Must Update Docs
 
 Update docs when a PR changes any of these in a meaningful way:
@@ -10,7 +12,7 @@ Update docs when a PR changes any of these in a meaningful way:
 - data, runtime, or admission boundaries
 - top-level repository shape or crate boundaries
 - adapter-facing contracts
-- conformance expectations, fixtures, or case plans
+- conformance expectations, fixtures, or documented cases
 - project workflow rules that contributors or agents are expected to follow
 
 ## Where Updates Belong
