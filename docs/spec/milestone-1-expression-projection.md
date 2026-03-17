@@ -36,6 +36,7 @@ Filter is deferred unless a later issue extends this slice explicitly.
 - references the input column at `index`
 - when projected directly, it reuses the existing Arrow array
 - field metadata comes from the referenced input field, except that the projection output name replaces the input field name
+- an out-of-range `index` is an execution error in this slice
 
 ### `literal<int32>(value)`
 
@@ -72,7 +73,7 @@ This keeps the issue #10 slice honest about reserve-before-allocate behavior whi
 
 Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path.
 
-Current local tests now use several local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, explicit local early-release and early-shrink ownership-violation checkpoints against the directly addressed local consumer behind a still-live forwarded claim after sink handoff, an untracked-handoff checkpoint that expects the projection receiver to reject a batch before adoption, and a claimed-source checkpoint that expects a claimed local source to reject missing `ProjectionRuntimeContext` before any source emit. That broader ownership enforcement remains local to milestone-1 harness scaffolding and does not invent a new shared runtime API.
+Current local tests now use several local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, including missing-column failure coverage before any projection emit, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, explicit local early-release and early-shrink ownership-violation checkpoints against the directly addressed local consumer behind a still-live forwarded claim after sink handoff, an untracked-handoff checkpoint that expects the projection receiver to reject a batch before adoption, and a claimed-source checkpoint that expects a claimed local source to reject missing `ProjectionRuntimeContext` before any source emit. That broader ownership enforcement remains local to milestone-1 harness scaffolding and does not invent a new shared runtime API.
 
 ## Deferred Work
 

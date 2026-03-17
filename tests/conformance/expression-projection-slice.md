@@ -6,6 +6,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 
 - `column passthrough`: direct column projection preserves values, row count, and output order while forwarding incoming claims without opening a new computed-column consumer
 - `direct literal`: `literal<int32>(value)` materializes one `Int32Array` value per input row, with non-null literals staying non-null and `NULL` literals yielding nullable all-null output
+- `missing column`: `column(index)` fails as an execution error before projection emit and sink collection when `index` is out of range for the input schema
 - `add literal`: `add(column(0), literal(1))` produces an `Int32Array` with row-wise addition
 - `null propagation`: `add` yields null whenever either operand is null
 - `overflow error`: `add` fails as an execution error before emit when `int32` addition overflows
@@ -21,6 +22,7 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - direct `literal<int32>` projection for both non-null and `NULL` outputs
 - mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
+- missing-column execution error before projection output collection
 - `add<int32>` overflow execution error before sink collection
 - direct-column claim forwarding without opening a new computed-column consumer
 - mixed-claim cancelled teardown after sink handoff via a local explicit cancellation driver
