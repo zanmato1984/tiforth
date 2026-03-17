@@ -45,6 +45,8 @@ The same local slice now also preserves explicit local fixture checkpoints for a
 
 The same local slice now also preserves explicit local fixture checkpoints for a multi-computed output batch. That checkpoint confirms that milestone-1 keeps one retained claim per computed projection column on the emitted batch, even when one computed column shrinks to a non-null retained size and another keeps the full nullable estimate through sink handoff.
 
+Taken together, the direct literal, nullable computed, and multi-computed checkpoints now also freeze the current byte-accounting rule for projection-built `Int32Array` outputs: each computed output column reserves `rows * 4 + ceil(rows / 8)` bytes up front, then either `shrink`s exactly the bitmap portion when the finished output has no nulls or keeps the full estimate when a validity bitmap remains live on the emitted batch.
+
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 
 The same local slice now also covers duplicate forwarded-claim passthrough for one claimed source column projected into two output columns. The preserved local fixture output intentionally matches the simple passthrough event shape because `LocalExecutionFixture` records unique live claim counts rather than per-column claim multiplicity, while the executable test separately asserts the duplicated output fields and values.
