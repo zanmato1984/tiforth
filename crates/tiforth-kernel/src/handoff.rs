@@ -84,7 +84,7 @@ struct BatchClaimInner {
 
 impl Drop for BatchClaimInner {
     fn drop(&mut self) {
-        self.consumer.release();
+        self.consumer.local_untrack_live_claim(self.id);
     }
 }
 
@@ -94,24 +94,15 @@ impl BatchClaim {
     }
 
     pub fn local_try_shrink(&self, bytes: usize) -> Result<(), TiforthError> {
-        Err(TiforthError::OwnershipContractViolation {
-            detail: format!(
-                "attempted to shrink {bytes} bytes from the consumer for live claim {} while that claim still referenced it",
-                self.id()
-            ),
-        })
+        self.inner.consumer.shrink(bytes)
     }
 
     pub fn local_try_release(&self) -> Result<(), TiforthError> {
-        Err(TiforthError::OwnershipContractViolation {
-            detail: format!(
-                "attempted to release the consumer for live claim {} while that claim still referenced it",
-                self.id()
-            ),
-        })
+        self.inner.consumer.release()
     }
 
     fn new(id: u64, consumer: Arc<dyn AdmissionConsumer>) -> Self {
+        consumer.local_track_live_claim(id);
         Self {
             inner: Arc::new(BatchClaimInner { id, consumer }),
         }

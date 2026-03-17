@@ -71,7 +71,7 @@ This keeps the issue #10 slice honest about reserve-before-allocate behavior whi
 
 Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path.
 
-Current local tests now use three local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, and one explicit local ownership-violation checkpoint that waits for sink handoff before attempting an early release through a still-live forwarded claim. That keeps cancelled and ownership-violation coverage local to milestone-1 harness scaffolding without inventing a new shared runtime API.
+Current local tests now use three local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, and one explicit local ownership-violation checkpoint that waits for sink handoff before attempting an early release through the directly addressed local consumer behind a still-live forwarded claim. That broader ownership enforcement remains local to milestone-1 harness scaffolding and does not invent a new shared runtime API.
 
 ## Deferred Work
 

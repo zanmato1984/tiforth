@@ -325,16 +325,16 @@ where
 
     let mut builder = Int32Builder::with_capacity(rows);
     if let Err(error) = build(&mut builder) {
-        consumer.release();
+        consumer.release()?;
         return Err(error);
     }
 
     let array = builder.finish();
     let actual = actual_int32_array_bytes(&array);
     if estimated > actual {
-        consumer.shrink(estimated - actual);
+        consumer.shrink(estimated - actual)?;
     }
-    consumer.release();
+    consumer.release()?;
     Ok(Arc::new(array))
 }
 
@@ -359,14 +359,14 @@ where
 
     let mut builder = Int32Builder::with_capacity(rows);
     if let Err(error) = build(&mut builder) {
-        consumer.release();
+        consumer.release()?;
         return Err(error);
     }
 
     let array = builder.finish();
     let actual = actual_int32_array_bytes(&array);
     if estimated > actual {
-        consumer.shrink(estimated - actual);
+        consumer.shrink(estimated - actual)?;
     }
 
     let claim = claim_factory(consumer);
