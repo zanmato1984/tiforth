@@ -19,10 +19,11 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
 - direct-column claim forwarding without opening a new computed-column consumer
+- mixed-claim cancelled teardown after sink handoff via a local explicit cancellation driver
 
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 
-A true `cancelled` terminal checkpoint is still deferred here. The current helper schedules only the compiled projection pipe task group, which is enough for the existing `finished` and `error` coverage but not yet for an honest cancelled teardown outcome after sink handoff.
+The local Rust slice now covers a true `cancelled` terminal checkpoint for mixed-claim teardown. That coverage uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step.
 
 For the current local Rust slice, executable assertions should prefer the exported `tiforth_kernel::LocalExecutionFixture` carrier so projection-path fixture checks stay aligned with the contract-named event surface from `docs/contracts/runtime.md`.
 

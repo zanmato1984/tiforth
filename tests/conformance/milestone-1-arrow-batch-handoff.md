@@ -21,6 +21,6 @@ Spec sources:
 
 Milestone 1 now has a stable local Rust-side snapshot carrier, `tiforth_kernel::LocalExecutionSnapshot`, plus an exported local fixture carrier, `tiforth_kernel::LocalExecutionFixture`, exercised in `crates/tiforth-kernel/tests/expression_projection.rs` and backed by checked-in JSON fixture artifacts under `tests/conformance/fixtures/local-execution/` for computed handoff, mixed forwarded-plus-computed claims, forwarded-claim passthrough, deny-before-emit, and final-drop release in the current projection slice.
 
-The teardown-release case still includes a documented cancelled outcome, but current local executable coverage stops short of a true cancelled checkpoint because the existing single `pipe_exec().task_group()` helper does not yet provide an honest post-handoff cancellation path. A later issue must add higher-level orchestration before mixed-claim cancellation fixtures should land.
+The teardown-release case now includes executable mixed-claim cancelled coverage. That checkpoint uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step. The driver remains local harness scaffolding rather than shared-contract surface.
 
 This file remains the higher-level case plan until adapter-visible fixtures or broader harness carriers are defined beyond the current local Rust snapshot.
