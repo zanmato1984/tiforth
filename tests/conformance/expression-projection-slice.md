@@ -21,12 +21,15 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - direct-column claim forwarding without opening a new computed-column consumer
 - mixed-claim cancelled teardown after sink handoff via a local explicit cancellation driver
 - forwarded-claim ownership violations after sink handoff via local explicit early-release and early-shrink checkpoints against the directly addressed local consumer behind that live claim
+- untracked source-to-projection handoff ownership violation before batch adoption and sink collection
 
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 
 The local Rust slice now covers a true `cancelled` terminal checkpoint for mixed-claim teardown. That coverage uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step.
 
 The same local slice now also covers two `ownership_contract_violation` checkpoints for forwarded-claim passthrough. Those checkpoints wait until sink handoff is observable, then attempt either an explicit local early release or an explicit local early shrink through the directly addressed local consumer behind the still-live forwarded claim before dropping the sink-owned batch and recording the terminal error. The preserved fixture output stays local to this Rust-side enforcement path rather than redefining any shared runtime surface.
+
+The same local slice also covers an untracked-handoff `ownership_contract_violation` checkpoint. That checkpoint uses a local source that bypasses runtime tracking, expects the projection receiver to reject the batch before sink collection, and preserves the resulting terminal error through the same local fixture carrier.
 
 For the current local Rust slice, executable assertions should prefer the exported `tiforth_kernel::LocalExecutionFixture` carrier so projection-path fixture checks stay aligned with the contract-named event surface from `docs/contracts/runtime.md`.
 

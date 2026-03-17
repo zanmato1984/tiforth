@@ -10,6 +10,7 @@ Related issues:
 - #29 `conformance: add mixed-claim local execution fixture checkpoints`
 - #31 `design: define milestone-1 local cancellation coverage boundary`
 - #33 `conformance: add explicit local cancellation driver for milestone-1 fixtures`
+- #41 `conformance: add untracked handoff ownership-violation checkpoint`
 
 ## Purpose
 
@@ -30,6 +31,7 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-mixed-claims-cancelled.json`
 - `projection-passthrough-ownership-violation.json`
 - `projection-passthrough-shrink-ownership-violation.json`
+- `projection-untracked-handoff-ownership-violation.json`
 
 ## JSON Shape
 
@@ -66,5 +68,6 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - passthrough claim forwarding after final release and terminal completion
 - passthrough forwarded-claim release ownership violation after sink handoff and clean teardown
 - passthrough forwarded-claim shrink ownership violation after sink handoff and clean teardown
+- untracked source-to-projection handoff ownership violation before sink collection
 
 Broader adapter-visible fixtures, full `claims[]` serialization, and non-projection harness carriers remain out of scope.

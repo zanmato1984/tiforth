@@ -1,0 +1,9 @@
+{
+  "admission_events": [],
+  "runtime_events": [
+    {
+      "event": "error",
+      "message": "Compute error: ownership contract violation: Projection received an untracked batch handoff"
+    }
+  ]
+}
