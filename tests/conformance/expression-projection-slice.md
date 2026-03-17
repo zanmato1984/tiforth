@@ -30,6 +30,8 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 
 The same local slice also preserves explicit local fixture checkpoints for a direct `NULL` literal computed-output path. That checkpoint confirms the milestone-1 no-shrink path: the projection-output consumer reserves the full nullable `Int32Array` estimate, keeps all admitted bytes attached to the emitted claim, and releases that unchanged retained size only after the sink-owned batch drops.
 
+The same local slice also preserves explicit local fixture checkpoints for a direct non-null literal computed-output path. That checkpoint confirms the milestone-1 shrink path for computed literals: the projection-output consumer reserves the estimated `Int32Array` bytes, shrinks to the exact retained size before emit, and releases only the live retained bytes after the sink-owned batch drops.
+
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 
 The local Rust slice now covers a true `cancelled` terminal checkpoint for mixed-claim teardown. That coverage uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step.

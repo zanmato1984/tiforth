@@ -24,6 +24,12 @@ const PROJECTION_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
 const PROJECTION_COMPUTED_FINISHED: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-computed-finished.json",
 );
+const PROJECTION_NON_NULL_LITERAL_BEFORE_TERMINAL: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-non-null-literal-before-terminal.json",
+);
+const PROJECTION_NON_NULL_LITERAL_FINISHED: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-non-null-literal-finished.json",
+);
 const PROJECTION_NULL_LITERAL_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-null-literal-before-terminal.json",
 );
@@ -179,6 +185,58 @@ fn direct_literal_projection_materializes_non_null_int32() {
                 bytes: 12,
             },
         ]
+    );
+}
+
+#[test]
+fn non_null_literal_projection_carries_shrunk_claim_through_runtime_handoff() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let status = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        Arc::new(ProjectionPipe::new(
+            "Projection",
+            vec![ProjectionExpr::new("literal_seven", Expr::literal(Some(7)))],
+        )),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .unwrap();
+    assert!(status.is_finished());
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    let output = &outputs[0];
+    assert_eq!(output.batch().schema().field(0).name(), "literal_seven");
+    assert!(!output.batch().schema().field(0).is_nullable());
+    assert_eq!(collect_int32(output.batch().column(0)), vec![Some(7); 3]);
+    assert_eq!(output.claim_count(), 1);
+
+    assert_fixture_json(
+        "projection-non-null-literal-before-terminal",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_NON_NULL_LITERAL_BEFORE_TERMINAL,
+    );
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_finished();
+
+    assert_fixture_json(
+        "projection-non-null-literal-finished",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_NON_NULL_LITERAL_FINISHED,
     );
 }
 

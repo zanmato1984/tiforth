@@ -13,6 +13,7 @@ Related issues:
 - #41 `conformance: add untracked handoff ownership-violation checkpoint`
 - #45 `conformance: add claimed-source runtime-context ownership-violation checkpoint`
 - #47 `conformance: add direct literal<int32> projection checkpoints`
+- #52 `conformance: add non-null literal local execution fixture checkpoints`
 
 ## Purpose
 
@@ -32,6 +33,8 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-computed-finished.json`
 - `projection-mixed-claims-cancelled.json`
 - `projection-claimed-source-runtime-context-ownership-violation.json`
+- `projection-non-null-literal-before-terminal.json`
+- `projection-non-null-literal-finished.json`
 - `projection-null-literal-before-terminal.json`
 - `projection-null-literal-finished.json`
 - `projection-passthrough-ownership-violation.json`
@@ -70,6 +73,8 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - mixed forwarded-plus-computed claims before terminal completion
 - mixed forwarded-plus-computed claims after explicit cancelled teardown
 - mixed forwarded-plus-computed claims after final release and terminal completion
+- direct non-null literal computed output before terminal completion with the computed retained-byte claim still live after shrink
+- direct non-null literal computed output after final release and terminal completion
 - direct `NULL` literal computed output before terminal completion with the no-shrink retained-byte path still live on the batch claim
 - direct `NULL` literal computed output after final release and terminal completion
 - passthrough claim forwarding before terminal completion
