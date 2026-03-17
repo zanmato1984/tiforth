@@ -23,6 +23,8 @@ Those tests now capture milestone-1 runtime and admission outcomes through `tifo
 
 For the current local Rust slice, executable assertions should prefer the exported `tiforth_kernel::LocalExecutionFixture` carrier so projection-path fixture checks stay aligned with the contract-named event surface from `docs/contracts/runtime.md`.
 
+The checked-in JSON artifacts for those fixture assertions now live under `tests/conformance/fixtures/local-execution/`, with format notes in `tests/conformance/local-execution-fixtures.md`.
+
 This directory remains the spec-linked case plan while broader harness snapshot formats and adapter-facing fixtures are still being defined.
 
 The claim-carrying batch handoff semantics for this slice are further detailed in `tests/conformance/milestone-1-arrow-batch-handoff.md`.
