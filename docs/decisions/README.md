@@ -6,6 +6,8 @@ Architectural decisions that need to outlive issue threads should be recorded he
 
 This directory exists so tiforth can move important conclusions out of chat and issue comments and into versioned repo documents.
 
+Decision records are for durable architectural conclusions, not for day-to-day execution tracking. Live project status belongs in GitHub issues and PRs.
+
 ## Format
 
 Use numbered decision records, for example:

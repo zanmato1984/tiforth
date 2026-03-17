@@ -28,4 +28,4 @@ Ownership-violation coverage now also includes two forwarded-claim passthrough c
 
 The same local coverage now also checks that a downstream receiver rejects an untracked batch handoff before sink collection. That checkpoint uses a local source which bypasses runtime tracking and expects the projection-stage adoption path to surface `ownership_contract_violation` without recording a successful handoff event.
 
-This file remains the higher-level case plan until adapter-visible fixtures or broader harness carriers are defined beyond the current local Rust snapshot.
+This file remains the higher-level case reference until adapter-visible fixtures or broader harness carriers are defined beyond the current local Rust snapshot.

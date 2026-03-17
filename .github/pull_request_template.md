@@ -19,6 +19,11 @@ Docs-Impact:
 
 ## Notes
 
+<!--
+Keep live execution tracking in GitHub issues / issue comments / PRs.
+Do not rely on repo-local plan or status docs.
+-->
+
 ## Linked issue
 
 <!--
