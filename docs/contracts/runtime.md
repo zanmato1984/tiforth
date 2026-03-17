@@ -117,7 +117,19 @@ This snapshot is the local Rust-side harness carrier only. It does **not** freez
 
 Milestone 1 guarantees ordering within each event family captured above. It does **not** yet guarantee one merged cross-family total order or timestamp field.
 
-Local executable coverage should prefer asserting through this snapshot shape rather than stitching together recorder internals ad hoc.
+Local executable coverage should derive fixture assertions from this snapshot shape rather than stitching together recorder internals ad hoc.
+
+## Milestone-1 Local Fixture Export
+
+`LocalExecutionSnapshot` now exports one local conformance fixture carrier:
+
+- `LocalExecutionFixture`
+- `admission_events[]`: contract-named event records with primitive payload fields for `consumer_opened`, `reserve_admitted`, `reserve_denied`, `consumer_shrunk`, and `consumer_released`
+- `runtime_events[]`: contract-named event records with primitive payload fields for `batch_emitted`, `batch_handed_off`, `batch_released`, `finished`, `cancelled`, and `error`
+
+This fixture export exists so local Rust tests and early harness scaffolding can assert one stable, reviewable carrier without depending directly on recorder internals or on the exact Rust enum layout used underneath.
+
+This fixture remains local to milestone-1 Rust-side coverage. It does **not** freeze adapter-visible callbacks, a merged cross-family total order, timestamps, or full serialized `claims[]` payloads.
 
 ## Minimal Adapter-Visible Error Taxonomy
 

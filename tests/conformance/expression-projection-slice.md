@@ -19,7 +19,9 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - reserve-first denial before emit
 - direct-column claim forwarding without opening a new computed-column consumer
 
-Those tests now assert the runtime/admission boundary through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
+Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
+
+For the current local Rust slice, executable assertions should prefer the exported `tiforth_kernel::LocalExecutionFixture` carrier so projection-path fixture checks stay aligned with the contract-named event surface from `docs/contracts/runtime.md`.
 
 This directory remains the spec-linked case plan while broader harness snapshot formats and adapter-facing fixtures are still being defined.
 

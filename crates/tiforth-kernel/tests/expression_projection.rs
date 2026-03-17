@@ -7,16 +7,16 @@ use broken_pipeline::{
     compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator,
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
-use tiforth_kernel::admission::{
-    AdmissionController, AdmissionEvent, ConsumerKind, RecordingAdmissionController,
-};
+use tiforth_kernel::admission::{AdmissionController, ConsumerKind, RecordingAdmissionController};
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::handoff::RuntimeEvent;
 use tiforth_kernel::operators::{
     CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::{project_batch, ProjectionExpr};
-use tiforth_kernel::{ArrowTypes, Batch, LocalExecutionSnapshot};
+use tiforth_kernel::{
+    AdmissionFixtureEvent, ArrowTypes, Batch, FixtureBatchOrigin, LocalExecutionFixture,
+    RuntimeFixtureEvent,
+};
 
 #[test]
 fn projection_pipe_runs_end_to_end_with_scheduler() {
@@ -54,44 +54,24 @@ fn projection_pipe_runs_end_to_end_with_scheduler() {
     assert_eq!(output.claim_count(), 1);
 
     assert_eq!(
-        runtime_context.local_snapshot(admission.as_ref()),
-        LocalExecutionSnapshot {
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        LocalExecutionFixture {
             admission_events: vec![
-                AdmissionEvent::ConsumerOpened {
-                    name: "Projection:a_plus_one".into(),
-                    kind: ConsumerKind::ProjectionOutput,
-                    spillable: false,
-                },
-                AdmissionEvent::ReserveAdmitted {
-                    name: "Projection:a_plus_one".into(),
-                    bytes: 13,
-                },
-                AdmissionEvent::ConsumerShrunk {
-                    name: "Projection:a_plus_one".into(),
-                    bytes: 1,
-                },
+                AdmissionFixtureEvent::consumer_opened(
+                    "Projection:a_plus_one",
+                    "projection_output",
+                    false,
+                ),
+                AdmissionFixtureEvent::reserve_admitted("Projection:a_plus_one", 13),
+                AdmissionFixtureEvent::consumer_shrunk("Projection:a_plus_one", 1),
             ],
             runtime_events: vec![
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 0,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 1,
-                    to_operator: "Projection".into(),
-                    claim_count: 0,
-                },
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 2,
-                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 2,
-                    to_operator: "Sink".into(),
-                    claim_count: 1,
-                },
+                RuntimeFixtureEvent::batch_emitted(1, FixtureBatchOrigin::local("Source"), 0),
+                RuntimeFixtureEvent::batch_handed_off(1, "Projection", 0),
+                RuntimeFixtureEvent::batch_emitted(2, FixtureBatchOrigin::local("Projection"), 1,),
+                RuntimeFixtureEvent::batch_handed_off(2, "Sink", 1),
             ],
         }
     );
@@ -101,54 +81,27 @@ fn projection_pipe_runs_end_to_end_with_scheduler() {
     runtime_context.record_terminal_finished();
 
     assert_eq!(
-        runtime_context.local_snapshot(admission.as_ref()),
-        LocalExecutionSnapshot {
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        LocalExecutionFixture {
             admission_events: vec![
-                AdmissionEvent::ConsumerOpened {
-                    name: "Projection:a_plus_one".into(),
-                    kind: ConsumerKind::ProjectionOutput,
-                    spillable: false,
-                },
-                AdmissionEvent::ReserveAdmitted {
-                    name: "Projection:a_plus_one".into(),
-                    bytes: 13,
-                },
-                AdmissionEvent::ConsumerShrunk {
-                    name: "Projection:a_plus_one".into(),
-                    bytes: 1,
-                },
-                AdmissionEvent::ConsumerReleased {
-                    name: "Projection:a_plus_one".into(),
-                    bytes: 12,
-                },
+                AdmissionFixtureEvent::consumer_opened(
+                    "Projection:a_plus_one",
+                    "projection_output",
+                    false,
+                ),
+                AdmissionFixtureEvent::reserve_admitted("Projection:a_plus_one", 13),
+                AdmissionFixtureEvent::consumer_shrunk("Projection:a_plus_one", 1),
+                AdmissionFixtureEvent::consumer_released("Projection:a_plus_one", 12),
             ],
             runtime_events: vec![
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 0,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 1,
-                    to_operator: "Projection".into(),
-                    claim_count: 0,
-                },
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 2,
-                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 2,
-                    to_operator: "Sink".into(),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchReleased {
-                    batch_id: 2,
-                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::TerminalFinished,
+                RuntimeFixtureEvent::batch_emitted(1, FixtureBatchOrigin::local("Source"), 0),
+                RuntimeFixtureEvent::batch_handed_off(1, "Projection", 0),
+                RuntimeFixtureEvent::batch_emitted(2, FixtureBatchOrigin::local("Projection"), 1,),
+                RuntimeFixtureEvent::batch_handed_off(2, "Sink", 1),
+                RuntimeFixtureEvent::batch_released(2, FixtureBatchOrigin::local("Projection"), 1,),
+                RuntimeFixtureEvent::finished(),
             ],
         }
     );
@@ -198,34 +151,22 @@ fn admission_denial_fails_before_projection_output_is_collected() {
     assert!(sink.batches().is_empty());
     runtime_context.record_terminal_error(error.to_string());
     assert_eq!(
-        runtime_context.local_snapshot(admission.as_ref()),
-        LocalExecutionSnapshot {
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        LocalExecutionFixture {
             admission_events: vec![
-                AdmissionEvent::ConsumerOpened {
-                    name: "Projection:a_plus_one".into(),
-                    kind: ConsumerKind::ProjectionOutput,
-                    spillable: false,
-                },
-                AdmissionEvent::ReserveDenied {
-                    name: "Projection:a_plus_one".into(),
-                    bytes: 13,
-                    limit: 0,
-                },
+                AdmissionFixtureEvent::consumer_opened(
+                    "Projection:a_plus_one",
+                    "projection_output",
+                    false,
+                ),
+                AdmissionFixtureEvent::reserve_denied("Projection:a_plus_one", 13, 0),
             ],
             runtime_events: vec![
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 0,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 1,
-                    to_operator: "Projection".into(),
-                    claim_count: 0,
-                },
-                RuntimeEvent::TerminalError {
-                    message: error.to_string(),
-                },
+                RuntimeFixtureEvent::batch_emitted(1, FixtureBatchOrigin::local("Source"), 0),
+                RuntimeFixtureEvent::batch_handed_off(1, "Projection", 0),
+                RuntimeFixtureEvent::error(error.to_string()),
             ],
         }
     );
@@ -266,45 +207,20 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     );
 
     assert_eq!(
-        runtime_context.local_snapshot(admission.as_ref()),
-        LocalExecutionSnapshot {
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        LocalExecutionFixture {
             admission_events: vec![
-                AdmissionEvent::ConsumerOpened {
-                    name: "Source:a".into(),
-                    kind: ConsumerKind::SourceInput,
-                    spillable: false,
-                },
-                AdmissionEvent::ReserveAdmitted {
-                    name: "Source:a".into(),
-                    bytes: 12,
-                },
+                AdmissionFixtureEvent::consumer_opened("Source:a", "source_input", false),
+                AdmissionFixtureEvent::reserve_admitted("Source:a", 12),
             ],
             runtime_events: vec![
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 1,
-                    to_operator: "Projection".into(),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 2,
-                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchReleased {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 2,
-                    to_operator: "Sink".into(),
-                    claim_count: 1,
-                },
+                RuntimeFixtureEvent::batch_emitted(1, FixtureBatchOrigin::local("Source"), 1),
+                RuntimeFixtureEvent::batch_handed_off(1, "Projection", 1),
+                RuntimeFixtureEvent::batch_emitted(2, FixtureBatchOrigin::local("Projection"), 1,),
+                RuntimeFixtureEvent::batch_released(1, FixtureBatchOrigin::local("Source"), 1),
+                RuntimeFixtureEvent::batch_handed_off(2, "Sink", 1),
             ],
         }
     );
@@ -314,55 +230,23 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     runtime_context.record_terminal_finished();
 
     assert_eq!(
-        runtime_context.local_snapshot(admission.as_ref()),
-        LocalExecutionSnapshot {
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        LocalExecutionFixture {
             admission_events: vec![
-                AdmissionEvent::ConsumerOpened {
-                    name: "Source:a".into(),
-                    kind: ConsumerKind::SourceInput,
-                    spillable: false,
-                },
-                AdmissionEvent::ReserveAdmitted {
-                    name: "Source:a".into(),
-                    bytes: 12,
-                },
-                AdmissionEvent::ConsumerReleased {
-                    name: "Source:a".into(),
-                    bytes: 12,
-                },
+                AdmissionFixtureEvent::consumer_opened("Source:a", "source_input", false),
+                AdmissionFixtureEvent::reserve_admitted("Source:a", 12),
+                AdmissionFixtureEvent::consumer_released("Source:a", 12),
             ],
             runtime_events: vec![
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 1,
-                    to_operator: "Projection".into(),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchEmitted {
-                    batch_id: 2,
-                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchReleased {
-                    batch_id: 1,
-                    origin: tiforth_kernel::BatchOrigin::local("Source"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchHandedOff {
-                    batch_id: 2,
-                    to_operator: "Sink".into(),
-                    claim_count: 1,
-                },
-                RuntimeEvent::BatchReleased {
-                    batch_id: 2,
-                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                    claim_count: 1,
-                },
-                RuntimeEvent::TerminalFinished,
+                RuntimeFixtureEvent::batch_emitted(1, FixtureBatchOrigin::local("Source"), 1),
+                RuntimeFixtureEvent::batch_handed_off(1, "Projection", 1),
+                RuntimeFixtureEvent::batch_emitted(2, FixtureBatchOrigin::local("Projection"), 1,),
+                RuntimeFixtureEvent::batch_released(1, FixtureBatchOrigin::local("Source"), 1),
+                RuntimeFixtureEvent::batch_handed_off(2, "Sink", 1),
+                RuntimeFixtureEvent::batch_released(2, FixtureBatchOrigin::local("Projection"), 1,),
+                RuntimeFixtureEvent::finished(),
             ],
         }
     );

@@ -18,4 +18,7 @@ pub use operators::{
     CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 pub use projection::{project_batch, ProjectionExpr};
-pub use snapshot::LocalExecutionSnapshot;
+pub use snapshot::{
+    AdmissionFixtureEvent, FixtureBatchOrigin, LocalExecutionFixture, LocalExecutionSnapshot,
+    RuntimeFixtureEvent,
+};
