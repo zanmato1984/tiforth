@@ -40,6 +40,9 @@ const PROJECTION_DENIED: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-denied.json",);
 const PROJECTION_OVERFLOW: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-overflow.json",);
+const PROJECTION_MISSING_COLUMN: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-missing-column.json",
+);
 const PROJECTION_PASSTHROUGH_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-before-terminal.json",
 );
@@ -392,6 +395,44 @@ fn add_projection_overflow_is_reported_before_projection_output_is_collected() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_OVERFLOW,
+    );
+}
+
+#[test]
+fn missing_column_projection_is_reported_before_projection_output_is_collected() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let error = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        Arc::new(ProjectionPipe::new(
+            "Projection",
+            vec![ProjectionExpr::new("missing", Expr::column(1))],
+        )),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .expect_err("missing-column projection should fail");
+
+    assert!(error
+        .to_string()
+        .contains("missing input column at index 1"));
+    assert!(sink.batches().is_empty());
+    assert!(admission.events().is_empty());
+    runtime_context.record_terminal_error(error.to_string());
+
+    assert_fixture_json(
+        "projection-missing-column",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_MISSING_COLUMN,
     );
 }
 
