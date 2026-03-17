@@ -1,0 +1,25 @@
+{
+  "admission_events": [],
+  "runtime_events": [
+    {
+      "event": "batch_emitted",
+      "batch_id": 1,
+      "origin": {
+        "query": "local-query",
+        "stage": "Source",
+        "operator": "Source"
+      },
+      "claim_count": 0
+    },
+    {
+      "event": "batch_handed_off",
+      "batch_id": 1,
+      "to_operator": "Projection",
+      "claim_count": 0
+    },
+    {
+      "event": "error",
+      "message": "Compute error: unsupported data type: expected Int32 input for arithmetic at column 0, got Boolean"
+    }
+  ]
+}
