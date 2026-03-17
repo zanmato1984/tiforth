@@ -32,6 +32,9 @@ const PROJECTION_PASSTHROUGH_FINISHED: &str = include_str!(
 const PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-ownership-violation.json",
 );
+const PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-passthrough-shrink-ownership-violation.json",
+);
 const PROJECTION_MIXED_CLAIMS_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-before-terminal.json",
 );
@@ -257,6 +260,60 @@ fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION,
+    );
+}
+
+#[test]
+fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+    let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
+        "Source:a",
+        ConsumerKind::SourceInput,
+        false,
+    ));
+    source_consumer.try_reserve(12).unwrap();
+    let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
+    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+        "Source",
+        vec![(Arc::clone(&input), vec![vec![claim]])],
+    ));
+    let pipe = Arc::new(ProjectionPipe::new(
+        "Projection",
+        vec![ProjectionExpr::new("a_copy", Expr::column(0))],
+    ));
+
+    drive_pipeline_until_sink_handoff(source, pipe, Arc::clone(&sink), runtime_context.clone())
+        .unwrap();
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    assert_eq!(outputs[0].claim_count(), 1);
+    assert_eq!(
+        collect_int32(outputs[0].batch().column(0)),
+        vec![Some(1), Some(2), Some(3)]
+    );
+
+    let error = source_consumer
+        .shrink(1)
+        .expect_err("live forwarded consumer shrink should fail after sink handoff");
+    assert!(error
+        .to_string()
+        .contains("attempted to shrink 1 bytes from the consumer for live claim"));
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_error(error.to_string());
+
+    assert_fixture_json(
+        "projection-passthrough-shrink-ownership-violation",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION,
     );
 }
 
