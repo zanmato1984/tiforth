@@ -62,7 +62,14 @@ For milestone 1:
 - `broken-pipeline` is the required upstream runtime crate for shared or production-facing contracts
 - `broken-pipeline-schedule` is allowed only as a dev, test, or harness dependency
 - `broken-pipeline-c` is not part of the milestone-1 dependency boundary
-- because the upstream crate manifests currently set `publish = false`, the first implementation slice will need a pinned git dependency or vendored source rather than crates.io packaging
+- because the upstream crate manifests currently set `publish = false`, milestone-1 consumption uses a pinned git dependency rather than crates.io packaging
+
+The current milestone-1 implementation pin is the git revision already recorded in `crates/tiforth-kernel/Cargo.toml`:
+
+- `broken-pipeline = 174e6cd07c41210158ae1d805b568968cf71f898`
+- `broken-pipeline-schedule = 174e6cd07c41210158ae1d805b568968cf71f898`
+
+That revision is the current reproducible upstream contract snapshot for milestone 1. If `tiforth` later bumps that revision or vendors an upstream snapshot, that change should be handled as its own issue because it changes the verified runtime baseline.
 
 ## Host Memory Admission Boundary
 
@@ -158,12 +165,12 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 
 ## Open Questions
 
-- TODO: pin the exact upstream `broken-pipeline-rs` revision or vendored snapshot once implementation work starts
 - TODO: decide whether `tiforth` needs a small convenience re-export module for Arrow-bound runtime aliases or whether direct upstream imports are sufficient
 - TODO: define how `tiforth` operators and expressions attach to the adopted contract without renaming its runtime states
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
 - TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
 - TODO: decide what adapter-specific orchestration stays outside the shared contract
+- TODO: decide whether a later milestone should keep using the pinned git dependency above or vendor a reproducible upstream snapshot once packaging or reproducibility constraints require it
 
 ## Initial Boundary
 
