@@ -78,6 +78,43 @@ For milestone 1, runtime-visible memory governance follows the reserve-first des
 
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 
+## Milestone-1 Stage Handoff And Ownership
+
+- every data-bearing handoff uses the canonical semantic envelope from `docs/contracts/data.md`: adopted upstream `Batch` payload plus batch identity, origin metadata, and live ownership claims
+- a successful handoff transfers live batch claims from the producing task to the in-flight batch; it does not require a fresh host admission decision and it does not add a new shared runtime state
+- downstream stages may forward incoming claims unchanged, add new claims for newly materialized buffers, or drop claims only when the referenced bytes are no longer reachable from their outgoing batch or retained state
+- runtime cancellation, sink drop, or error teardown must release any remaining live batch claims before the query is considered fully finished
+
+Milestone 1 therefore keeps ownership transfer as `tiforth`-owned policy layered on top of the adopted upstream batch runtime, not as a replacement for that runtime.
+
+Detailed handoff rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
+
+## Observable Milestone-1 Events
+
+The shared contract must make the following events observable to local tests and adapter integrations, whether via structured logs, callback hooks, or recorded harness events:
+
+- `consumer_opened`
+- `reserve_admitted`
+- `reserve_denied`
+- `consumer_shrunk`
+- `batch_emitted`
+- `batch_handed_off`
+- `batch_released`
+- `consumer_released`
+- terminal runtime outcome: `finished`, `cancelled`, or `error`
+
+The minimum event payload should let a harness correlate query, stage, and operator identity plus `batch_id`, consumer identity, claimed bytes, and final outcome. Milestone 1 does not freeze one tracing API; it freezes the event meanings that tests and adapters must be able to observe.
+
+## Minimal Adapter-Visible Error Taxonomy
+
+For milestone 1, adapters should be able to distinguish at least:
+
+- `memory_admission_denied`: the host denied a reserve request, including a spill-and-retry path that still ends in denial
+- `memory_allocation_failed`: local allocation or Arrow materialization failed after admission succeeded
+- `ownership_contract_violation`: `tiforth` attempted an illegal claim lifecycle transition, such as emitting governed bytes without a claim, shrinking or releasing a live batch claim, or double-releasing a consumer
+
+Operator-specific compute failures such as arithmetic overflow remain outside this ownership taxonomy and continue to surface as ordinary operator errors.
+
 ## Non-Goals
 
 - inventing a `tiforth`-only runtime contract above `broken-pipeline-rs`
@@ -94,13 +131,10 @@ Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 - TODO: pin the exact upstream `broken-pipeline-rs` revision or vendored snapshot once implementation work starts
 - TODO: decide whether `tiforth` needs a small convenience re-export module for Arrow-bound runtime aliases or whether direct upstream imports are sufficient
 - TODO: define how `tiforth` operators and expressions attach to the adopted contract without renaming its runtime states
-- TODO: define which runtime events must be observable in tests when exercising the adopted contract
-- TODO: define error taxonomy and propagation guarantees expected by adapters, including memory-admission denial and internal allocation failure
-- TODO: define memory ownership and accounting hooks between adopted runtime boundaries and `tiforth` operators
-- TODO: define ownership transfer rules between runtime stages for already-admitted buffers and claimed batches
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
+- TODO: freeze one concrete event-carrier API or snapshot shape for harnesses and later adapters without changing the event meanings above
 - TODO: decide what adapter-specific orchestration stays outside the shared contract
 
 ## Initial Boundary
 
-For now, this contract exists to constrain harness, adapter, and operator design around the adopted `broken-pipeline-rs` Arrow-bound runtime surface and the reserve-first admission boundary. `tiforth` begins where operator, expression, admission, and adapter-layer semantics begin; the shared runtime protocol itself remains upstream-owned. It should become more precise by recording adopted upstream types, operator hooks, and observable memory-governance events before any real kernel scheduling code is introduced.
+For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; the shared upstream runtime protocol itself remains upstream-owned.
