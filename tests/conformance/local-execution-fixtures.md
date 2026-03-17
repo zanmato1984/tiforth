@@ -17,6 +17,7 @@ Related issues:
 - #54 `conformance: add missing-column projection checkpoint`
 - #56 `conformance: add nullable computed local execution fixture checkpoints`
 - #58 `conformance: add unsupported arithmetic type projection checkpoint`
+- #60 `conformance: add duplicate forwarded-claim projection checkpoints`
 
 ## Purpose
 
@@ -44,6 +45,8 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-null-literal-finished.json`
 - `projection-nullable-computed-before-terminal.json`
 - `projection-nullable-computed-finished.json`
+- `projection-duplicate-forwarded-claim-before-terminal.json`
+- `projection-duplicate-forwarded-claim-finished.json`
 - `projection-passthrough-ownership-violation.json`
 - `projection-passthrough-shrink-ownership-violation.json`
 - `projection-untracked-handoff-ownership-violation.json`
@@ -88,11 +91,15 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - direct `NULL` literal computed output after final release and terminal completion
 - nullable computed `add<int32>` output before terminal completion with the propagated-null retained-byte claim still live on the batch claim
 - nullable computed `add<int32>` output after final release and terminal completion
+- duplicate forwarded-claim passthrough before terminal completion with the shared live claim identity still counted once at runtime handoff
+- duplicate forwarded-claim passthrough after final release and terminal completion with one forwarded-claim release path
 - passthrough claim forwarding before terminal completion
 - passthrough claim forwarding after final release and terminal completion
 - passthrough forwarded-claim release ownership violation after sink handoff and clean teardown
 - passthrough forwarded-claim shrink ownership violation after sink handoff and clean teardown
 - claimed source ownership violation when `ProjectionRuntimeContext` is missing before source emit
 - untracked source-to-projection handoff ownership violation before sink collection
+
+The duplicate-forwarded-claim checkpoints intentionally share the same local event shape as simple passthrough. `LocalExecutionFixture` freezes unique claim-count transitions, not per-column claim reuse multiplicity, so the corresponding Rust test separately asserts the duplicated output columns and field names.
 
 Broader adapter-visible fixtures, full `claims[]` serialization, and non-projection harness carriers remain out of scope.
