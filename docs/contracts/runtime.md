@@ -127,6 +127,8 @@ Local executable coverage should derive fixture assertions from this snapshot sh
 - `admission_events[]`: contract-named event records with primitive payload fields for `consumer_opened`, `reserve_admitted`, `reserve_denied`, `consumer_shrunk`, and `consumer_released`
 - `runtime_events[]`: contract-named event records with primitive payload fields for `batch_emitted`, `batch_handed_off`, `batch_released`, `finished`, `cancelled`, and `error`
 
+Checked-in local conformance artifacts should serialize `LocalExecutionFixture` as JSON with top-level `admission_events` and `runtime_events` arrays. Event records should keep `event` plus only the primitive payload keys that apply to that event; non-applicable optional fields should be omitted rather than emitted as `null`.
+
 This fixture export exists so local Rust tests and early harness scaffolding can assert one stable, reviewable carrier without depending directly on recorder internals or on the exact Rust enum layout used underneath.
 
 This fixture remains local to milestone-1 Rust-side coverage. It does **not** freeze adapter-visible callbacks, a merged cross-family total order, timestamps, or full serialized `claims[]` payloads.

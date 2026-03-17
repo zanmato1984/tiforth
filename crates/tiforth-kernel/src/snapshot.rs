@@ -1,5 +1,6 @@
 use crate::admission::{AdmissionEvent, ConsumerKind, RecordingAdmissionController};
 use crate::handoff::{BatchOrigin, RuntimeEvent};
+use serde::Serialize;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LocalExecutionSnapshot {
@@ -38,19 +39,23 @@ impl LocalExecutionSnapshot {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
 pub struct LocalExecutionFixture {
     pub admission_events: Vec<AdmissionFixtureEvent>,
     pub runtime_events: Vec<RuntimeFixtureEvent>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AdmissionFixtureEvent {
     pub event: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub spillable: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bytes: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<usize>,
 }
 
@@ -139,13 +144,18 @@ impl From<&AdmissionEvent> for AdmissionFixtureEvent {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RuntimeFixtureEvent {
     pub event: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub batch_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub origin: Option<FixtureBatchOrigin>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub to_operator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub claim_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
@@ -246,7 +256,7 @@ impl From<&RuntimeEvent> for RuntimeFixtureEvent {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct FixtureBatchOrigin {
     pub query: String,
     pub stage: String,
