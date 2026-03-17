@@ -4,6 +4,7 @@ pub mod expr;
 pub mod handoff;
 pub mod operators;
 pub mod projection;
+pub mod snapshot;
 
 pub use admission::{
     AdmissionConsumer, AdmissionController, AdmissionEvent, ConsumerKind, ConsumerSpec,
@@ -17,3 +18,4 @@ pub use operators::{
     CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 pub use projection::{project_batch, ProjectionExpr};
+pub use snapshot::LocalExecutionSnapshot;

@@ -7,10 +7,13 @@ use broken_pipeline::{
     OpOutput, PipeOperator, SinkOperator, SourceOperator, TaskContext, ThreadId,
 };
 
-use crate::admission::{AdmissionController, NoopAdmissionController};
+use crate::admission::{
+    AdmissionController, NoopAdmissionController, RecordingAdmissionController,
+};
 use crate::error::TiforthError;
 use crate::handoff::{BatchTracker, GovernedBatch, RuntimeEvent, RuntimeEventRecorder};
 use crate::projection::{project_batch, project_governed_batch, ProjectionExpr};
+use crate::snapshot::LocalExecutionSnapshot;
 
 enum SourceBatch {
     Plain(Batch),
@@ -41,6 +44,13 @@ impl ProjectionRuntimeContext {
 
     pub fn runtime_events(&self) -> Vec<RuntimeEvent> {
         self.tracker.events()
+    }
+
+    pub fn local_snapshot(
+        &self,
+        admission: &RecordingAdmissionController,
+    ) -> LocalExecutionSnapshot {
+        LocalExecutionSnapshot::capture(admission, self.runtime_events())
     }
 
     pub fn new_claim(

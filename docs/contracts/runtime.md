@@ -105,6 +105,20 @@ The shared contract must make the following events observable to local tests and
 
 The minimum event payload should let a harness correlate query, stage, and operator identity plus `batch_id`, consumer identity, claimed bytes, and final outcome. Milestone 1 does not freeze one tracing API; it freezes the event meanings that tests and adapters must be able to observe.
 
+## Milestone-1 Local Snapshot Shape
+
+For milestone-1 local Rust tests and harness scaffolding, `tiforth-kernel` now freezes one concrete snapshot carrier:
+
+- `LocalExecutionSnapshot`
+- `admission_events[]`: ordered `consumer_opened`, `reserve_admitted`, `reserve_denied`, `consumer_shrunk`, and `consumer_released` observations from `RecordingAdmissionController`
+- `runtime_events[]`: ordered `batch_emitted`, `batch_handed_off`, `batch_released`, and terminal outcome observations from `ProjectionRuntimeContext`
+
+This snapshot is the local Rust-side harness carrier only. It does **not** freeze an adapter-facing callback surface, tracing sink, or FFI wire format.
+
+Milestone 1 guarantees ordering within each event family captured above. It does **not** yet guarantee one merged cross-family total order or timestamp field.
+
+Local executable coverage should prefer asserting through this snapshot shape rather than stitching together recorder internals ad hoc.
+
 ## Minimal Adapter-Visible Error Taxonomy
 
 For milestone 1, adapters should be able to distinguish at least:
@@ -132,9 +146,9 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 - TODO: decide whether `tiforth` needs a small convenience re-export module for Arrow-bound runtime aliases or whether direct upstream imports are sufficient
 - TODO: define how `tiforth` operators and expressions attach to the adopted contract without renaming its runtime states
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
-- TODO: freeze one concrete event-carrier API or snapshot shape for harnesses and later adapters without changing the event meanings above
+- TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
 - TODO: decide what adapter-specific orchestration stays outside the shared contract
 
 ## Initial Boundary
 
-For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; the shared upstream runtime protocol itself remains upstream-owned.
+For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; the shared upstream runtime protocol itself remains upstream-owned.

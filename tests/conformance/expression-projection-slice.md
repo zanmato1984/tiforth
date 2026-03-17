@@ -19,6 +19,8 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - reserve-first denial before emit
 - direct-column claim forwarding without opening a new computed-column consumer
 
+Those tests now assert the runtime/admission boundary through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
+
 This directory remains the spec-linked case plan while broader harness snapshot formats and adapter-facing fixtures are still being defined.
 
 The claim-carrying batch handoff semantics for this slice are further detailed in `tests/conformance/milestone-1-arrow-batch-handoff.md`.

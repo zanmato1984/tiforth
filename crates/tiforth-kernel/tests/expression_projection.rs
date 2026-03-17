@@ -16,7 +16,7 @@ use tiforth_kernel::operators::{
     CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::{project_batch, ProjectionExpr};
-use tiforth_kernel::{ArrowTypes, Batch};
+use tiforth_kernel::{ArrowTypes, Batch, LocalExecutionSnapshot};
 
 #[test]
 fn projection_pipe_runs_end_to_end_with_scheduler() {
@@ -54,47 +54,46 @@ fn projection_pipe_runs_end_to_end_with_scheduler() {
     assert_eq!(output.claim_count(), 1);
 
     assert_eq!(
-        admission.events(),
-        vec![
-            AdmissionEvent::ConsumerOpened {
-                name: "Projection:a_plus_one".into(),
-                kind: ConsumerKind::ProjectionOutput,
-                spillable: false,
-            },
-            AdmissionEvent::ReserveAdmitted {
-                name: "Projection:a_plus_one".into(),
-                bytes: 13,
-            },
-            AdmissionEvent::ConsumerShrunk {
-                name: "Projection:a_plus_one".into(),
-                bytes: 1,
-            },
-        ]
-    );
-    assert_eq!(
-        runtime_context.runtime_events(),
-        vec![
-            RuntimeEvent::BatchEmitted {
-                batch_id: 1,
-                origin: tiforth_kernel::BatchOrigin::local("Source"),
-                claim_count: 0,
-            },
-            RuntimeEvent::BatchHandedOff {
-                batch_id: 1,
-                to_operator: "Projection".into(),
-                claim_count: 0,
-            },
-            RuntimeEvent::BatchEmitted {
-                batch_id: 2,
-                origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                claim_count: 1,
-            },
-            RuntimeEvent::BatchHandedOff {
-                batch_id: 2,
-                to_operator: "Sink".into(),
-                claim_count: 1,
-            },
-        ]
+        runtime_context.local_snapshot(admission.as_ref()),
+        LocalExecutionSnapshot {
+            admission_events: vec![
+                AdmissionEvent::ConsumerOpened {
+                    name: "Projection:a_plus_one".into(),
+                    kind: ConsumerKind::ProjectionOutput,
+                    spillable: false,
+                },
+                AdmissionEvent::ReserveAdmitted {
+                    name: "Projection:a_plus_one".into(),
+                    bytes: 13,
+                },
+                AdmissionEvent::ConsumerShrunk {
+                    name: "Projection:a_plus_one".into(),
+                    bytes: 1,
+                },
+            ],
+            runtime_events: vec![
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 0,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 1,
+                    to_operator: "Projection".into(),
+                    claim_count: 0,
+                },
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 2,
+                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 2,
+                    to_operator: "Sink".into(),
+                    claim_count: 1,
+                },
+            ],
+        }
     );
 
     drop(outputs);
@@ -102,57 +101,56 @@ fn projection_pipe_runs_end_to_end_with_scheduler() {
     runtime_context.record_terminal_finished();
 
     assert_eq!(
-        admission.events(),
-        vec![
-            AdmissionEvent::ConsumerOpened {
-                name: "Projection:a_plus_one".into(),
-                kind: ConsumerKind::ProjectionOutput,
-                spillable: false,
-            },
-            AdmissionEvent::ReserveAdmitted {
-                name: "Projection:a_plus_one".into(),
-                bytes: 13,
-            },
-            AdmissionEvent::ConsumerShrunk {
-                name: "Projection:a_plus_one".into(),
-                bytes: 1,
-            },
-            AdmissionEvent::ConsumerReleased {
-                name: "Projection:a_plus_one".into(),
-                bytes: 12,
-            },
-        ]
-    );
-    assert_eq!(
-        runtime_context.runtime_events(),
-        vec![
-            RuntimeEvent::BatchEmitted {
-                batch_id: 1,
-                origin: tiforth_kernel::BatchOrigin::local("Source"),
-                claim_count: 0,
-            },
-            RuntimeEvent::BatchHandedOff {
-                batch_id: 1,
-                to_operator: "Projection".into(),
-                claim_count: 0,
-            },
-            RuntimeEvent::BatchEmitted {
-                batch_id: 2,
-                origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                claim_count: 1,
-            },
-            RuntimeEvent::BatchHandedOff {
-                batch_id: 2,
-                to_operator: "Sink".into(),
-                claim_count: 1,
-            },
-            RuntimeEvent::BatchReleased {
-                batch_id: 2,
-                origin: tiforth_kernel::BatchOrigin::local("Projection"),
-                claim_count: 1,
-            },
-            RuntimeEvent::TerminalFinished,
-        ]
+        runtime_context.local_snapshot(admission.as_ref()),
+        LocalExecutionSnapshot {
+            admission_events: vec![
+                AdmissionEvent::ConsumerOpened {
+                    name: "Projection:a_plus_one".into(),
+                    kind: ConsumerKind::ProjectionOutput,
+                    spillable: false,
+                },
+                AdmissionEvent::ReserveAdmitted {
+                    name: "Projection:a_plus_one".into(),
+                    bytes: 13,
+                },
+                AdmissionEvent::ConsumerShrunk {
+                    name: "Projection:a_plus_one".into(),
+                    bytes: 1,
+                },
+                AdmissionEvent::ConsumerReleased {
+                    name: "Projection:a_plus_one".into(),
+                    bytes: 12,
+                },
+            ],
+            runtime_events: vec![
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 0,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 1,
+                    to_operator: "Projection".into(),
+                    claim_count: 0,
+                },
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 2,
+                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 2,
+                    to_operator: "Sink".into(),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchReleased {
+                    batch_id: 2,
+                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::TerminalFinished,
+            ],
+        }
     );
 }
 
@@ -200,37 +198,36 @@ fn admission_denial_fails_before_projection_output_is_collected() {
     assert!(sink.batches().is_empty());
     runtime_context.record_terminal_error(error.to_string());
     assert_eq!(
-        admission.events(),
-        vec![
-            AdmissionEvent::ConsumerOpened {
-                name: "Projection:a_plus_one".into(),
-                kind: ConsumerKind::ProjectionOutput,
-                spillable: false,
-            },
-            AdmissionEvent::ReserveDenied {
-                name: "Projection:a_plus_one".into(),
-                bytes: 13,
-                limit: 0,
-            },
-        ]
-    );
-    assert_eq!(
-        runtime_context.runtime_events(),
-        vec![
-            RuntimeEvent::BatchEmitted {
-                batch_id: 1,
-                origin: tiforth_kernel::BatchOrigin::local("Source"),
-                claim_count: 0,
-            },
-            RuntimeEvent::BatchHandedOff {
-                batch_id: 1,
-                to_operator: "Projection".into(),
-                claim_count: 0,
-            },
-            RuntimeEvent::TerminalError {
-                message: error.to_string(),
-            },
-        ]
+        runtime_context.local_snapshot(admission.as_ref()),
+        LocalExecutionSnapshot {
+            admission_events: vec![
+                AdmissionEvent::ConsumerOpened {
+                    name: "Projection:a_plus_one".into(),
+                    kind: ConsumerKind::ProjectionOutput,
+                    spillable: false,
+                },
+                AdmissionEvent::ReserveDenied {
+                    name: "Projection:a_plus_one".into(),
+                    bytes: 13,
+                    limit: 0,
+                },
+            ],
+            runtime_events: vec![
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 0,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 1,
+                    to_operator: "Projection".into(),
+                    claim_count: 0,
+                },
+                RuntimeEvent::TerminalError {
+                    message: error.to_string(),
+                },
+            ],
+        }
     );
 }
 
@@ -269,18 +266,47 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     );
 
     assert_eq!(
-        admission.events(),
-        vec![
-            AdmissionEvent::ConsumerOpened {
-                name: "Source:a".into(),
-                kind: ConsumerKind::SourceInput,
-                spillable: false,
-            },
-            AdmissionEvent::ReserveAdmitted {
-                name: "Source:a".into(),
-                bytes: 12,
-            },
-        ]
+        runtime_context.local_snapshot(admission.as_ref()),
+        LocalExecutionSnapshot {
+            admission_events: vec![
+                AdmissionEvent::ConsumerOpened {
+                    name: "Source:a".into(),
+                    kind: ConsumerKind::SourceInput,
+                    spillable: false,
+                },
+                AdmissionEvent::ReserveAdmitted {
+                    name: "Source:a".into(),
+                    bytes: 12,
+                },
+            ],
+            runtime_events: vec![
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 1,
+                    to_operator: "Projection".into(),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 2,
+                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchReleased {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 2,
+                    to_operator: "Sink".into(),
+                    claim_count: 1,
+                },
+            ],
+        }
     );
 
     drop(outputs);
@@ -288,22 +314,57 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     runtime_context.record_terminal_finished();
 
     assert_eq!(
-        admission.events(),
-        vec![
-            AdmissionEvent::ConsumerOpened {
-                name: "Source:a".into(),
-                kind: ConsumerKind::SourceInput,
-                spillable: false,
-            },
-            AdmissionEvent::ReserveAdmitted {
-                name: "Source:a".into(),
-                bytes: 12,
-            },
-            AdmissionEvent::ConsumerReleased {
-                name: "Source:a".into(),
-                bytes: 12,
-            },
-        ]
+        runtime_context.local_snapshot(admission.as_ref()),
+        LocalExecutionSnapshot {
+            admission_events: vec![
+                AdmissionEvent::ConsumerOpened {
+                    name: "Source:a".into(),
+                    kind: ConsumerKind::SourceInput,
+                    spillable: false,
+                },
+                AdmissionEvent::ReserveAdmitted {
+                    name: "Source:a".into(),
+                    bytes: 12,
+                },
+                AdmissionEvent::ConsumerReleased {
+                    name: "Source:a".into(),
+                    bytes: 12,
+                },
+            ],
+            runtime_events: vec![
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 1,
+                    to_operator: "Projection".into(),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchEmitted {
+                    batch_id: 2,
+                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchReleased {
+                    batch_id: 1,
+                    origin: tiforth_kernel::BatchOrigin::local("Source"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchHandedOff {
+                    batch_id: 2,
+                    to_operator: "Sink".into(),
+                    claim_count: 1,
+                },
+                RuntimeEvent::BatchReleased {
+                    batch_id: 2,
+                    origin: tiforth_kernel::BatchOrigin::local("Projection"),
+                    claim_count: 1,
+                },
+                RuntimeEvent::TerminalFinished,
+            ],
+        }
     );
 }
 

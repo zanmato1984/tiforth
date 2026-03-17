@@ -82,6 +82,15 @@ Stage handoff transfers the semantic envelope, not just the raw `RecordBatch`.
 
 This allows zero-copy passthrough for shared Arrow arrays while keeping exactly one live ownership claim for every governed buffer that remains reachable.
 
+## Milestone-1 Local Runtime Carrier
+
+For the current Rust kernel slice, local runtime state carries the semantic batch envelope through:
+
+- `GovernedBatch`: the adopted upstream `Batch` payload plus local `batch_id`, `origin`, and per-column live claims while the batch remains reachable
+- `LocalExecutionSnapshot.runtime_events[]`: batch lifecycle records that let local tests and harness scaffolding correlate `batch_id`, `origin`, and aggregate claim counts across emit, handoff, release, and terminal outcomes
+
+This settles the local Rust-side carrier for milestone 1 without freezing a later adapter or FFI layout.
+
 ## `shrink` And `release` For Live Batch Claims
 
 - `shrink` applies only while `tiforth` still owns the bytes locally or after those bytes have been detached from every live batch and retained state
@@ -97,9 +106,9 @@ This allows zero-copy passthrough for shared Arrow arrays while keeping exactly 
 - TODO: specify required support for nested types, if any, in the first milestone
 - TODO: specify decimal and temporal metadata requirements
 - TODO: decide how spill or off-heap behavior is represented, if at all, given that spill is operator-managed rather than transparent inside Arrow allocation paths
-- TODO: define the exact concrete carrier used for `batch_id`, `origin`, and `claims[]` in local runtime state, harness snapshots, or later adapter ABIs
+- TODO: decide what later adapter-visible or serialized carrier should expose full `batch_id`, `origin`, and `claims[]` detail beyond the current local `GovernedBatch` state and `LocalExecutionSnapshot` event records
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope and ownership-transfer rules while still leaving the concrete carrier type, event plumbing, and later imported-buffer work open.
+For milestone 1, this document now fixes the semantic batch envelope and ownership-transfer rules while settling the current local Rust-side carrier for executable coverage. Later adapter-visible layouts, richer claim serialization, and imported-buffer work remain open.
