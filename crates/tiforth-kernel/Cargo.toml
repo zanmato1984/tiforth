@@ -1,0 +1,13 @@
+[package]
+name = "tiforth-kernel"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+arrow-array = "50.0.0"
+arrow-schema = "50.0.0"
+broken-pipeline = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "174e6cd07c41210158ae1d805b568968cf71f898" }
+
+[dev-dependencies]
+broken-pipeline-schedule = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "174e6cd07c41210158ae1d805b568968cf71f898" }

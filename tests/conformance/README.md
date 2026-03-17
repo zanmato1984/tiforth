@@ -8,4 +8,4 @@ Likely contents later:
 - fixtures for types, null handling, and edge cases
 - result snapshots or assertions
 
-Current rule: keep this directory implementation-free until the first harness plan is approved.
+Current rule: issue #10 approves the first narrow local conformance slice. Keep canonical cases documented here, and keep executable coverage tightly scoped to that documented projection path until a broader harness plan is approved.
