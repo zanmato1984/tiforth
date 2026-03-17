@@ -8,7 +8,9 @@ use broken_pipeline::{
     TaskContext, TaskStatus, ThreadId,
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
-use tiforth_kernel::admission::{AdmissionController, ConsumerKind, RecordingAdmissionController};
+use tiforth_kernel::admission::{
+    AdmissionController, AdmissionEvent, ConsumerKind, RecordingAdmissionController,
+};
 use tiforth_kernel::expr::Expr;
 use tiforth_kernel::operators::{
     CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
@@ -21,6 +23,12 @@ const PROJECTION_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
 );
 const PROJECTION_COMPUTED_FINISHED: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-computed-finished.json",
+);
+const PROJECTION_NULL_LITERAL_BEFORE_TERMINAL: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-null-literal-before-terminal.json",
+);
+const PROJECTION_NULL_LITERAL_FINISHED: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-null-literal-finished.json",
 );
 const PROJECTION_DENIED: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-denied.json",);
@@ -128,6 +136,140 @@ fn add_projection_propagates_nulls() {
     assert_eq!(
         collect_int32(output.column(0)),
         vec![Some(2), None, Some(4)]
+    );
+}
+
+#[test]
+fn direct_literal_projection_materializes_non_null_int32() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = RecordingAdmissionController::unbounded();
+    let output = project_batch(
+        input.as_ref(),
+        &[ProjectionExpr::new("literal_seven", Expr::literal(Some(7)))],
+        &admission,
+        "Projection",
+    )
+    .unwrap();
+
+    assert_eq!(output.num_rows(), input.num_rows());
+    assert_eq!(output.schema().field(0).name(), "literal_seven");
+    assert!(!output.schema().field(0).is_nullable());
+    assert_eq!(
+        collect_int32(output.column(0)),
+        vec![Some(7), Some(7), Some(7)]
+    );
+    assert_eq!(
+        admission.events(),
+        vec![
+            AdmissionEvent::ConsumerOpened {
+                name: "Projection:literal_seven".into(),
+                kind: ConsumerKind::ProjectionOutput,
+                spillable: false,
+            },
+            AdmissionEvent::ReserveAdmitted {
+                name: "Projection:literal_seven".into(),
+                bytes: 13,
+            },
+            AdmissionEvent::ConsumerShrunk {
+                name: "Projection:literal_seven".into(),
+                bytes: 1,
+            },
+            AdmissionEvent::ConsumerReleased {
+                name: "Projection:literal_seven".into(),
+                bytes: 12,
+            },
+        ]
+    );
+}
+
+#[test]
+fn direct_null_literal_projection_materializes_nullable_all_null_int32() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = RecordingAdmissionController::unbounded();
+    let output = project_batch(
+        input.as_ref(),
+        &[ProjectionExpr::new("null_literal", Expr::literal(None))],
+        &admission,
+        "Projection",
+    )
+    .unwrap();
+
+    assert_eq!(output.num_rows(), input.num_rows());
+    assert_eq!(output.schema().field(0).name(), "null_literal");
+    assert!(output.schema().field(0).is_nullable());
+    assert_eq!(collect_int32(output.column(0)), vec![None, None, None]);
+    assert_eq!(
+        admission.events(),
+        vec![
+            AdmissionEvent::ConsumerOpened {
+                name: "Projection:null_literal".into(),
+                kind: ConsumerKind::ProjectionOutput,
+                spillable: false,
+            },
+            AdmissionEvent::ReserveAdmitted {
+                name: "Projection:null_literal".into(),
+                bytes: 13,
+            },
+            AdmissionEvent::ConsumerReleased {
+                name: "Projection:null_literal".into(),
+                bytes: 13,
+            },
+        ]
+    );
+}
+
+#[test]
+fn null_literal_projection_preserves_full_claim_without_shrink() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let status = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        Arc::new(ProjectionPipe::new(
+            "Projection",
+            vec![ProjectionExpr::new("null_literal", Expr::literal(None))],
+        )),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .unwrap();
+    assert!(status.is_finished());
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    let output = &outputs[0];
+    assert_eq!(output.batch().schema().field(0).name(), "null_literal");
+    assert!(output.batch().schema().field(0).is_nullable());
+    assert_eq!(
+        collect_int32(output.batch().column(0)),
+        vec![None, None, None]
+    );
+    assert_eq!(output.claim_count(), 1);
+
+    assert_fixture_json(
+        "projection-null-literal-before-terminal",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_NULL_LITERAL_BEFORE_TERMINAL,
+    );
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_finished();
+
+    assert_fixture_json(
+        "projection-null-literal-finished",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_NULL_LITERAL_FINISHED,
     );
 }
 
