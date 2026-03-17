@@ -5,6 +5,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 ## Canonical Cases
 
 - `column passthrough`: direct column projection preserves values, row count, and output order while forwarding incoming claims without opening a new computed-column consumer
+- `direct literal`: `literal<int32>(value)` materializes one `Int32Array` value per input row, with non-null literals staying non-null and `NULL` literals yielding nullable all-null output
 - `add literal`: `add(column(0), literal(1))` produces an `Int32Array` with row-wise addition
 - `null propagation`: `add` yields null whenever either operand is null
 - `overflow error`: `add` fails as an execution error before emit when `int32` addition overflows
@@ -17,6 +18,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/expression_projection.rs` for:
 
 - computed projection handoff and final-drop release
+- direct `literal<int32>` projection for both non-null and `NULL` outputs
 - mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
 - `add<int32>` overflow execution error before sink collection
@@ -25,6 +27,8 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - forwarded-claim ownership violations after sink handoff via local explicit early-release and early-shrink checkpoints against the directly addressed local consumer behind that live claim
 - claimed-source ownership violation when `ProjectionRuntimeContext` is missing before any source emit or sink collection
 - untracked source-to-projection handoff ownership violation before batch adoption and sink collection
+
+The same local slice also preserves explicit local fixture checkpoints for a direct `NULL` literal computed-output path. That checkpoint confirms the milestone-1 no-shrink path: the projection-output consumer reserves the full nullable `Int32Array` estimate, keeps all admitted bytes attached to the emitted claim, and releases that unchanged retained size only after the sink-owned batch drops.
 
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 
