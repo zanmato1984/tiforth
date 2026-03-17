@@ -14,7 +14,7 @@ Defines the in-memory representation and batch boundaries. Directionally Arrow-n
 
 ### 3. Kernel
 
-Future execution primitives that implement spec-defined behavior over the data contract. This layer does not exist yet.
+Future execution primitives that implement spec-defined behavior over the data contract. This layer begins only with narrow milestone-1 slices backed by accepted docs and local tests.
 
 ### 4. Runtime
 
@@ -30,7 +30,7 @@ Conformance, differential, and performance harnesses that exercise the stack and
 
 ## Current Repository Bias
 
-This reboot starts in layers 1, 2, 4, 5, and 6. Layer 3 is deferred until contracts and harnesses are credible.
+This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
 
 ## Architectural Rules
 
