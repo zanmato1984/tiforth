@@ -75,6 +75,8 @@ Ordering guarantees stay per event family only: `admission_events[]` stay ordere
 
 `LocalExecutionFixture` can serialize `cancelled`, and the current checked-in projection fixtures now cover that outcome for the mixed-claim slice. The cancelled checkpoint comes from a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step rather than relabeling a finished run.
 
+For the current projection-built `Int32Array` slice, the fixture admission records also make byte reconciliation reviewable. `reserve_admitted.bytes` is the milestone-1 per-column estimate `rows * 4 + ceil(rows / 8)`, and `consumer_shrunk.bytes` appears only when the finished computed output no longer needs a validity bitmap. Multi-computed checkpoints repeat that admission pattern once per computed output column rather than merging those claims together.
+
 ## Current Scope
 
 The initial checked-in files cover the current milestone-1 projection slice only:

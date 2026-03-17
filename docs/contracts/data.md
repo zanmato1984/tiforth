@@ -48,6 +48,24 @@ This keeps host memory control explicit while allowing milestone-1 data construc
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 Detailed batch handoff and ownership rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
 
+### Milestone-1 Projection `Int32Array` Estimate Rule
+
+For the current milestone-1 Rust projection slice, computed `Int32Array` outputs use one concrete reserve-first estimate and one concrete retained-byte reconciliation rule:
+
+- before materialization, each computed projection column reserves `rows * 4 + ceil(rows / 8)` bytes
+- that estimate covers one `i32` value slot per row plus one worst-case validity bitmap bit per row
+- after materialization, the retained live bytes for that column reconcile to `rows * 4`, plus `ceil(rows / 8)` only when the finished output still has at least one live null bit to carry
+- if the finished output has no nulls, the producer `shrink`s exactly the reserved bitmap bytes before sealing the batch for handoff
+- if the finished output has one or more nulls, milestone 1 keeps the full estimate attached to the emitted claim and performs no pre-emit `shrink`
+
+This fixes the current milestone-1 rule for `literal<int32>` and `add<int32>` projection outputs without claiming it as a universal Arrow formula for later operators or types.
+
+The current local executable evidence lines up with that rule:
+
+- direct non-null literal and other non-null computed outputs reserve the full estimate, then `shrink` the bitmap portion before emit
+- direct `NULL` literals and nullable computed `add<int32>` outputs keep the full estimate because the emitted array still carries a validity bitmap
+- multi-computed outputs apply the same rule independently per computed projection column, so one emitted batch may carry both a shrunk non-null claim and an unshrunk nullable claim at the same time
+
 ## Milestone-1 Canonical Batch Envelope
 
 Milestone 1 keeps the adopted upstream Arrow batch surface. `tiforth` does **not** introduce a second public data payload type above `broken_pipeline::traits::arrow::Batch`.
@@ -101,7 +119,6 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Open Questions
 
-- TODO: define how milestone-1 operators estimate intended memory before allocation and how that estimate is reconciled with actual allocated bytes
 - TODO: decide how dictionary encoding is treated in the shared contract
 - TODO: specify required support for nested types, if any, in the first milestone
 - TODO: specify decimal and temporal metadata requirements
