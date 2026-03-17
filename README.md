@@ -20,3 +20,4 @@ This initial commit is structure and documentation only. It intentionally does n
 - Prefer explicit TODOs over guessed semantics.
 - Keep concrete implementations out until the harness and contracts are ready.
 - Each issue or parallel workstream must use its own local git worktree; do not reuse one directory for multiple active issue tasks.
+- Each PR must link its issue explicitly; use `Closes #...` for auto-close on merge and `Refs #...` for partial or stacked work.
