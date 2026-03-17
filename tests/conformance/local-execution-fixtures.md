@@ -15,6 +15,7 @@ Related issues:
 - #47 `conformance: add direct literal<int32> projection checkpoints`
 - #52 `conformance: add non-null literal local execution fixture checkpoints`
 - #54 `conformance: add missing-column projection checkpoint`
+- #56 `conformance: add nullable computed local execution fixture checkpoints`
 
 ## Purpose
 
@@ -39,6 +40,8 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-non-null-literal-finished.json`
 - `projection-null-literal-before-terminal.json`
 - `projection-null-literal-finished.json`
+- `projection-nullable-computed-before-terminal.json`
+- `projection-nullable-computed-finished.json`
 - `projection-passthrough-ownership-violation.json`
 - `projection-passthrough-shrink-ownership-violation.json`
 - `projection-untracked-handoff-ownership-violation.json`
@@ -80,6 +83,8 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - direct non-null literal computed output after final release and terminal completion
 - direct `NULL` literal computed output before terminal completion with the no-shrink retained-byte path still live on the batch claim
 - direct `NULL` literal computed output after final release and terminal completion
+- nullable computed `add<int32>` output before terminal completion with the propagated-null retained-byte claim still live on the batch claim
+- nullable computed `add<int32>` output after final release and terminal completion
 - passthrough claim forwarding before terminal completion
 - passthrough claim forwarding after final release and terminal completion
 - passthrough forwarded-claim release ownership violation after sink handoff and clean teardown
