@@ -1,0 +1,26 @@
+{
+  "admission_events": [
+    {
+      "event": "consumer_opened",
+      "name": "ClaimedSource:a",
+      "kind": "source_input",
+      "spillable": false
+    },
+    {
+      "event": "reserve_admitted",
+      "name": "ClaimedSource:a",
+      "bytes": 12
+    },
+    {
+      "event": "consumer_released",
+      "name": "ClaimedSource:a",
+      "bytes": 12
+    }
+  ],
+  "runtime_events": [
+    {
+      "event": "error",
+      "message": "Compute error: ownership contract violation: ClaimedSource requires ProjectionRuntimeContext for claimed source batches"
+    }
+  ]
+}
