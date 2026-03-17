@@ -28,6 +28,8 @@ Engine-facing translation layers for TiDB, TiFlash, and TiKV. Adapters should ma
 
 Conformance, differential, and performance harnesses that exercise the stack and report drift.
 
+The first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`.
+
 ## Current Repository Bias
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
@@ -43,4 +45,4 @@ This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through
 
 - Define the smallest useful kernel boundary.
 - Decide how adapter milestones should break down into tracked issues and harness checkpoints.
-- Define artifact formats for harness results and drift reports.
+- Extend harness result and drift-report formats beyond the first differential expression slice.

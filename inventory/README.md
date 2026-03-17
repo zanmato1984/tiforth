@@ -16,8 +16,12 @@ Rules:
 - keep extracted facts separate from proposed shared specs
 - prefer machine-readable formats when practical, but do not introduce tooling yet
 
+Current checkpoint:
+
+- the first differential drift artifact shape is documented in `inventory/differential-expression-drift-report.md`
+
 ## TODOs
 
 - define naming conventions for extracted artifacts
-- define the first drift report format
+- extend drift report formats beyond the first differential expression slice
 - decide when inventory should be checked into git versus regenerated
