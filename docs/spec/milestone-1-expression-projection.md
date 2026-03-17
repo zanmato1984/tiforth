@@ -1,6 +1,6 @@
 # Milestone-1 Expression And Projection Slice
 
-Status: issue #10 scaffold
+Status: issue #10 scaffold, issue #21 handoff implementation
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #8 `design: host memory admission ABI for tiforth`
 - #9 `design: tiforth dependency boundary over broken-pipeline-rs`
 - #19 `design: define milestone-1 Arrow batch handoff and memory-ownership contract`
+- #21 `milestone-1: implement claim-carrying batch handoff in tiforth-kernel`
 
 ## Scope
 
@@ -68,9 +69,10 @@ The minimal slice exercises reserve-first admission around computed output-colum
 
 This keeps the issue #10 slice honest about reserve-before-allocate behavior while aligning it with the milestone-1 batch handoff contract from issue #19.
 
+Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path.
+
 ## Deferred Work
 
 - filter semantics and operators
 - non-`int32` arithmetic expressions
 - spill-aware operators
-- the concrete kernel mechanism that carries claims with batches and releases them on final drop

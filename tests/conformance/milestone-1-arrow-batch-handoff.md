@@ -19,4 +19,6 @@ Spec sources:
 
 ## Initial Test Shape
 
-Milestone 1 can keep these as a spec-linked case plan until the kernel exposes a stable event recorder or harness snapshot format for batch claims and terminal release.
+Milestone 1 now has a local crate-level event recorder in `crates/tiforth-kernel/tests/expression_projection.rs` that exercises computed handoff, forwarded-claim passthrough, deny-before-emit, and final-drop release for the current projection slice.
+
+This file remains the higher-level case plan until harness snapshot schemas and adapter-visible fixtures are defined more broadly than the current local Rust tests.

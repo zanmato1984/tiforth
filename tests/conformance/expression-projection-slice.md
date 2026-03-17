@@ -13,6 +13,12 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 
 ## Initial Test Shape
 
-The initial executable coverage may stay local to the Rust crate while this directory continues to hold the spec-linked case plan.
+Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/expression_projection.rs` for:
+
+- computed projection handoff and final-drop release
+- reserve-first denial before emit
+- direct-column claim forwarding without opening a new computed-column consumer
+
+This directory remains the spec-linked case plan while broader harness snapshot formats and adapter-facing fixtures are still being defined.
 
 The claim-carrying batch handoff semantics for this slice are further detailed in `tests/conformance/milestone-1-arrow-batch-handoff.md`.

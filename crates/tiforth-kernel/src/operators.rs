@@ -9,33 +9,132 @@ use broken_pipeline::{
 
 use crate::admission::{AdmissionController, NoopAdmissionController};
 use crate::error::TiforthError;
-use crate::projection::{project_batch, ProjectionExpr};
+use crate::handoff::{BatchTracker, GovernedBatch, RuntimeEvent, RuntimeEventRecorder};
+use crate::projection::{project_batch, project_governed_batch, ProjectionExpr};
+
+enum SourceBatch {
+    Plain(Batch),
+    Claimed {
+        batch: Batch,
+        column_claims: Vec<Vec<crate::handoff::BatchClaim>>,
+    },
+}
 
 #[derive(Clone)]
 pub struct ProjectionRuntimeContext {
     admission: Arc<dyn AdmissionController>,
+    tracker: Arc<BatchTracker>,
 }
 
 impl ProjectionRuntimeContext {
     pub fn new(admission: Arc<dyn AdmissionController>) -> Self {
-        Self { admission }
+        let events = RuntimeEventRecorder::default();
+        Self {
+            admission,
+            tracker: Arc::new(BatchTracker::new(events)),
+        }
     }
 
     pub fn admission(&self) -> &Arc<dyn AdmissionController> {
         &self.admission
     }
+
+    pub fn runtime_events(&self) -> Vec<RuntimeEvent> {
+        self.tracker.events()
+    }
+
+    pub fn new_claim(
+        &self,
+        consumer: Arc<dyn crate::admission::AdmissionConsumer>,
+    ) -> crate::handoff::BatchClaim {
+        self.tracker.new_claim(consumer)
+    }
+
+    pub fn record_terminal_finished(&self) {
+        self.tracker.record(RuntimeEvent::TerminalFinished);
+    }
+
+    pub fn record_terminal_cancelled(&self) {
+        self.tracker.record(RuntimeEvent::TerminalCancelled);
+    }
+
+    pub fn record_terminal_error(&self, message: impl Into<String>) {
+        self.tracker.record(RuntimeEvent::TerminalError {
+            message: message.into(),
+        });
+    }
+
+    fn emit_source_batch(
+        &self,
+        operator_name: &str,
+        batch: SourceBatch,
+    ) -> Result<Batch, TiforthError> {
+        match batch {
+            SourceBatch::Plain(batch) => {
+                self.tracker
+                    .emit_ungoverned_batch(Arc::clone(&batch), operator_name)?;
+                Ok(batch)
+            }
+            SourceBatch::Claimed {
+                batch,
+                column_claims,
+            } => {
+                self.tracker.emit_batch(
+                    Arc::clone(&batch),
+                    crate::handoff::BatchOrigin::local(operator_name),
+                    column_claims,
+                )?;
+                Ok(batch)
+            }
+        }
+    }
+
+    fn adopt_batch(&self, batch: Batch, receiver: &str) -> Result<GovernedBatch, TiforthError> {
+        self.tracker.adopt_batch(batch, receiver)
+    }
+
+    fn emit_projected_batch(
+        &self,
+        operator_name: &str,
+        batch: Batch,
+        column_claims: Vec<Vec<crate::handoff::BatchClaim>>,
+    ) -> Result<(), TiforthError> {
+        self.tracker.emit_batch(
+            batch,
+            crate::handoff::BatchOrigin::local(operator_name),
+            column_claims,
+        )
+    }
 }
 
 pub struct StaticRecordBatchSource {
     name: String,
-    batches: Mutex<VecDeque<Batch>>,
+    batches: Mutex<VecDeque<SourceBatch>>,
 }
 
 impl StaticRecordBatchSource {
     pub fn new(name: impl Into<String>, batches: Vec<Batch>) -> Self {
         Self {
             name: name.into(),
-            batches: Mutex::new(batches.into_iter().collect()),
+            batches: Mutex::new(batches.into_iter().map(SourceBatch::Plain).collect()),
+        }
+    }
+
+    pub fn new_claimed(
+        name: impl Into<String>,
+        batches: Vec<(Batch, Vec<Vec<crate::handoff::BatchClaim>>)>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            batches: Mutex::new(
+                batches
+                    .into_iter()
+                    .map(|(batch, column_claims)| SourceBatch::Claimed {
+                        batch,
+                        column_claims,
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -47,13 +146,48 @@ impl SourceOperator<ArrowTypes> for StaticRecordBatchSource {
 
     fn source(
         &self,
-        _ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<ArrowTypes>,
         _thread_id: ThreadId,
     ) -> Result<OpOutput<Batch>, ArrowError> {
         let mut batches = self.batches.lock().expect("source batches mutex poisoned");
+        let runtime = ctx.context_as::<ProjectionRuntimeContext>();
         match batches.pop_front() {
-            Some(batch) if batches.is_empty() => Ok(OpOutput::Finished(Some(batch))),
-            Some(batch) => Ok(OpOutput::SourcePipeHasMore(batch)),
+            Some(batch) if batches.is_empty() => {
+                let batch = match runtime {
+                    Some(runtime) => runtime.emit_source_batch(self.name(), batch),
+                    None => match batch {
+                        SourceBatch::Plain(batch) => Ok(batch),
+                        SourceBatch::Claimed { .. } => {
+                            Err(TiforthError::OwnershipContractViolation {
+                                detail: format!(
+                                    "{} requires ProjectionRuntimeContext for claimed source batches",
+                                    self.name()
+                                ),
+                            })
+                        }
+                    },
+                }
+                .map_err(ArrowError::from)?;
+                Ok(OpOutput::Finished(Some(batch)))
+            }
+            Some(batch) => {
+                let batch = match runtime {
+                    Some(runtime) => runtime.emit_source_batch(self.name(), batch),
+                    None => match batch {
+                        SourceBatch::Plain(batch) => Ok(batch),
+                        SourceBatch::Claimed { .. } => {
+                            Err(TiforthError::OwnershipContractViolation {
+                                detail: format!(
+                                    "{} requires ProjectionRuntimeContext for claimed source batches",
+                                    self.name()
+                                ),
+                            })
+                        }
+                    },
+                }
+                .map_err(ArrowError::from)?;
+                Ok(OpOutput::SourcePipeHasMore(batch))
+            }
             None => Ok(OpOutput::Finished(None)),
         }
     }
@@ -85,24 +219,39 @@ impl PipeOperator<ArrowTypes> for ProjectionPipe {
         input: Option<Batch>,
     ) -> Result<OpOutput<Batch>, ArrowError> {
         let batch = input.ok_or_else(|| ArrowError::from(TiforthError::InvalidPipeInput))?;
-        let admission: Arc<dyn AdmissionController> = ctx
-            .context_as::<ProjectionRuntimeContext>()
-            .map(|runtime| Arc::clone(runtime.admission()))
-            .unwrap_or_else(|| Arc::new(NoopAdmissionController));
-        let output = project_batch(
-            batch.as_ref(),
-            &self.projections,
-            admission.as_ref(),
-            self.name(),
-        )
-        .map_err(ArrowError::from)?;
-        Ok(OpOutput::PipeEven(output))
+        if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+            let input = runtime
+                .adopt_batch(batch, self.name())
+                .map_err(ArrowError::from)?;
+            let (output, column_claims) = project_governed_batch(
+                &input,
+                &self.projections,
+                runtime.admission().as_ref(),
+                self.name(),
+                &|consumer| runtime.new_claim(consumer),
+            )
+            .map_err(ArrowError::from)?;
+            runtime
+                .emit_projected_batch(self.name(), Arc::clone(&output), column_claims)
+                .map_err(ArrowError::from)?;
+            Ok(OpOutput::PipeEven(output))
+        } else {
+            let admission: Arc<dyn AdmissionController> = Arc::new(NoopAdmissionController);
+            let output = project_batch(
+                batch.as_ref(),
+                &self.projections,
+                admission.as_ref(),
+                self.name(),
+            )
+            .map_err(ArrowError::from)?;
+            Ok(OpOutput::PipeEven(output))
+        }
     }
 }
 
 pub struct CollectSink {
     name: String,
-    batches: Mutex<Vec<Batch>>,
+    batches: Mutex<Vec<GovernedBatch>>,
 }
 
 impl CollectSink {
@@ -113,7 +262,7 @@ impl CollectSink {
         }
     }
 
-    pub fn batches(&self) -> Vec<Batch> {
+    pub fn batches(&self) -> Vec<GovernedBatch> {
         self.batches
             .lock()
             .expect("sink batches mutex poisoned")
@@ -128,11 +277,18 @@ impl SinkOperator<ArrowTypes> for CollectSink {
 
     fn sink(
         &self,
-        _ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<ArrowTypes>,
         _thread_id: ThreadId,
         input: Option<Batch>,
     ) -> Result<OpOutput<Batch>, ArrowError> {
         if let Some(batch) = input {
+            let batch = if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+                runtime
+                    .adopt_batch(batch, self.name())
+                    .map_err(ArrowError::from)?
+            } else {
+                GovernedBatch::ungoverned(batch)
+            };
             self.batches
                 .lock()
                 .expect("sink batches mutex poisoned")

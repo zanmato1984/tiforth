@@ -9,6 +9,7 @@ Related issues:
 - #8 `design: host memory admission ABI for tiforth`
 - #10 `milestone-1: first Arrow-bound operator and expression slice`
 - #19 `design: define milestone-1 Arrow batch handoff and memory-ownership contract`
+- #21 `milestone-1: implement claim-carrying batch handoff in tiforth-kernel`
 
 ## Question
 
@@ -101,6 +102,6 @@ This design intentionally does **not** settle:
 
 ## Follow-Up After Issue #19
 
-The current milestone-1 kernel slice still needs a separate implementation issue to replace the issue #10 build-time-only release behavior with claim-carrying handoff and final-drop release hooks.
+Issue #21 implements this contract for the current milestone-1 Rust kernel slice. The executable path now carries live claims through the source -> projection -> sink pipeline and releases them on final governed-batch drop instead of releasing computed output consumers immediately after materialization.
 
-That follow-up should implement this contract, not reopen it.
+Further follow-up, if needed, should extend this implemented pattern to broader operators, teardown paths, and harness-visible artifacts rather than reopening the settled contract itself.

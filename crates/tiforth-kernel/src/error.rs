@@ -15,6 +15,9 @@ pub enum TiforthError {
     UnsupportedDataType {
         detail: String,
     },
+    OwnershipContractViolation {
+        detail: String,
+    },
     InvalidPipeInput,
     Message(String),
 }
@@ -32,6 +35,9 @@ impl Display for TiforthError {
             ),
             Self::MissingColumn { index } => write!(f, "missing input column at index {index}"),
             Self::UnsupportedDataType { detail } => write!(f, "unsupported data type: {detail}"),
+            Self::OwnershipContractViolation { detail } => {
+                write!(f, "ownership contract violation: {detail}")
+            }
             Self::InvalidPipeInput => f.write_str("projection pipe expected an input batch"),
             Self::Message(message) => f.write_str(message),
         }
