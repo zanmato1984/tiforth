@@ -22,6 +22,8 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 
+A true `cancelled` terminal checkpoint is still deferred here. The current helper schedules only the compiled projection pipe task group, which is enough for the existing `finished` and `error` coverage but not yet for an honest cancelled teardown outcome after sink handoff.
+
 For the current local Rust slice, executable assertions should prefer the exported `tiforth_kernel::LocalExecutionFixture` carrier so projection-path fixture checks stay aligned with the contract-named event surface from `docs/contracts/runtime.md`.
 
 The checked-in JSON artifacts for those fixture assertions now live under `tests/conformance/fixtures/local-execution/`, with format notes in `tests/conformance/local-execution-fixtures.md`.
