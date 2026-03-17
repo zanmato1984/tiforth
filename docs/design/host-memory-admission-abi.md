@@ -9,6 +9,7 @@ Related issues:
 - #2 `investigate: rust-first memory accounting and spill blockers`
 - #8 `design: host memory admission ABI for tiforth`
 - #10 `milestone-1: first Arrow-bound operator and expression slice`
+- #19 `design: define milestone-1 Arrow batch handoff and memory-ownership contract`
 
 ## Question
 
@@ -125,6 +126,7 @@ This keeps the admission boundary explicit while staying compatible with ordinar
 - use it when live resident bytes drop but the consumer still exists
 - use it after over-reserving for a conservative growth estimate
 - use it after compaction, spill, free, or other state reductions that lower resident bytes
+- do not use it to reduce bytes that are still attached to a live batch claim after handoff
 - the requested shrink amount must not exceed the consumer's current admitted balance
 
 For milestone 1, `shrink` is not a policy decision point. It should be treated as an infallible accounting update from `tiforth` to the host.
@@ -135,9 +137,25 @@ For milestone 1, `shrink` is not a policy decision point. It should be treated a
 
 - use it on normal completion
 - use it on cancellation or error teardown
+- do not call it while any live batch claim still references bytes under that consumer
 - treat it as the terminal form of `shrink`
 
 Conceptually, `release` is `shrink(all_remaining_bytes)` plus consumer close.
+
+## Batch-Lifetime Claims And Handoff
+
+Admission governs bytes, not only builder activity. If admitted bytes survive into an emitted Arrow batch, the admitted balance must survive with them.
+
+For milestone 1, `tiforth` should model this with claim-carrying batch ownership:
+
+- after materialization, the producing stage `shrink`s any conservative over-reservation down to the exact retained live bytes that will remain reachable from the emitted batch
+- those retained bytes become one or more live claims attached to the canonical batch envelope from `docs/contracts/data.md`
+- handoff to the next stage transfers responsibility for those claims from the producing task's local scope to the live batch envelope; this is runtime-local bookkeeping, not a fresh `try_reserve`
+- forwarded zero-copy columns keep their incoming claims; reusing an incoming array does not justify a new reserve request by itself
+- newly materialized governed buffers add new claims under the producing stage's own consumers
+- local scratch or build-time state that does not survive into the emitted batch should be `shrink`ed or `release`d before the batch is sealed for handoff
+
+The host ABI does not need a fifth `transfer` operation for milestone 1. The required semantic rule is that admitted bytes remain live until the last batch or retained state referencing those bytes is gone.
 
 ## Failure Semantics
 
@@ -152,6 +170,7 @@ If `try_reserve` is denied:
 - the operator may run an explicit spill path if that consumer is spillable
 - if spill succeeds and releases enough resident bytes, the operator may issue a fresh `try_reserve` request
 - if there is no spill path, or a retry is still denied, the execution path fails with a memory-admission denial error
+- a denied request must not emit a batch or hand off new live claims for that denied growth step
 
 Denial is a normal control result, not undefined behavior and not an instruction to transparently block inside Arrow allocation internals.
 
@@ -162,8 +181,19 @@ If the host admits bytes but the subsequent internal allocation still fails:
 - `tiforth` must return any admitted bytes that did not become live resident state before surfacing the failure
 - if a partially built structure is discarded, its admitted bytes must also be released during teardown
 - the surfaced error should remain distinguishable from host denial
+- if the failed path already attached claims to an emitted batch, runtime teardown must release those claims before final query completion
 
 This preserves the difference between policy rejection and a local allocator or implementation failure.
+
+## Minimal Adapter-Visible Outcomes
+
+The surrounding runtime contract in `docs/contracts/runtime.md` should preserve at least these distinctions for adapters and harnesses:
+
+- `memory_admission_denied`
+- `memory_allocation_failed`
+- `ownership_contract_violation`
+
+Concrete wire names may vary across Rust, C++, or Go embeddings so long as these meanings remain distinguishable.
 
 ## Interaction With Operator-Managed Spill
 
@@ -216,6 +246,6 @@ This design does not require or define:
 ## Follow-Up Work
 
 - map the semantic operations here onto the concrete dependency boundary work in issue #9
-- define the exact adapter-visible error taxonomy and metrics fields for admit, deny, spill, and allocation failure paths
-- define how already-admitted buffers transfer ownership across stage boundaries and batch handoff points
-- decide whether a later milestone needs direct host-allocator-backed buffers or imported immutable buffer bridges beyond this admission-only contract
+- define the exact metrics fields and snapshot payloads used for admit, deny, handoff, release, spill, and allocation failure paths
+- map the claim-carrying handoff rules here onto the eventual kernel implementation hooks and batch-drop teardown paths
+- decide whether a later milestone needs direct host-allocator-backed buffers or imported immutable buffer bridges beyond this reserve-first, claim-carrying contract
