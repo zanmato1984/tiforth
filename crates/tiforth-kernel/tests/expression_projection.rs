@@ -207,7 +207,7 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
 }
 
 #[test]
-fn passthrough_claim_release_violation_is_reported_after_sink_handoff() {
+fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
@@ -219,8 +219,7 @@ fn passthrough_claim_release_violation_is_reported_after_sink_handoff() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let live_claim = claim.clone();
+    let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
     let source = Arc::new(StaticRecordBatchSource::new_claimed(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
@@ -241,14 +240,13 @@ fn passthrough_claim_release_violation_is_reported_after_sink_handoff() {
         vec![Some(1), Some(2), Some(3)]
     );
 
-    let error = live_claim
-        .local_try_release()
-        .expect_err("live forwarded claim release should fail after sink handoff");
+    let error = source_consumer
+        .release()
+        .expect_err("live forwarded consumer release should fail after sink handoff");
     assert!(error
         .to_string()
         .contains("attempted to release the consumer for live claim"));
 
-    drop(live_claim);
     drop(outputs);
     drop(sink);
     runtime_context.record_terminal_error(error.to_string());

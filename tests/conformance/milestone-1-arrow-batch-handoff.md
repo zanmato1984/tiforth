@@ -23,6 +23,6 @@ Milestone 1 now has a stable local Rust-side snapshot carrier, `tiforth_kernel::
 
 The teardown-release case now includes executable mixed-claim cancelled coverage. That checkpoint uses a local explicit cancellation driver which steps the compiled projection runtime until sink handoff is observable and then tears down before the later `finished` step. The driver remains local harness scaffolding rather than shared-contract surface.
 
-Ownership-violation coverage now also includes one forwarded-claim passthrough checkpoint that waits until sink handoff is observable, then attempts an explicit local early release through the still-live forwarded claim and expects `ownership_contract_violation` before the later teardown drop releases the batch cleanly.
+Ownership-violation coverage now also includes one forwarded-claim passthrough checkpoint that waits until sink handoff is observable, then attempts an explicit local early release through the directly addressed local consumer behind the still-live forwarded claim and expects the same `ownership_contract_violation` output before the later teardown drop releases the batch cleanly. That broader enforcement boundary remains local-only and does not change the shared runtime surface.
 
 This file remains the higher-level case plan until adapter-visible fixtures or broader harness carriers are defined beyond the current local Rust snapshot.
