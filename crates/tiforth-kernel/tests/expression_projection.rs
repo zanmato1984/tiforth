@@ -36,6 +36,12 @@ const PROJECTION_NULL_LITERAL_BEFORE_TERMINAL: &str = include_str!(
 const PROJECTION_NULL_LITERAL_FINISHED: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-null-literal-finished.json",
 );
+const PROJECTION_NULLABLE_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-nullable-computed-before-terminal.json",
+);
+const PROJECTION_NULLABLE_COMPUTED_FINISHED: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-nullable-computed-finished.json",
+);
 const PROJECTION_DENIED: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-denied.json",);
 const PROJECTION_OVERFLOW: &str =
@@ -142,9 +148,87 @@ fn add_projection_propagates_nulls() {
     )
     .unwrap();
 
+    assert_eq!(output.schema().field(0).name(), "a_plus_one");
+    assert!(output.schema().field(0).is_nullable());
     assert_eq!(
         collect_int32(output.column(0)),
         vec![Some(2), None, Some(4)]
+    );
+    assert_eq!(
+        admission.events(),
+        vec![
+            AdmissionEvent::ConsumerOpened {
+                name: "Projection:a_plus_one".into(),
+                kind: ConsumerKind::ProjectionOutput,
+                spillable: false,
+            },
+            AdmissionEvent::ReserveAdmitted {
+                name: "Projection:a_plus_one".into(),
+                bytes: 13,
+            },
+            AdmissionEvent::ConsumerReleased {
+                name: "Projection:a_plus_one".into(),
+                bytes: 13,
+            },
+        ]
+    );
+}
+
+#[test]
+fn nullable_add_projection_preserves_full_claim_through_runtime_handoff() {
+    let input = make_batch(vec![Some(1), None, Some(3)], true);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let status = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        Arc::new(ProjectionPipe::new(
+            "Projection",
+            vec![ProjectionExpr::new(
+                "a_plus_one",
+                Expr::add(Expr::column(0), Expr::literal(Some(1))),
+            )],
+        )),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .unwrap();
+    assert!(status.is_finished());
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    let output = &outputs[0];
+    assert_eq!(output.batch().schema().field(0).name(), "a_plus_one");
+    assert!(output.batch().schema().field(0).is_nullable());
+    assert_eq!(
+        collect_int32(output.batch().column(0)),
+        vec![Some(2), None, Some(4)]
+    );
+    assert_eq!(output.claim_count(), 1);
+
+    assert_fixture_json(
+        "projection-nullable-computed-before-terminal",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_NULLABLE_COMPUTED_BEFORE_TERMINAL,
+    );
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_finished();
+
+    assert_fixture_json(
+        "projection-nullable-computed-finished",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_NULLABLE_COMPUTED_FINISHED,
     );
 }
 
