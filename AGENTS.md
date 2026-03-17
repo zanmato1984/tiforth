@@ -10,7 +10,8 @@ This file is a table of contents for future agents. The source of truth lives un
 4. `docs/contracts/data.md`
 5. `docs/contracts/runtime.md`
 6. `docs/spec/type-system.md`
-7. `plans/active/`
+7. `docs/process/documentation-updates.md`
+8. `plans/active/`
 
 ## Where Things Go
 
@@ -22,10 +23,12 @@ This file is a table of contents for future agents. The source of truth lives un
 - `docs/process/`: project workflow and execution conventions
   - `worktrees.md`: one worktree per active issue/workstream
   - `issues-and-prs.md`: how issues and PRs must be linked
+  - `documentation-updates.md`: when implementation work must update docs
 
 ## Operating Rules
 
 - Treat `docs/` as the source of truth. Update docs before adding code.
+- If a PR changes semantics, boundaries, top-level structure, or contributor workflow, update the corresponding docs or explain `Docs-Impact: none - <reason>` in the PR body.
 - Do not add concrete operators or functions until their specs and harness coverage exist.
 - Preserve Apache Arrow as the data-contract direction and broken-pipeline ideas as runtime inspiration, but do not copy donor implementations by default.
 - Record unresolved decisions as TODOs with context instead of forcing premature choices.

@@ -1,0 +1,73 @@
+name: docs-impact
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  docs-impact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || "";
+            const docsImpactNone = /(^|\n)Docs-Impact:\s*none\b/i.test(body);
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const changed = files.map((file) => file.filename);
+            const impactMatchers = [
+              /^crates\//,
+              /^adapters\//,
+              /^Cargo\.toml$/,
+              /^Cargo\.lock$/,
+              /^\.github\/workflows\//,
+            ];
+            const docMatchers = [
+              /^docs\//,
+              /^tests\/conformance\//,
+              /^README\.md$/,
+              /^AGENTS\.md$/,
+              /^\.github\/pull_request_template\.md$/,
+            ];
+
+            const impactful = changed.filter((path) =>
+              impactMatchers.some((re) => re.test(path))
+            );
+            const docsTouched = changed.some((path) =>
+              docMatchers.some((re) => re.test(path))
+            );
+
+            if (impactful.length === 0) {
+              core.info("No implementation or workflow surfaces matched the docs-impact heuristic.");
+              return;
+            }
+
+            if (docsTouched) {
+              core.info("Documentation files changed alongside implementation/workflow surfaces.");
+              return;
+            }
+
+            if (docsImpactNone) {
+              core.info("PR body declares Docs-Impact: none.");
+              return;
+            }
+
+            core.setFailed(
+              [
+                "This PR changes implementation or workflow surfaces without updating docs or declaring `Docs-Impact: none - <reason>` in the PR body.",
+                "Matched paths:",
+                ...impactful.map((path) => `- ${path}`),
+              ].join("\n")
+            );

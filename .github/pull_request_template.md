@@ -2,6 +2,21 @@
 
 ## Scope
 
+## Documentation Impact
+
+- [ ] I updated the relevant docs/spec/contracts/architecture/process notes for this PR.
+- [ ] No docs update is needed for this PR.
+  - Reason:
+
+<!--
+Use one of these forms so automation and reviewers can see the intent clearly:
+
+Docs-Impact: updated
+Docs-Impact: none - <reason>
+-->
+
+Docs-Impact:
+
 ## Notes
 
 ## Linked issue
