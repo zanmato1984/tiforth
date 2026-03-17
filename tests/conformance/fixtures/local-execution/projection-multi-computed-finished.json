@@ -1,0 +1,88 @@
+{
+  "admission_events": [
+    {
+      "event": "consumer_opened",
+      "name": "Projection:a_plus_one",
+      "kind": "projection_output",
+      "spillable": false
+    },
+    {
+      "event": "reserve_admitted",
+      "name": "Projection:a_plus_one",
+      "bytes": 13
+    },
+    {
+      "event": "consumer_shrunk",
+      "name": "Projection:a_plus_one",
+      "bytes": 1
+    },
+    {
+      "event": "consumer_opened",
+      "name": "Projection:null_literal",
+      "kind": "projection_output",
+      "spillable": false
+    },
+    {
+      "event": "reserve_admitted",
+      "name": "Projection:null_literal",
+      "bytes": 13
+    },
+    {
+      "event": "consumer_released",
+      "name": "Projection:a_plus_one",
+      "bytes": 12
+    },
+    {
+      "event": "consumer_released",
+      "name": "Projection:null_literal",
+      "bytes": 13
+    }
+  ],
+  "runtime_events": [
+    {
+      "event": "batch_emitted",
+      "batch_id": 1,
+      "origin": {
+        "query": "local-query",
+        "stage": "Source",
+        "operator": "Source"
+      },
+      "claim_count": 0
+    },
+    {
+      "event": "batch_handed_off",
+      "batch_id": 1,
+      "to_operator": "Projection",
+      "claim_count": 0
+    },
+    {
+      "event": "batch_emitted",
+      "batch_id": 2,
+      "origin": {
+        "query": "local-query",
+        "stage": "Projection",
+        "operator": "Projection"
+      },
+      "claim_count": 2
+    },
+    {
+      "event": "batch_handed_off",
+      "batch_id": 2,
+      "to_operator": "Sink",
+      "claim_count": 2
+    },
+    {
+      "event": "batch_released",
+      "batch_id": 2,
+      "origin": {
+        "query": "local-query",
+        "stage": "Projection",
+        "operator": "Projection"
+      },
+      "claim_count": 2
+    },
+    {
+      "event": "finished"
+    }
+  ]
+}
