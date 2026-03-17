@@ -61,6 +61,7 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - computed projection before terminal completion
 - computed projection after final release and terminal completion
 - deny-before-emit failure
+- `add<int32>` overflow execution error before sink collection
 - mixed forwarded-plus-computed claims before terminal completion
 - mixed forwarded-plus-computed claims after explicit cancelled teardown
 - mixed forwarded-plus-computed claims after final release and terminal completion

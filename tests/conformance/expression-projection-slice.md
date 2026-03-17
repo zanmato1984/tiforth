@@ -7,6 +7,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 - `column passthrough`: direct column projection preserves values, row count, and output order while forwarding incoming claims without opening a new computed-column consumer
 - `add literal`: `add(column(0), literal(1))` produces an `Int32Array` with row-wise addition
 - `null propagation`: `add` yields null whenever either operand is null
+- `overflow error`: `add` fails as an execution error before emit when `int32` addition overflows
 - `reserve-first deny`: computed projection fails before allocation when admission rejects the estimated bytes
 - `computed handoff`: computed projection `shrink`s to the exact retained bytes before emit, then keeps that claim live through source -> projection -> sink handoff until sink drop or teardown
 - `runtime path`: the source -> projection -> sink path runs end-to-end through `broken-pipeline`, with `broken-pipeline-schedule` used only in local tests and with observable admit, emit, handoff, release, and terminal events
@@ -18,6 +19,7 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - computed projection handoff and final-drop release
 - mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
+- `add<int32>` overflow execution error before sink collection
 - direct-column claim forwarding without opening a new computed-column consumer
 - mixed-claim cancelled teardown after sink handoff via a local explicit cancellation driver
 - forwarded-claim ownership violations after sink handoff via local explicit early-release and early-shrink checkpoints against the directly addressed local consumer behind that live claim

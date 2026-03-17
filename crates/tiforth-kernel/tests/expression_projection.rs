@@ -24,6 +24,8 @@ const PROJECTION_COMPUTED_FINISHED: &str = include_str!(
 );
 const PROJECTION_DENIED: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-denied.json",);
+const PROJECTION_OVERFLOW: &str =
+    include_str!("../../../tests/conformance/fixtures/local-execution/projection-overflow.json",);
 const PROJECTION_PASSTHROUGH_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-before-terminal.json",
 );
@@ -155,6 +157,38 @@ fn admission_denial_fails_before_projection_output_is_collected() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_DENIED,
+    );
+}
+
+#[test]
+fn add_projection_overflow_is_reported_before_projection_output_is_collected() {
+    let input = make_batch(vec![Some(i32::MAX), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let error = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        projection_pipe(),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .expect_err("overflowing add projection should fail");
+
+    assert!(error.to_string().contains("int32 overflow"));
+    assert!(sink.batches().is_empty());
+    runtime_context.record_terminal_error(error.to_string());
+
+    assert_fixture_json(
+        "projection-overflow",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_OVERFLOW,
     );
 }
 
