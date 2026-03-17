@@ -22,7 +22,7 @@ This is no longer mainly a question about inventing a `tiforth`-owned runtime co
 - `docs/architecture.md`
 - `docs/contracts/data.md`
 - `docs/contracts/runtime.md`
-- `plans/active/language-decision.md`
+- `plans/completed/language-decision.md`
 - `inventory/language-constraints.md`
 - `inventory/language-scorecard.md`
 - issue #1 and issue #3

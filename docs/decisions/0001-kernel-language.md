@@ -1,6 +1,6 @@
 # 0001 - Kernel Language And Runtime Substrate
 
-Status: proposed
+Status: accepted
 
 Date: 2026-03-16
 
@@ -123,10 +123,15 @@ This decision does not mean:
 
 ## Immediate Follow-Up
 
-The next implementation-facing work should focus on:
+The language decision is now closed enough to guide implementation work.
+
+Completed decision-sharpening work:
 
 - #8 host memory admission ABI
 - #9 dependency boundary over `broken-pipeline-rs`
+
+Next implementation-facing work:
+
 - #10 first Arrow-bound operator/expression slice
 
 ## Revisit Conditions

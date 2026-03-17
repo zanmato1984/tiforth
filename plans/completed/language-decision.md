@@ -1,8 +1,12 @@
 # Language Decision Plan
 
-Status: active
+Status: completed
 
 Related issue: #1 (`design: choose tiforth shared-kernel language (C++ vs Rust)`)
+
+Decision record: `docs/decisions/0001-kernel-language.md`
+
+Completion note: ADR 0001 is accepted. The decision-sharpening follow-ups in #8 and #9 are complete, and the next implementation-facing task is #10.
 
 ## Question
 

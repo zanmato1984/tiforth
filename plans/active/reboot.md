@@ -77,4 +77,3 @@ Exit criteria:
 - decide the first donor extraction targets
 - decide the first engine pair or trio for differential testing
 - decide the minimum artifact schema for inventory outputs
-- complete the shared-kernel language decision task tracked in `plans/active/language-decision.md`

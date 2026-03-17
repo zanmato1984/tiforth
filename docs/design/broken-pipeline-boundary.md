@@ -19,7 +19,7 @@ The remaining question is not whether `tiforth` should invent a different runtim
 ## Inputs Considered
 
 - `README.md`
-- `plans/active/language-decision.md`
+- `plans/completed/language-decision.md`
 - `docs/decisions/0001-kernel-language.md`
 - `docs/contracts/runtime.md`
 - `docs/design/broken-pipeline-adaptation.md`
