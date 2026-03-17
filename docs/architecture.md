@@ -42,5 +42,5 @@ This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through
 ## TODOs
 
 - Define the smallest useful kernel boundary.
-- Decide how plans map onto adapter milestones.
+- Decide how adapter milestones should break down into tracked issues and harness checkpoints.
 - Define artifact formats for harness results and drift reports.

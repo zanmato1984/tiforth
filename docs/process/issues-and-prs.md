@@ -1,8 +1,8 @@
 # Issues And PRs
 
-`tiforth` uses issues as the unit of planned work and PRs as the unit of merged change.
+`tiforth` uses GitHub issues as the only unit of tracked work and PRs as the unit of merged change.
 
-This file defines how they should connect.
+Repo docs are for stable knowledge, not for day-to-day execution tracking.
 
 ## Core Rules
 
@@ -10,6 +10,8 @@ This file defines how they should connect.
 - one primary issue should use one dedicated local git worktree
 - every PR must link at least one issue in its body
 - every PR must declare documentation impact in its body
+- keep live status, checklists, blockers, and handoff notes in GitHub issues, issue comments, and PRs
+- do not create repo-local plan or status files for execution tracking
 - if a PR fully resolves its primary issue, use `Closes #...`
 - if a PR is partial, stacked, exploratory, or only related, use `Refs #...`
 
@@ -22,6 +24,7 @@ Use issues to define:
 - non-goals
 - deliverables
 - exit criteria
+- current checklist, blockers, and handoff notes
 
 Good issue titles are specific and actionable.
 
@@ -30,6 +33,12 @@ Examples:
 - `design: host memory admission ABI for tiforth`
 - `design: tiforth dependency boundary over broken-pipeline-rs`
 - `milestone-1: first Arrow-bound operator and expression slice`
+
+## Relationship To Docs
+
+- Keep live execution tracking in GitHub.
+- Use `docs/` only for durable outputs such as architecture, contracts, semantic specs, and accepted decisions.
+- When issue work settles a design conclusion that must outlive the thread, move that conclusion into the appropriate doc instead of treating the doc as a running status log.
 
 ## PR Rules
 

@@ -24,7 +24,6 @@ The answer needs to stay compatible with direct adoption of the `broken-pipeline
 - `docs/architecture.md`
 - `docs/contracts/runtime.md`
 - `docs/contracts/data.md`
-- `plans/completed/language-decision.md`
 - `docs/decisions/0001-kernel-language.md`
 - `inventory/memory-accounting-blocker.md`
 - issue #8

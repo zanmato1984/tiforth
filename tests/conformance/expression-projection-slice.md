@@ -40,6 +40,6 @@ For the current local Rust slice, executable assertions should prefer the export
 
 The checked-in JSON artifacts for those fixture assertions now live under `tests/conformance/fixtures/local-execution/`, with format notes in `tests/conformance/local-execution-fixtures.md`.
 
-This directory remains the spec-linked case plan while broader harness snapshot formats and adapter-facing fixtures are still being defined.
+This directory remains the spec-linked case reference while broader harness snapshot formats and adapter-facing fixtures are still being defined.
 
 The claim-carrying batch handoff semantics for this slice are further detailed in `tests/conformance/milestone-1-arrow-batch-handoff.md`.
