@@ -7,6 +7,7 @@ Related issues:
 - #23 `design: freeze milestone-1 local event snapshot shape`
 - #25 `conformance: define and export milestone-1 local execution snapshot fixtures`
 - #27 `conformance: add file-backed local execution fixtures for milestone-1`
+- #29 `conformance: add mixed-claim local execution fixture checkpoints`
 
 ## Purpose
 
@@ -51,6 +52,8 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - computed projection before terminal completion
 - computed projection after final release and terminal completion
 - deny-before-emit failure
+- mixed forwarded-plus-computed claims before terminal completion
+- mixed forwarded-plus-computed claims after final release and terminal completion
 - passthrough claim forwarding before terminal completion
 - passthrough claim forwarding after final release and terminal completion
 
