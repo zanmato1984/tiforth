@@ -10,6 +10,7 @@ Related issues:
 - #19 `design: define milestone-1 Arrow batch handoff and memory-ownership contract`
 - #21 `milestone-1: implement claim-carrying batch handoff in tiforth-kernel`
 - #45 `conformance: add claimed-source runtime-context ownership-violation checkpoint`
+- #64 `conformance: add multi-computed projection claim checkpoints`
 
 ## Scope
 
@@ -63,15 +64,15 @@ Filter is deferred unless a later issue extends this slice explicitly.
 The minimal slice exercises reserve-first admission around computed output-column construction:
 
 - direct column projection forwards the incoming batch claims and opens no new projection-output consumer for the reused column
-- open a projection-output consumer before building a computed `Int32Array`
+- open a projection-output consumer before building each computed `Int32Array`
 - `try_reserve` the estimated bytes before builder growth
-- `shrink` any conservative over-reservation down to the exact retained bytes before the output batch is emitted
-- attach the retained claim to the emitted output batch and hand it off unchanged through the runtime
-- `release` the computed-column claim only when the sink or teardown path drops the last live batch carrying that claim
+- `shrink` any conservative over-reservation down to the exact retained bytes for that computed column before the output batch is emitted
+- attach the retained claim for each computed output column to the emitted output batch and hand those claims off unchanged through the runtime
+- `release` each computed-column claim only when the sink or teardown path drops the last live batch carrying that claim
 
 This keeps the issue #10 slice honest about reserve-before-allocate behavior while aligning it with the milestone-1 batch handoff contract from issue #19.
 
-Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path.
+Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path. When one output batch contains multiple computed projection columns, the local milestone-1 path keeps one retained claim per computed output column on that batch until final release.
 
 Current local tests now use several local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, including missing-column failure coverage before any projection emit, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, explicit local early-release and early-shrink ownership-violation checkpoints against the directly addressed local consumer behind a still-live forwarded claim after sink handoff, an untracked-handoff checkpoint that expects the projection receiver to reject a batch before adoption, and a claimed-source checkpoint that expects a claimed local source to reject missing `ProjectionRuntimeContext` before any source emit. That broader ownership enforcement remains local to milestone-1 harness scaffolding and does not invent a new shared runtime API.
 

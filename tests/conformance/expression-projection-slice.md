@@ -14,6 +14,7 @@ Spec source: `docs/spec/milestone-1-expression-projection.md`
 - `overflow error`: `add` fails as an execution error before emit when `int32` addition overflows
 - `reserve-first deny`: computed projection fails before allocation when admission rejects the estimated bytes
 - `computed handoff`: computed projection `shrink`s to the exact retained bytes before emit, then keeps that claim live through source -> projection -> sink handoff until sink drop or teardown
+- `multi computed claims`: one output batch carrying multiple computed projection columns keeps one retained claim per computed column through sink handoff and final teardown, even when those columns take different shrink paths
 - `runtime path`: the source -> projection -> sink path runs end-to-end through `broken-pipeline`, with `broken-pipeline-schedule` used only in local tests and with observable admit, emit, handoff, release, and terminal events
 
 ## Initial Test Shape
@@ -22,6 +23,7 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 
 - computed projection handoff and final-drop release
 - direct `literal<int32>` projection for both non-null and `NULL` outputs
+- multi-computed output handoff with one retained claim per computed projection column
 - mixed forwarded-plus-computed claim handoff in one output batch
 - reserve-first denial before emit
 - missing-column execution error before projection output collection
@@ -40,6 +42,8 @@ The same local slice also preserves explicit local fixture checkpoints for a dir
 The same local slice also preserves explicit local fixture checkpoints for a direct non-null literal computed-output path. That checkpoint confirms the milestone-1 shrink path for computed literals: the projection-output consumer reserves the estimated `Int32Array` bytes, shrinks to the exact retained size before emit, and releases only the live retained bytes after the sink-owned batch drops.
 
 The same local slice now also preserves explicit local fixture checkpoints for a nullable computed `add<int32>` path. That checkpoint confirms the milestone-1 no-shrink path for computed arrays with propagated nulls: the projection-output consumer reserves the full nullable `Int32Array` estimate, keeps those admitted bytes attached to the emitted claim through sink handoff, and releases that unchanged retained size only after the sink-owned batch drops.
+
+The same local slice now also preserves explicit local fixture checkpoints for a multi-computed output batch. That checkpoint confirms that milestone-1 keeps one retained claim per computed projection column on the emitted batch, even when one computed column shrinks to a non-null retained size and another keeps the full nullable estimate through sink handoff.
 
 Those tests now capture milestone-1 runtime and admission outcomes through `tiforth_kernel::LocalExecutionSnapshot`, while still checking Arrow output values and sink-visible claim counts directly.
 

@@ -18,6 +18,7 @@ Related issues:
 - #56 `conformance: add nullable computed local execution fixture checkpoints`
 - #58 `conformance: add unsupported arithmetic type projection checkpoint`
 - #60 `conformance: add duplicate forwarded-claim projection checkpoints`
+- #64 `conformance: add multi-computed projection claim checkpoints`
 
 ## Purpose
 
@@ -45,6 +46,8 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-null-literal-finished.json`
 - `projection-nullable-computed-before-terminal.json`
 - `projection-nullable-computed-finished.json`
+- `projection-multi-computed-before-terminal.json`
+- `projection-multi-computed-finished.json`
 - `projection-duplicate-forwarded-claim-before-terminal.json`
 - `projection-duplicate-forwarded-claim-finished.json`
 - `projection-passthrough-ownership-violation.json`
@@ -91,6 +94,8 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - direct `NULL` literal computed output after final release and terminal completion
 - nullable computed `add<int32>` output before terminal completion with the propagated-null retained-byte claim still live on the batch claim
 - nullable computed `add<int32>` output after final release and terminal completion
+- multi-computed output before terminal completion with one retained claim per computed projection column still live on the emitted batch
+- multi-computed output after final release and terminal completion
 - duplicate forwarded-claim passthrough before terminal completion with the shared live claim identity still counted once at runtime handoff
 - duplicate forwarded-claim passthrough after final release and terminal completion with one forwarded-claim release path
 - passthrough claim forwarding before terminal completion

@@ -42,6 +42,12 @@ const PROJECTION_NULLABLE_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
 const PROJECTION_NULLABLE_COMPUTED_FINISHED: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-nullable-computed-finished.json",
 );
+const PROJECTION_MULTI_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-multi-computed-before-terminal.json",
+);
+const PROJECTION_MULTI_COMPUTED_FINISHED: &str = include_str!(
+    "../../../tests/conformance/fixtures/local-execution/projection-multi-computed-finished.json",
+);
 const PROJECTION_DENIED: &str =
     include_str!("../../../tests/conformance/fixtures/local-execution/projection-denied.json",);
 const PROJECTION_OVERFLOW: &str =
@@ -424,6 +430,62 @@ fn null_literal_projection_preserves_full_claim_without_shrink() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_NULL_LITERAL_FINISHED,
+    );
+}
+
+#[test]
+fn multi_computed_projection_keeps_one_claim_per_computed_output_column() {
+    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
+    let admission = Arc::new(RecordingAdmissionController::unbounded());
+    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
+    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let sink = Arc::new(CollectSink::new("Sink"));
+
+    let status = run_pipeline(
+        Arc::new(StaticRecordBatchSource::new(
+            "Source",
+            vec![Arc::clone(&input)],
+        )),
+        multi_computed_projection_pipe(),
+        Arc::clone(&sink),
+        runtime_context.clone(),
+    )
+    .unwrap();
+    assert!(status.is_finished());
+
+    let outputs = sink.batches();
+    assert_eq!(outputs.len(), 1);
+    let output = &outputs[0];
+    assert_eq!(output.claim_count(), 2);
+    assert_eq!(output.batch().schema().field(0).name(), "a_plus_one");
+    assert_eq!(output.batch().schema().field(1).name(), "null_literal");
+    assert_eq!(
+        collect_int32(output.batch().column(0)),
+        vec![Some(2), Some(3), Some(4)]
+    );
+    assert_eq!(
+        collect_int32(output.batch().column(1)),
+        vec![None, None, None]
+    );
+
+    assert_fixture_json(
+        "projection-multi-computed-before-terminal",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_MULTI_COMPUTED_BEFORE_TERMINAL,
+    );
+
+    drop(outputs);
+    drop(sink);
+    runtime_context.record_terminal_finished();
+
+    assert_fixture_json(
+        "projection-multi-computed-finished",
+        runtime_context
+            .local_snapshot(admission.as_ref())
+            .to_fixture(),
+        PROJECTION_MULTI_COMPUTED_FINISHED,
     );
 }
 
@@ -1100,6 +1162,19 @@ fn projection_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
                 "a_plus_one",
                 Expr::add(Expr::column(0), Expr::literal(Some(1))),
             ),
+        ],
+    ))
+}
+
+fn multi_computed_projection_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
+    Arc::new(ProjectionPipe::new(
+        "Projection",
+        vec![
+            ProjectionExpr::new(
+                "a_plus_one",
+                Expr::add(Expr::column(0), Expr::literal(Some(1))),
+            ),
+            ProjectionExpr::new("null_literal", Expr::literal(None)),
         ],
     ))
 }
