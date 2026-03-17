@@ -9,6 +9,7 @@ This file defines how they should connect.
 - one active workstream should map to one primary issue
 - one primary issue should use one dedicated local git worktree
 - every PR must link at least one issue in its body
+- every PR must declare documentation impact in its body
 - if a PR fully resolves its primary issue, use `Closes #...`
 - if a PR is partial, stacked, exploratory, or only related, use `Refs #...`
 
@@ -56,13 +57,26 @@ Recommended pattern:
 - one `Closes #...` line for the primary issue
 - optional `Refs #...` lines for related issues
 
-### 3. Keep PR scope tight
+### 3. Declare documentation impact
+
+Each PR body should make documentation impact explicit.
+
+Use one of these forms:
+
+- `Docs-Impact: updated`
+- `Docs-Impact: none - <reason>`
+
+If a PR changes semantics, boundaries, top-level structure, or workflow-relevant implementation surfaces, it should normally update docs instead of using `none`.
+
+See also: `docs/process/documentation-updates.md`
+
+### 4. Keep PR scope tight
 
 A PR should not silently combine unrelated issues.
 
 If two issues both need substantial changes, prefer two PRs.
 
-### 4. Use docs-first when the contract is not settled
+### 5. Use docs-first when the contract is not settled
 
 For design-heavy work, first land a docs/design PR that clarifies the contract or boundary.
 
@@ -82,6 +96,10 @@ When an issue is fully resolved by a merged PR:
 
 ## Scope
 
+## Documentation Impact
+
+Docs-Impact: updated
+
 ## Notes
 
 Closes #
@@ -93,6 +111,10 @@ For partial work:
 ## Summary
 
 ## Scope
+
+## Documentation Impact
+
+Docs-Impact: updated
 
 ## Notes
 
