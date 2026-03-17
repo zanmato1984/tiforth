@@ -1,14 +1,15 @@
 # `tiforth` Dependency Boundary Over `broken-pipeline-rs`
 
-Status: issue #9 design checkpoint
+Status: issue #9 design checkpoint, issue #62 revision pin
 
-Verified: 2026-03-16
+Verified: 2026-03-17
 
 Related issues:
 
 - #3 `design: broken-pipeline adaptation path for rust-first tiforth`
 - #9 `design: tiforth dependency boundary over broken-pipeline-rs`
 - #10 `milestone-1: first Arrow-bound operator and expression slice`
+- #62 `design: pin milestone-1 broken-pipeline-rs revision in runtime docs`
 
 ## Question
 
@@ -37,6 +38,11 @@ Observed from the public `broken-pipeline-rs` repo on 2026-03-16:
 - the optional schedule crate re-exports Arrow-bound aliases and ships ready-made scheduler fronts plus detail awaiter or resumer helpers
 - the current crate manifests set `publish = false`, so milestone-1 consumption currently implies a pinned git dependency or vendored source rather than crates.io packaging
 
+Observed from the current `tiforth` manifests on 2026-03-17:
+
+- `crates/tiforth-kernel/Cargo.toml` currently pins both `broken-pipeline` and `broken-pipeline-schedule` to git revision `174e6cd07c41210158ae1d805b568968cf71f898`
+- that revision is the current reproducible upstream contract snapshot for the milestone-1 implementation slice
+
 ## Boundary Decision
 
 ### 1. Required upstream crates
@@ -48,6 +54,15 @@ The milestone-1 dependency boundary is intentionally narrow:
 - `broken-pipeline-c` is outside the milestone-1 boundary and should not be pulled in by default
 
 This keeps the production and shared contract centered on the upstream core crate rather than the optional scheduler or the C ABI layer.
+
+### 1a. Milestone-1 revision pin
+
+The milestone-1 dependency boundary now records the exact upstream revision used by the checked-in implementation:
+
+- `broken-pipeline = 174e6cd07c41210158ae1d805b568968cf71f898`
+- `broken-pipeline-schedule = 174e6cd07c41210158ae1d805b568968cf71f898`
+
+That pin keeps the runtime evidence base reproducible while the upstream crates remain unpublished on crates.io. A later revision bump or vendored snapshot should be handled as a separate issue so the contract review and implementation change stay explicit.
 
 ### 2. Directly adopted upstream contract surfaces
 
