@@ -131,6 +131,8 @@ Checked-in local conformance artifacts should serialize `LocalExecutionFixture` 
 
 This fixture export exists so local Rust tests and early harness scaffolding can assert one stable, reviewable carrier without depending directly on recorder internals or on the exact Rust enum layout used underneath.
 
+The carrier still includes `cancelled` because the shared runtime contract needs that terminal meaning. Current milestone-1 projection tests, however, only drive the compiled `pipe_exec().task_group()` helper from the adopted `broken-pipeline-rs` surface. That helper is enough for the current `finished` and `error` checkpoints, but it does not yet provide an honest post-handoff cancellation path for the local source -> projection -> sink slice. Local cancelled fixtures therefore remain deferred until a later issue adds the higher-level orchestration or explicit cancellation driver needed to exercise that outcome without relabeling a finished run.
+
 This fixture remains local to milestone-1 Rust-side coverage. It does **not** freeze adapter-visible callbacks, a merged cross-family total order, timestamps, or full serialized `claims[]` payloads.
 
 ## Minimal Adapter-Visible Error Taxonomy
@@ -161,6 +163,7 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 - TODO: define how `tiforth` operators and expressions attach to the adopted contract without renaming its runtime states
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
 - TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
+- TODO: define the higher-level orchestration or explicit cancellation driver needed to exercise a true `cancelled` terminal outcome in local milestone-1 projection tests
 - TODO: decide what adapter-specific orchestration stays outside the shared contract
 
 ## Initial Boundary

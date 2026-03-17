@@ -8,6 +8,7 @@ Related issues:
 - #25 `conformance: define and export milestone-1 local execution snapshot fixtures`
 - #27 `conformance: add file-backed local execution fixtures for milestone-1`
 - #29 `conformance: add mixed-claim local execution fixture checkpoints`
+- #31 `design: define milestone-1 local cancellation coverage boundary`
 
 ## Purpose
 
@@ -44,6 +45,8 @@ For `error` events, `message` stores the current local Rust execution error text
 - `operator`
 
 Ordering guarantees stay per event family only: `admission_events[]` stay ordered within admission observations, and `runtime_events[]` stay ordered within runtime observations. These files do **not** create a merged cross-family total order or add timestamps.
+
+`LocalExecutionFixture` can serialize `cancelled`, but the current checked-in projection fixtures stop at `finished` and `error`. The existing local helper only exercises the compiled projection pipe task group, so any future cancelled fixture must come from higher-level orchestration or an explicit cancellation driver rather than from manually relabeling a finished checkpoint.
 
 ## Current Scope
 
