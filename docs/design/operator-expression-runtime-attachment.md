@@ -12,6 +12,7 @@ Related issues:
 - #21 `milestone-1: implement claim-carrying batch handoff in tiforth-kernel`
 - #78 `design: define current milestone-1 kernel boundary`
 - #86 `design: define milestone-1 operator and expression attachment to adopted runtime contract`
+- #123 `design: define milestone-1 spill and retry runtime mapping`
 
 ## Question
 
@@ -114,7 +115,7 @@ Milestone 1 continues to adopt by name and meaning:
 
 ## Deferred Questions
 
-- how exchange, spill, and retry semantics map onto the adopted runtime
+- how exchange semantics map onto the adopted runtime
 - whether a later milestone needs a shared callback or streaming event API after the current fixture-translation boundary
 - whether a later milestone needs a broader operator-construction surface once kernels expand beyond the current source -> projection -> sink slice
 

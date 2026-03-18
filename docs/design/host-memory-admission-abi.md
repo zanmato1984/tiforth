@@ -10,6 +10,7 @@ Related issues:
 - #8 `design: host memory admission ABI for tiforth`
 - #10 `milestone-1: first Arrow-bound operator and expression slice`
 - #19 `design: define milestone-1 Arrow batch handoff and memory-ownership contract`
+- #123 `design: define milestone-1 spill and retry runtime mapping`
 
 ## Question
 
@@ -211,6 +212,8 @@ This keeps spill explicit, observable, and compatible with the reserve-first des
 ## Runtime Mapping And `broken-pipeline-rs` Compatibility
 
 This ABI is designed to fit around the adopted `broken-pipeline-rs` runtime contract rather than redefine it.
+
+Detailed milestone-1 spill and retry state mapping guidance lives in `docs/design/spill-retry-runtime-mapping.md`.
 
 - admission calls happen inside operator or runtime-owned execution steps as resource checks around local growth
 - a successful reserve leaves execution on the normal adopted runtime path

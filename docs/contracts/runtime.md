@@ -123,6 +123,18 @@ For milestone 1, runtime-visible memory governance follows the reserve-first des
 - the admission ABI is synchronous, callback-free, and does not add a new shared runtime state beyond success, spill-and-retry within the operator, or error propagation
 
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
+Detailed spill and retry runtime mapping semantics live in `docs/design/spill-retry-runtime-mapping.md`.
+
+## Milestone-1 Spill And Retry Runtime Mapping
+
+For milestone 1, spill and retry are operator-local policy layered on the adopted runtime states.
+
+- reserve denial does not introduce a new shared runtime state beyond the adopted upstream contract
+- reserve denial alone does not imply `Blocked` or `Yield`; those remain scheduler-coordination states, not deny-specific states
+- spillable consumers may run bounded spill-and-retry loops under operator policy, with each retry still reserve-before-allocate
+- unspillable consumers, or spillable consumers that still cannot reserve after bounded retries, surface `memory_admission_denied` through ordinary runtime error propagation
+- stage handoff and claim creation still apply only to admitted resident bytes that remain reachable from live batches
+- milestone-1 observability reuses existing event meanings (`reserve_denied`, `consumer_shrunk`, `reserve_admitted`, terminal `error`) rather than requiring new spill-specific event names
 
 ## Milestone-1 Stage Handoff And Ownership
 
@@ -150,6 +162,8 @@ The shared contract must make the following events observable to local tests and
 - terminal runtime outcome: `finished`, `cancelled`, or `error`
 
 The minimum event payload should let a harness correlate query, stage, and operator identity plus `batch_id`, consumer identity, claimed bytes, and final outcome. Milestone 1 does not freeze one tracing API; it freezes the event meanings that tests and adapters must be able to observe.
+
+When spill-and-retry is exercised, `reserve_denied`, `consumer_shrunk`, and `reserve_admitted` may appear multiple times for one operator step under bounded local policy.
 
 ## Milestone-1 Local Snapshot Shape
 
@@ -215,7 +229,7 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 
 ## Open Questions
 
-- TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
+- TODO: define how exchange behavior maps onto the adopted runtime contract
 - TODO: decide whether a later milestone needs a shared callback or streaming event surface after fixture-style translation is no longer sufficient
 
 ## Initial Boundary
