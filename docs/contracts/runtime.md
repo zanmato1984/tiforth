@@ -41,6 +41,15 @@ The runtime state names that `tiforth` adopts by name and meaning are currently:
 - `tiforth` adds project-specific value around operator libraries, expression libraries, host admission hooks, adapter composition, and harness observability
 - scheduler helpers, ready-made schedulers, and schedule-layer awaiter or resumer helpers stay outside the shared contract
 
+## Milestone-1 Operator And Expression Attachment
+
+For milestone 1, the operator and expression attachment pattern is fixed by `docs/design/operator-expression-runtime-attachment.md`.
+
+- runtime-entered `tiforth` kernels implement the upstream `SourceOperator<ArrowTypes>`, `PipeOperator<ArrowTypes>`, and `SinkOperator<ArrowTypes>` traits directly
+- runtime-visible results stay `OpOutput<Batch>`, and upstream task-state names stay adopted by name and meaning
+- expression nodes such as `Expr` and `ProjectionExpr` stay operator-internal evaluators and schema helpers instead of runtime participants
+- `ProjectionRuntimeContext`, `GovernedBatch`, `BatchClaim`, and `LocalExecutionSnapshot` may add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
+
 ## Shared Contract Surface
 
 This adopted contract should remain precise about:
@@ -166,7 +175,6 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 ## Open Questions
 
 - TODO: decide whether `tiforth` needs a small convenience re-export module for Arrow-bound runtime aliases or whether direct upstream imports are sufficient
-- TODO: define how `tiforth` operators and expressions attach to the adopted contract without renaming its runtime states
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
 - TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
 - TODO: decide what adapter-specific orchestration stays outside the shared contract
