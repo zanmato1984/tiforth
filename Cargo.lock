@@ -463,6 +463,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiforth-harness-differential"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tiforth-adapter-tidb",
+ "tiforth-adapter-tiflash",
+]
+
+[[package]]
 name = "tiforth-kernel"
 version = "0.1.0"
 dependencies = [

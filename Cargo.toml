@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "crates/tiforth-harness-differential",
   "crates/tiforth-adapter-tiflash",
   "crates/tiforth-adapter-tidb",
   "crates/tiforth-kernel",

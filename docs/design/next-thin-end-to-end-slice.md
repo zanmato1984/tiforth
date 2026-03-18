@@ -23,7 +23,7 @@ What should `tiforth` define as the next narrow, end-to-end checkpoint now that 
 - `tests/conformance/expression-projection-slice.md`
 - `tests/differential/first-expression-slice.md`
 - `adapters/first-expression-slice.md`
-- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- `tests/differential/first-expression-slice-artifacts.md`
 - `docs/process/inventory-artifact-naming.md`
 - `docs/process/inventory-refresh.md`
 - issue #80
@@ -37,7 +37,7 @@ That slice should:
 - start from the shared `case_id`, `input_ref`, and `projection_ref` definitions in `tests/differential/first-expression-slice.md`
 - submit one documented case at a time through the shared request boundary from `adapters/first-expression-slice.md`
 - execute that case independently against the TiDB and TiFlash adapters
-- normalize one `case result` record per engine and aggregate those records into the drift-report carrier from `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- normalize one `case result` record per engine and aggregate those records into the drift-report carrier from `tests/differential/first-expression-slice-artifacts.md`
 - check in the resulting evidence using the naming and refresh rules under `docs/process/`
 
 This keeps the follow-on checkpoint end to end without widening the shared kernel beyond the current milestone-1 expression-projection slice.
@@ -70,7 +70,7 @@ The next slice does **not** add:
 2. build the shared adapter request with `slice_id`, `case_id`, `spec_refs[]`, `input_ref`, and `projection_ref`
 3. execute that request against one engine adapter at a time
 4. capture one normalized `case result` record per engine
-5. compare the paired engine records using the documented dimensions from `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+5. compare the paired engine records using the documented dimensions from `tests/differential/first-expression-slice-artifacts.md`
 6. emit checked-in `case-results` and `drift-report` artifacts that follow the inventory naming and refresh policy
 
 This is the smallest next checkpoint that crosses shared docs, adapters, and reviewable evidence while still reusing the already-settled milestone-1 semantic core.
