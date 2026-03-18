@@ -13,7 +13,8 @@ This file is a table of contents for future agents. The source of truth lives un
 7. `docs/process/documentation-updates.md`
 8. `docs/process/issues-and-prs.md`
 9. `docs/process/worktrees.md`
-10. `docs/decisions/README.md`
+10. `docs/process/inventory-artifact-naming.md`
+11. `docs/decisions/README.md`
 
 ## Where Things Go
 
@@ -25,6 +26,7 @@ This file is a table of contents for future agents. The source of truth lives un
   - `worktrees.md`: one worktree per active issue/workstream
   - `issues-and-prs.md`: how execution tracking lives in GitHub issues and PRs
   - `documentation-updates.md`: when implementation work must update docs
+  - `inventory-artifact-naming.md`: how checked-in `inventory/` evidence should be named
 - `docs/decisions/`: long-lived architectural decisions that should outlive issue threads
 
 ## Operating Rules

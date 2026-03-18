@@ -1,4 +1,4 @@
-# First Differential Drift Report Format
+# First Expression Slice TiDB-vs-TiFlash Drift Report Format
 
 Status: issue #68 design checkpoint
 
@@ -11,6 +11,8 @@ Related issues:
 This note defines the minimum artifact set for the first differential expression slice from `tests/differential/first-expression-slice.md`.
 
 The goal is to make future TiDB-versus-TiFlash comparison output reviewable and check-in friendly before broader inventory or harness tooling exists.
+
+Its filename follows `docs/process/inventory-artifact-naming.md` and serves as the first concrete example of that convention.
 
 ## Artifact Set
 
@@ -86,7 +88,7 @@ The first drift report format is intentionally narrow.
 
 It does not yet define:
 
-- naming conventions for every inventory artifact
+- artifact families beyond the current `case-results` and `drift-report` examples
 - performance result formats
 - merged multi-engine summaries beyond the first pairwise slice
 - adapter-internal traces or engine plan captures
