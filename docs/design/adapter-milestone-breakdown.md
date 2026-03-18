@@ -89,6 +89,8 @@ Recommended issue shape:
 
 This issue should stay symmetrical with the TiDB checkpoint so later differential comparison is mostly a harness concern rather than a negotiation between two differently shaped adapters.
 
+A TiFlash single-engine checkpoint may land as a narrow engine-specific crate under `crates/` that owns request validation, TiFlash-oriented SQL lowering, and normalized `case result` shaping behind a runner boundary, while leaving live connection and orchestration concerns adapter-local.
+
 ### Milestone 3: Pairwise Differential Harness Checkpoint
 
 Only after both single-engine checkpoints exist should a follow-on harness issue aggregate them.
