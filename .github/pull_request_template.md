@@ -49,3 +49,7 @@ Use exactly one primary issue whenever possible.
 -->
 
 Closes #
+
+## Local Cleanup After Merge
+
+- [ ] After merge, I will remove the dedicated local issue worktree and merged local branch, then return the primary local `main` worktree to a clean, up-to-date state.

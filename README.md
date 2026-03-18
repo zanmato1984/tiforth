@@ -19,4 +19,5 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 - Keep implementation slices narrow until specs and harness coverage say they should grow.
 - Track execution in GitHub issues and PRs rather than in repo-local plan or status docs.
 - Each issue or parallel workstream must use its own local git worktree; do not reuse one directory for multiple active issue tasks.
+- After an issue PR merges, remove its dedicated local worktree and return the primary local `main` worktree to a clean, up-to-date state.
 - Each PR must link its issue explicitly; use `Closes #...` for auto-close on merge and `Refs #...` for partial or stacked work.
