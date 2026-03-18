@@ -97,6 +97,17 @@ Use these stable `case_id` assignments for the first slice:
 
 The adapter-facing request and response boundary for these identifiers is defined in `adapters/first-expression-slice.md`.
 
+### 2e. Shared Spec References
+
+For this first executable slice, every shared request currently uses the same `spec_refs[]` set:
+
+- `docs/spec/milestone-1-expression-projection.md`
+- `docs/spec/type-system.md`
+- `tests/conformance/expression-projection-slice.md`
+- `tests/differential/first-expression-slice.md`
+
+Executable adapters should copy these refs through unchanged into normalized `case result` records so later drift artifacts can cite the same shared semantic sources.
+
 ### 3. Comparison Rules
 
 For the first slice, future differential harness code should compare:

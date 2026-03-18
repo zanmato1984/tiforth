@@ -9,10 +9,11 @@ Current checkpoint:
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for the first TiDB-versus-TiFlash differential slice
 - `docs/design/adapter-milestone-breakdown.md` fixes the next TiDB checkpoint as a single-engine adapter issue before pairwise drift aggregation lands
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiDB session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
+- `crates/tiforth-adapter-tidb` now encodes the first-expression-slice request catalog, TiDB-oriented SQL lowering, and row / error normalization behind a runner boundary
 
 Next checkpoint:
 
-- execute every documented `first-expression-slice` case through a TiDB bridge and return one normalized `case result` or explicit `adapter_unavailable`
+- wire the execution core to a live TiDB runner so every documented `first-expression-slice` case can emit reviewable single-engine `case result` evidence rather than adapter-local test coverage alone
 
 ## TODOs
 
