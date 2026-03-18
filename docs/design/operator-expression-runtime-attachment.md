@@ -91,7 +91,7 @@ Missing required context for a `tiforth`-owned path is an operator error, not a 
 
 `GovernedBatch` and `BatchClaim` add ownership bookkeeping around the adopted `Batch` payload so the source -> projection -> sink slice can preserve live claims.
 
-`LocalExecutionSnapshot` and `LocalExecutionFixture` translate local recorders into stable conformance evidence.
+`LocalExecutionSnapshot` and `LocalExecutionFixture` translate local recorders into stable conformance evidence, with adapter-visible export bounded by `docs/design/adapter-visible-runtime-event-carrier.md`.
 
 These helpers are part of `tiforth`'s kernel, data, and harness boundaries, but they are not shared replacements for upstream task control, scheduling, or handoff enums.
 
@@ -115,7 +115,7 @@ Milestone 1 continues to adopt by name and meaning:
 ## Deferred Questions
 
 - how exchange, spill, and retry semantics map onto the adopted runtime
-- whether later adapter-visible integrations reuse `LocalExecutionSnapshot` or translate it into another carrier
+- whether a later milestone needs a shared callback or streaming event API after the current fixture-translation boundary
 - whether a later milestone needs a broader operator-construction surface once kernels expand beyond the current source -> projection -> sink slice
 
 ## Result
