@@ -40,8 +40,23 @@ Examples:
 4. Run coding agents only inside that worktree.
 5. Open the PR from that branch.
 
+## Completion Cleanup
+
+When an issue is done or its PR is merged, finish by restoring local checkout hygiene.
+
+Minimum cleanup:
+
+1. Remove the dedicated issue worktree after its changes are merged or otherwise preserved.
+2. Delete the merged local issue branch unless another open PR still needs it.
+3. Return the primary repository worktree to `main`.
+4. Fast-forward that `main` worktree to `origin/main`.
+5. Confirm `git status --short --branch` is clean before ending the task.
+
+Do not silently discard unrelated local changes just to make cleanup pass. If a dirty worktree or branch blocks cleanup, move that state into its own branch or worktree first, or leave a clear blocker note in the issue or PR.
+
 ## Notes
 
 - Shared source-of-truth docs may be touched by multiple issues, but each issue still edits them from its own worktree.
 - If a task begins in the wrong directory, stop and move it to a dedicated worktree before continuing.
 - Coordination or synthesis work may use its own separate worktree as well.
+- A completed issue session should not leave a merged issue branch checked out locally or leave the primary `main` worktree behind `origin/main`.

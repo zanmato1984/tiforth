@@ -114,6 +114,18 @@ When an issue is fully resolved by a merged PR:
 - prefer automatic closure via `Closes #...`
 - if an issue is closed manually, leave a short summary comment pointing to the merged PR
 
+## Post-Merge Local Cleanup
+
+After the PR merges:
+
+1. remove the dedicated local issue worktree
+2. delete the merged local issue branch unless another open PR still needs it
+3. return the primary local worktree to `main`
+4. fast-forward that `main` worktree to `origin/main`
+5. confirm the local `main` worktree is clean before ending the task
+
+If unrelated local changes block cleanup, preserve that state in its own branch or worktree, or leave a short blocker note in the issue or PR instead of discarding it.
+
 ## Recommended PR Body Skeleton
 
 ```md
