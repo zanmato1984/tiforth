@@ -34,6 +34,8 @@ The first documented differential checkpoint is the TiDB-versus-TiFlash expressi
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
 
+The next end-to-end checkpoint should still grow layers 5 and 6 before it widens layer 3: `docs/design/next-thin-end-to-end-slice.md` fixes the follow-on slice as the first executable differential harness over the already-documented expression family.
+
 ## Current Minimal Kernel Boundary
 
 The smallest currently useful kernel boundary is the milestone-1 expression-projection slice under `crates/tiforth-kernel`.
