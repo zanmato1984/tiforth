@@ -11,4 +11,9 @@ For now it is intentionally empty of concrete implementations and detailed per-o
 - engine compatibility notes
 - harness coverage expectations
 
+Current first-wave priority:
+
+- donor and engine inventory should start with the single-input projection family documented in `docs/design/first-inventory-wave.md`
+- keep that operator inventory scoped to output ordering, output naming, direct column passthrough, and computed-column materialization before broader operator families are considered
+
 Do not place implementation code here.

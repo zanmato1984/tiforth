@@ -46,6 +46,8 @@ It also keeps the reboot honest:
 - widening the shared kernel beyond the current milestone-1 slice now requires the acceptance gate in `docs/design/kernel-expansion-acceptance.md`
 - that gate requires executable differential evidence from the next thin slice plus docs-first scope, named harness coverage, and concrete completion evidence for any later kernel expansion
 
-## TODOs
+## First Inventory Wave
 
-- Decide which function and operator families are inventoried first.
+- the first inventory wave is documented in `docs/design/first-inventory-wave.md`
+- that wave stays aligned with the milestone-1 projection semantic core: the projection operator plus `column`, `literal<int32>`, and `add<int32>` expression families
+- donor catalogs, engine compatibility notes, and any first coverage-gap inventory should anchor to the stable refs already defined for `tests/differential/first-expression-slice.md`
