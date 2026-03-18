@@ -23,6 +23,11 @@ Each decision record should capture:
 - consequences
 - follow-up work
 
-## Current Expected First Record
+## Current Records
 
-The likely first decision record is the shared-kernel language choice: C++ or Rust.
+- `0001-kernel-language.md`: accepted decision for shared-kernel language and runtime substrate.
+
+## Adding The Next Record
+
+When a new architectural conclusion needs a durable record, use the next
+sequential identifier (for example, `0002-...`).
