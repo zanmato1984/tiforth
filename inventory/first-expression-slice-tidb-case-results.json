@@ -57,7 +57,7 @@
         "schema": [
           {
             "name": "lit",
-            "logical_type": "int64",
+            "logical_type": "int32",
             "nullable": false
           }
         ],
@@ -93,7 +93,7 @@
         "schema": [
           {
             "name": "lit",
-            "logical_type": "int64",
+            "logical_type": "int32",
             "nullable": true
           }
         ],

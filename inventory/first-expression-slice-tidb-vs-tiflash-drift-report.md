@@ -41,17 +41,15 @@ Verified: 2026-03-18
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 3 row(s) for `literal-int32-seven` with field `lit` normalized as `int64`.
+- summary: TiDB and TiFlash both returned 3 row(s) for `literal-int32-seven` with field `lit` normalized as `int32`.
 - evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#literal-int32-seven`, `inventory/first-expression-slice-tiflash-case-results.json#literal-int32-seven`
-- follow_up: Both adapters currently surface `literal-int32-seven` as `int64`; later issues can decide whether to narrow that metadata back to the shared `int32` contract.
 
 ### `literal-int32-null`
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 3 row(s) for `literal-int32-null` with field `lit` normalized as `int64`.
+- summary: TiDB and TiFlash both returned 3 row(s) for `literal-int32-null` with field `lit` normalized as `int32`.
 - evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#literal-int32-null`, `inventory/first-expression-slice-tiflash-case-results.json#literal-int32-null`
-- follow_up: Both adapters currently surface `literal-int32-null` as `int64`; later issues can decide whether to narrow that metadata back to the shared `int32` contract.
 
 ### `add-int32-literal`
 

@@ -1,6 +1,6 @@
 # First Expression Slice Coverage Gap
 
-Status: issue #129 inventory checkpoint
+Status: issue #131 inventory checkpoint
 
 Verified: 2026-03-18
 
@@ -10,6 +10,7 @@ Related issues:
 - #84 `design: define first inventoried function and operator families`
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #129 `inventory: add first-expression-slice coverage-gap artifact`
+- #131 `harness: narrow first-expression-slice literal metadata to int32`
 
 ## Purpose
 
@@ -38,22 +39,12 @@ This artifact stays anchored to the stable first-slice vocabulary from `tests/di
 
 ## Gap Summary
 
-- open coverage gaps: `4`
+- open coverage gaps: `3`
 - unsupported compared case: `add-int32-overflow-error`
 - deferred error-class expansion and deferred case families remain outside the first executable differential slice
+- literal-int32 metadata narrowing now aligns to the shared `int32` contract in checked-in `case-results` artifacts
 
 ## Coverage Gaps
-
-### `literal-int32-output-narrowing`
-
-- anchor refs: `case_id = literal-int32-seven`, `case_id = literal-int32-null`, `projection_ref = literal-int32-seven`, `projection_ref = literal-int32-null`
-- current evidence:
-  - `inventory/first-expression-slice-tidb-case-results.json` and `inventory/first-expression-slice-tiflash-case-results.json` both currently report `logical_type = int64` for these literal projection outputs
-  - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` classifies both literal cases as `match`
-- gap:
-  - shared milestone-1 semantics define these as `literal<int32>(value)` outputs, but current adapter-normalized metadata is not narrowed back to shared `int32`
-- follow-up direction:
-  - define whether adapters should enforce explicit narrowing for first-slice literal outputs or whether shared first-slice metadata should accept widened literal result typing
 
 ### `tidb-int32-overflow-parity`
 
