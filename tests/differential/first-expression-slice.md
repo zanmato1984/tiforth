@@ -99,4 +99,4 @@ This keeps adapters thin while letting the first differential slice target real 
 
 ## Follow-On Boundary
 
-A later implementation issue may add executable harness code once it can emit the minimum artifact set defined in `inventory/differential-expression-drift-report.md`.
+A later implementation issue may add executable harness code once it can emit the minimum artifact set defined in `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`.

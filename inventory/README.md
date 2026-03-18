@@ -16,12 +16,16 @@ Rules:
 - keep extracted facts separate from proposed shared specs
 - prefer machine-readable formats when practical, but do not introduce tooling yet
 
+Source-of-truth naming guidance:
+
+- `docs/process/inventory-artifact-naming.md` defines how checked-in inventory artifacts should be named
+
 Current checkpoint:
 
-- the first differential drift artifact shape is documented in `inventory/differential-expression-drift-report.md`
+- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` documents the first differential drift artifact shape
+- earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
 
 ## TODOs
 
-- define naming conventions for extracted artifacts
 - extend drift report formats beyond the first differential expression slice
 - decide when inventory should be checked into git versus regenerated
