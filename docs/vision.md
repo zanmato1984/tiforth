@@ -30,8 +30,14 @@ It also keeps the reboot honest:
 - define minimal data and runtime contracts
 - stand up conformance, differential, and performance harness boundaries
 
+## Current Checkpoints
+
+- the first thin end-to-end slice is the local source -> projection -> sink path documented in `docs/spec/milestone-1-expression-projection.md`
+- the first accepted kernel boundary is the milestone-1 expression-projection slice backed by the data and runtime contracts plus local conformance coverage
+- the first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`
+
 ## TODOs
 
 - Decide which function and operator families are inventoried first.
-- Define the first thin end-to-end harness slice.
-- Define acceptance criteria for introducing the first kernel component.
+- Define the next thin end-to-end slice after the current milestone-1 projection checkpoint.
+- Define acceptance criteria for expanding the kernel beyond the current milestone-1 slice.

@@ -1,6 +1,6 @@
 # Architecture
 
-The current proposal is intentionally layered so specs and harnesses can mature before kernels exist.
+The current proposal is intentionally layered so specs and harnesses can mature before kernels grow beyond the current milestone-1 slice.
 
 ## Proposed Layers
 
@@ -14,7 +14,7 @@ Defines the in-memory representation and batch boundaries. Directionally Arrow-n
 
 ### 3. Kernel
 
-Future execution primitives that implement spec-defined behavior over the data contract. This layer begins only with narrow milestone-1 slices backed by accepted docs and local tests.
+Execution primitives that implement spec-defined behavior over the data contract. This layer is currently limited to a narrow milestone-1 slice backed by accepted docs and local tests.
 
 ### 4. Runtime
 
@@ -34,6 +34,22 @@ The first documented differential checkpoint is the TiDB-versus-TiFlash expressi
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
 
+## Current Minimal Kernel Boundary
+
+The smallest currently useful kernel boundary is the milestone-1 expression-projection slice under `crates/tiforth-kernel`.
+
+That boundary is intentionally narrow:
+
+- one static Arrow batch source, one projection pipe, and one collecting sink for the local executable slice
+- expression evaluation only for `column(index)`, `literal<int32>(value)`, and `add<int32>(lhs, rhs)`
+- reserve-first admission around computed output materialization
+- governed-batch handoff and live-claim tracking through the source -> projection -> sink path
+- local execution snapshots and checked-in fixtures that keep rows, errors, and ownership outcomes reviewable
+
+This boundary is justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, and `tests/conformance/expression-projection-slice.md`.
+
+It is not yet a general shared kernel API. It exists to prove one end-to-end path where shared specs, admission rules, handoff ownership, and local harness evidence all line up before broader operators or adapter-driven execution are introduced.
+
 ## Architectural Rules
 
 - Specs own semantics.
@@ -43,6 +59,6 @@ This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through
 
 ## TODOs
 
-- Define the smallest useful kernel boundary.
+- Define the next kernel expansion boundary after the current milestone-1 expression-projection slice.
 - Decide how adapter milestones should break down into tracked issues and harness checkpoints.
 - Extend harness result and drift-report formats beyond the first differential expression slice.
