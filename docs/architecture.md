@@ -36,6 +36,8 @@ This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through
 
 The next end-to-end checkpoint should still grow layers 5 and 6 before it widens layer 3: `docs/design/next-thin-end-to-end-slice.md` fixes the follow-on slice as the first executable differential harness over the already-documented expression family.
 
+`docs/design/adapter-milestone-breakdown.md` fixes how that differential slice should break into issue-scoped adapter and harness checkpoints.
+
 `docs/design/kernel-expansion-acceptance.md` now defines the gate for any later layer-3 growth after that differential checkpoint exists.
 
 ## Current Minimal Kernel Boundary
@@ -73,5 +75,4 @@ After the current milestone-1 slice, layer 3 should grow only when:
 ## TODOs
 
 - Choose the first post-gate kernel expansion boundary after the differential slice exists.
-- Decide how adapter milestones should break down into tracked issues and harness checkpoints.
 - Extend harness result and drift-report formats beyond the first differential expression slice.
