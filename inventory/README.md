@@ -24,7 +24,8 @@ Source-of-truth process guidance:
 
 Current checkpoint:
 
-- `tests/differential/first-expression-slice-artifacts.md` defines the stable carrier for the first differential `case-results` and `drift-report` artifacts
+- `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
+- `tests/differential/first-expression-slice-artifacts.md` defines the stable carrier for first-slice `case-results` artifacts plus first-slice constraints on the shared `drift-report` carrier
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary
@@ -42,4 +43,4 @@ Current inventory priority:
 
 ## TODOs
 
-- extend drift report formats beyond the first differential expression slice
+- decide whether a later checkpoint needs a required machine-readable `drift-report` sidecar in addition to Markdown summaries
