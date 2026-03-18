@@ -23,6 +23,7 @@ This file is a table of contents for future agents. The source of truth lives un
 - `inventory/`: extracted catalogs, donor analysis, drift reports
 - `tests/`: harness definitions, fixtures, and case coverage
 - `adapters/`: boundary docs for engine integration points
+- `scripts/`: local workflow helpers for repeatable repository maintenance tasks
 - `docs/process/`: project workflow and execution conventions
   - `worktrees.md`: one worktree per active issue/workstream
   - `issues-and-prs.md`: how execution tracking lives in GitHub issues and PRs

@@ -126,6 +126,8 @@ After the PR merges:
 
 If unrelated local changes block cleanup, preserve that state in its own branch or worktree, or leave a short blocker note in the issue or PR instead of discarding it.
 
+For the ordinary clean case, prefer `scripts/cleanup-finished-worktree.sh <issue-worktree>` so the local post-merge cleanup stays repeatable.
+
 ## Recommended PR Body Skeleton
 
 ```md
