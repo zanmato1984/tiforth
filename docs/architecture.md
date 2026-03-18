@@ -40,6 +40,8 @@ The next end-to-end checkpoint should still grow layers 5 and 6 before it widens
 
 `docs/design/kernel-expansion-acceptance.md` now defines the gate for any later layer-3 growth after that differential checkpoint exists.
 
+`docs/design/first-post-gate-kernel-boundary.md` now fixes the first post-gate layer-3 expansion candidate as one narrow filter boundary.
+
 ## Current Minimal Kernel Boundary
 
 The smallest currently useful kernel boundary is the milestone-1 expression-projection slice under `crates/tiforth-kernel`.
@@ -74,5 +76,4 @@ After the current milestone-1 slice, layer 3 should grow only when:
 
 ## TODOs
 
-- Choose the first post-gate kernel expansion boundary after the differential slice exists.
 - Extend harness result and drift-report formats beyond the first differential expression slice.
