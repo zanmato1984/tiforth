@@ -14,6 +14,8 @@ The goal is to make future TiDB-versus-TiFlash comparison output reviewable and 
 
 Its filename follows `docs/process/inventory-artifact-naming.md` and serves as the first concrete example of that convention.
 
+The minimal adapter request and response boundary that feeds these artifacts is defined in `adapters/first-expression-slice.md`.
+
 ## Artifact Set
 
 The first differential checkpoint should produce two artifact kinds:
