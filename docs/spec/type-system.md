@@ -27,6 +27,12 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - function signature matching
 - result type derivation
 
+## Representation Boundary
+
+- Arrow physical encodings such as dictionary layout do not change shared semantic type identity by themselves
+- current specs and harnesses should normalize dictionary-backed evidence to the underlying logical type before comparison
+- representation-level rules for when dictionary arrays may cross a shared stage boundary live in `docs/contracts/data.md`
+
 ## Current Milestone-1 Boundary
 
 The current executable slice only fixes the type behavior needed for milestone-1 projection coverage.
@@ -77,4 +83,4 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 
 ## Boundary For Now
 
-This file should guide future specs and harness cases. It should not yet force low-level representation choices that belong in the data contract.
+This file should guide future specs and harness cases. It should not yet force low-level representation choices such as dictionary layout that belong in the data contract.
