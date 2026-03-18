@@ -74,6 +74,8 @@ Recommended issue shape:
 
 The checkpoint is complete when reviewers can inspect one engine bridge in isolation and see that it preserves the shared slice vocabulary instead of introducing TiDB-owned semantics.
 
+A single-engine checkpoint may land as a narrow engine-specific crate under `crates/` that owns request validation, engine-native SQL lowering, and normalized `case result` shaping behind a runner boundary, while leaving live connection and orchestration concerns adapter-local.
+
 ### Milestone 2: TiFlash Single-Engine Adapter Checkpoint
 
 The second tracked issue should mirror the TiDB shape for TiFlash.
