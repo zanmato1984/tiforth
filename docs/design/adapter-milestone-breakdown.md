@@ -25,7 +25,7 @@ How should the first executable differential adapter work break down into tracke
 - `adapters/tidb/README.md`
 - `adapters/tiflash/README.md`
 - `adapters/tikv/README.md`
-- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- `tests/differential/first-expression-slice-artifacts.md`
 - `docs/process/issues-and-prs.md`
 - `docs/process/inventory-refresh.md`
 
@@ -56,7 +56,7 @@ This is already fixed by the existing docs checkpoint set:
 
 - `tests/differential/first-expression-slice.md`
 - `adapters/first-expression-slice.md`
-- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- `tests/differential/first-expression-slice-artifacts.md`
 - `docs/design/next-thin-end-to-end-slice.md`
 
 No new adapter implementation issue should redefine those shared identifiers before the first executable checkpoint exists.

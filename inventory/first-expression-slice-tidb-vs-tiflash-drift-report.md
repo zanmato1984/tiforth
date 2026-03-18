@@ -1,98 +1,76 @@
-# First Expression Slice TiDB-vs-TiFlash Drift Report Format
+# First Expression Slice TiDB-vs-TiFlash Drift Report
 
-Status: issue #68 design checkpoint
+Status: issue #113 harness checkpoint
 
-Related issues:
+Verified: 2026-03-18
 
-- #68 `design: define first differential expression slice and drift report format`
+## Evidence Source
 
-## Purpose
+- this checkpoint runs the current TiDB and TiFlash adapter cores through deterministic harness fixture runners
+- live engine connection and orchestration remain out of scope for this artifact set
+- the stable artifact-carrier boundary lives in `tests/differential/first-expression-slice-artifacts.md`
 
-This note defines the minimum artifact set for the first differential expression slice from `tests/differential/first-expression-slice.md`.
+## Engines
 
-The goal is to make future TiDB-versus-TiFlash comparison output reviewable and check-in friendly before broader inventory or harness tooling exists.
+- `tidb`
+- `tiflash`
 
-Its filename follows `docs/process/inventory-artifact-naming.md` and serves as the first concrete example of that convention.
+## Spec Refs
 
-The minimal adapter request and response boundary that feeds these artifacts is defined in `adapters/first-expression-slice.md`.
+- `docs/spec/milestone-1-expression-projection.md`
+- `docs/spec/type-system.md`
+- `tests/conformance/expression-projection-slice.md`
+- `tests/differential/first-expression-slice.md`
 
-## Artifact Set
+## Summary
 
-The first differential checkpoint should produce two artifact kinds:
+- `match`: 5
+- `drift`: 0
+- `unsupported`: 1
 
-1. one normalized `case result` capture per engine and case
-2. one aggregated `drift report` that compares those captures case by case
+## Cases
 
-These artifacts should be simple JSON-serializable records even if the first implementation also renders a human-readable summary.
+### `column-passthrough`
 
-## `case result` Minimum Fields
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiFlash both returned 3 row(s) for `column-passthrough` with field `a` normalized as `int32`.
+- evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#column-passthrough`, `inventory/first-expression-slice-tiflash-case-results.json#column-passthrough`
 
-Each per-engine case capture should record at least:
+### `literal-int32-seven`
 
-- `slice_id`
-- `engine`
-- `adapter`
-- `case_id`
-- `spec_refs[]`
-- `input_ref`
-- `projection_ref` or equivalent expression descriptor
-- `outcome.kind` = `rows` or `error`
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiFlash both returned 3 row(s) for `literal-int32-seven` with field `lit` normalized as `int64`.
+- evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#literal-int32-seven`, `inventory/first-expression-slice-tiflash-case-results.json#literal-int32-seven`
+- follow_up: Both adapters currently surface `literal-int32-seven` as `int64`; later issues can decide whether to narrow that metadata back to the shared `int32` contract.
 
-When `outcome.kind` is `rows`, include:
+### `literal-int32-null`
 
-- `schema[]` with `name`, `logical_type`, and `nullable`
-- `rows[]` using JSON scalars plus `null`
-- `row_count`
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiFlash both returned 3 row(s) for `literal-int32-null` with field `lit` normalized as `int64`.
+- evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#literal-int32-null`, `inventory/first-expression-slice-tiflash-case-results.json#literal-int32-null`
+- follow_up: Both adapters currently surface `literal-int32-null` as `int64`; later issues can decide whether to narrow that metadata back to the shared `int32` contract.
 
-When `outcome.kind` is `error`, include:
+### `add-int32-literal`
 
-- `error_class`
-- optional `engine_code`
-- optional `engine_message`
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiFlash both returned 3 row(s) for `add-int32-literal` with field `a_plus_one` normalized as `int32`.
+- evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#add-int32-literal`, `inventory/first-expression-slice-tiflash-case-results.json#add-int32-literal`
 
-For the first slice, `error_class` must be stable enough for the overflow checkpoint. Exact engine wording remains evidence only.
+### `add-int32-null-propagation`
 
-## `drift report` Minimum Fields
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiFlash both returned 3 row(s) for `add-int32-null-propagation` with field `a_plus_one` normalized as `int32`.
+- evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#add-int32-null-propagation`, `inventory/first-expression-slice-tiflash-case-results.json#add-int32-null-propagation`
 
-The aggregated drift report should record at least:
+### `add-int32-overflow-error`
 
-- `slice_id`
-- `engines[]`
-- `spec_refs[]`
-- `cases[]`, where each case entry includes:
-  - `case_id`
-  - `status`: `match`, `drift`, or `unsupported`
-  - `comparison_dimensions[]`
-  - `summary`
-  - `evidence_refs[]`
-  - optional `follow_up`
-
-### Status Meanings
-
-- `match`: compared engines produced the same normalized outcome for the fields this slice cares about
-- `drift`: compared engines both produced evidence, but that evidence differs on compared semantics such as values, nullability, field names, or `error_class`
-- `unsupported`: the case could not be executed on one side because the adapter or engine path for that slice does not exist yet; this should be used sparingly and called out explicitly
-
-### Comparison Dimensions
-
-For the first expression slice, `comparison_dimensions[]` should only use dimensions that the slice actually compares:
-
-- `field_name`
-- `field_nullability`
-- `logical_type`
-- `row_count`
-- `row_values`
-- `error_class`
-
-## Inventory Boundary
-
-The first drift report format is intentionally narrow.
-
-It does not yet define:
-
-- artifact families beyond the current `case-results` and `drift-report` examples
-- performance result formats
-- merged multi-engine summaries beyond the first pairwise slice
-- adapter-internal traces or engine plan captures
-
-Those remain follow-on inventory and harness issues.
+- status: `unsupported`
+- comparison_dimensions: `error_class`
+- summary: tidb normalized `add-int32-overflow-error` as `adapter_unavailable` while tiflash normalized it as `arithmetic_overflow`; the pair remains explicitly unsupported.
+- evidence_refs: `inventory/first-expression-slice-tidb-case-results.json#add-int32-overflow-error`, `inventory/first-expression-slice-tiflash-case-results.json#add-int32-overflow-error`
+- follow_up: Decide whether tidb should add a shared-`int32` overflow strategy for `add-int32-overflow-error` or remain explicitly unsupported.

@@ -14,7 +14,7 @@ This note defines the minimal shared boundary between the first differential exp
 The goal is to give future harness work one small, explicit contract between:
 
 - the shared differential slice in `tests/differential/first-expression-slice.md`
-- the normalized `case result` carrier in `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- the stable first-slice artifact carriers in `tests/differential/first-expression-slice-artifacts.md`
 - the TiDB- and TiFlash-specific execution plumbing that should stay adapter-local
 
 ## Scope
@@ -74,7 +74,7 @@ An adapter may derive engine-native setup and query text from those stable refs,
 
 ## Response Surface
 
-Each adapter invocation should return one normalized `case result` record whose fields match the minimum carrier already defined in `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`.
+Each adapter invocation should return one normalized `case result` record whose fields match the minimum carrier now defined in `tests/differential/first-expression-slice-artifacts.md`.
 
 That record must include at least:
 
@@ -127,6 +127,6 @@ Later issues may extend this boundary to cover:
 - TiKV participation
 - broader error normalization
 - reusable session profiles or adapter capability advertisement
-- executable harness code that emits checked-in `case-results` and `drift-report` artifacts
+- live TiDB and TiFlash runner orchestration beyond the current deterministic harness fixtures
 
 Until then, this note fixes only the minimum request-and-response contract needed to keep the first TiDB-versus-TiFlash differential slice coherent.

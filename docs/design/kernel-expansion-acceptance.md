@@ -27,7 +27,7 @@ What must be true before a follow-on issue widens the shared kernel beyond the c
 - `tests/conformance/expression-projection-slice.md`
 - `tests/differential/first-expression-slice.md`
 - `adapters/first-expression-slice.md`
-- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- `tests/differential/first-expression-slice-artifacts.md`
 - issue #82
 
 ## Acceptance Summary

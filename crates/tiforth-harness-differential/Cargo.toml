@@ -1,0 +1,11 @@
+[package]
+name = "tiforth-harness-differential"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tiforth-adapter-tidb = { path = "../tiforth-adapter-tidb" }
+tiforth-adapter-tiflash = { path = "../tiforth-adapter-tiflash" }

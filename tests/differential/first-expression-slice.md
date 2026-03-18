@@ -1,6 +1,6 @@
 # First Differential Expression Slice
 
-Status: issue #68 design checkpoint, issue #72 adapter-boundary checkpoint
+Status: issue #68 design checkpoint, issue #72 adapter-boundary checkpoint, issue #113 harness checkpoint
 
 Related issues:
 
@@ -97,6 +97,8 @@ Use these stable `case_id` assignments for the first slice:
 
 The adapter-facing request and response boundary for these identifiers is defined in `adapters/first-expression-slice.md`.
 
+The stable executable artifact carriers for this slice now live in `tests/differential/first-expression-slice-artifacts.md`.
+
 ### 2e. Shared Spec References
 
 For this first executable slice, every shared request currently uses the same `spec_refs[]` set:
@@ -149,4 +151,10 @@ The first minimal shared adapter request-and-response boundary for that work now
 
 ## Follow-On Boundary
 
-A later implementation issue may add executable harness code once it can drive the request surface from `adapters/first-expression-slice.md` and emit the minimum artifact set defined in `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`.
+The current executable harness checkpoint now lives in `crates/tiforth-harness-differential`, and the checked-in paired artifacts it validates live under `inventory/`.
+
+Later issues may still extend this slice to cover:
+
+- live TiDB and TiFlash runner wiring beyond the current deterministic harness fixtures
+- broader error normalization once the current overflow and `adapter_unavailable` vocabulary is no longer enough
+- TiKV participation or wider expression families after the first paired artifact set has settled
