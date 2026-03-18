@@ -7,6 +7,11 @@ The adapter should eventually translate TiDB concepts into shared specs, data co
 Current checkpoint:
 
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for the first TiDB-versus-TiFlash differential slice
+- `docs/design/adapter-milestone-breakdown.md` fixes the next TiDB checkpoint as a single-engine adapter issue before pairwise drift aggregation lands
+
+Next checkpoint:
+
+- execute every documented `first-expression-slice` case through a TiDB bridge and return one normalized `case result` or explicit `adapter_unavailable`
 
 ## TODOs
 
