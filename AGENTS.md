@@ -14,7 +14,8 @@ This file is a table of contents for future agents. The source of truth lives un
 8. `docs/process/issues-and-prs.md`
 9. `docs/process/worktrees.md`
 10. `docs/process/inventory-artifact-naming.md`
-11. `docs/decisions/README.md`
+11. `docs/process/inventory-refresh.md`
+12. `docs/decisions/README.md`
 
 ## Where Things Go
 
@@ -27,6 +28,7 @@ This file is a table of contents for future agents. The source of truth lives un
   - `issues-and-prs.md`: how execution tracking lives in GitHub issues and PRs
   - `documentation-updates.md`: when implementation work must update docs
   - `inventory-artifact-naming.md`: how checked-in `inventory/` evidence should be named
+  - `inventory-refresh.md`: when `inventory/` evidence belongs in git and when PRs should refresh it
 - `docs/decisions/`: long-lived architectural decisions that should outlive issue threads
 
 ## Operating Rules
@@ -34,6 +36,7 @@ This file is a table of contents for future agents. The source of truth lives un
 - Treat `docs/` as the source of truth for stable design knowledge.
 - Track live execution state in GitHub issues, issue comments, and PRs. Do not add repo-local plan or status tracking docs for project progress.
 - If a PR changes semantics, boundaries, top-level structure, or contributor workflow, update the corresponding docs or explain `Docs-Impact: none - <reason>` in the PR body.
+- When a PR adds, renames, regenerates, or intentionally skips in-scope `inventory/` evidence, follow `docs/process/inventory-refresh.md` and declare `Inventory-Impact: ...` in the PR body.
 - Do not add concrete operators or functions until their specs and harness coverage exist.
 - Preserve Apache Arrow as the data-contract direction and broken-pipeline ideas as runtime inspiration, but do not copy donor implementations by default.
 - Record unresolved decisions as TODOs with context or as follow-up issues instead of forcing premature choices.
