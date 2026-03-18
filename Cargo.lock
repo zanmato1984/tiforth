@@ -455,6 +455,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiforth-adapter-tiflash"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "tiforth-kernel"
 version = "0.1.0"
 dependencies = [
