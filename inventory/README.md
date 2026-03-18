@@ -25,6 +25,7 @@ Source-of-truth process guidance:
 Current checkpoint:
 
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` documents the first differential drift artifact shape
+- `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
 
 Current inventory priority:
