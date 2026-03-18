@@ -51,6 +51,7 @@ Filter is deferred unless a later issue extends this slice explicitly.
 - both operands must be `int32` expressions in this slice
 - nulls propagate: if either side is null for a row, the result is null for that row
 - overflow is an execution error in this slice
+- result type and nullability derivation follow the milestone-1 checkpoint in `docs/spec/type-system.md`
 
 ## Runtime Boundary
 
