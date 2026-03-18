@@ -35,11 +35,13 @@ It also keeps the reboot honest:
 - the first thin end-to-end slice is the local source -> projection -> sink path documented in `docs/spec/milestone-1-expression-projection.md`
 - the first accepted kernel boundary is the milestone-1 expression-projection slice backed by the data and runtime contracts plus local conformance coverage
 - the first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`
+- the first executable differential checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired artifacts under `inventory/`
+- the first post-gate shared-kernel expansion candidate is now fixed in `docs/design/first-post-gate-kernel-boundary.md`
 
 ## Next Checkpoint
 
-- the next thin end-to-end slice is the first executable differential harness over `first-expression-slice`, documented in `docs/design/next-thin-end-to-end-slice.md`
-- that follow-on checkpoint keeps near-term growth in adapters, harnesses, and inventory evidence rather than widening the shared kernel immediately
+- the next checkpoint is a docs-first filter-slice prep issue that defines the first filter semantics, harness cases, and adapter boundary updates before kernel code
+- that follow-on checkpoint keeps layer-3 growth thin by limiting the first filter boundary to one predicate family: `is_not_null(column(index))`
 
 ## Kernel Expansion Gate
 

@@ -11,6 +11,7 @@ Related issues:
 - #72 `design: define first differential adapter request/response surface`
 - #80 `design: define the next thin end-to-end slice after milestone-1 projection`
 - #82 `design: define acceptance criteria for expanding the kernel beyond milestone-1`
+- #137 `design: choose first post-gate kernel expansion boundary`
 
 ## Question
 
@@ -131,10 +132,10 @@ Those may still justify adapter, harness, or docs work, but they do not by thems
 4. implement the minimum kernel change that satisfies those docs and cases
 5. land the resulting tests, fixtures, and inventory updates that prove the new boundary
 
-This issue only fixes the acceptance gate. It does **not** choose the first post-gate kernel expansion candidate.
+Issue #82 fixed only the acceptance gate.
 
 ## Follow-On Boundary
 
-Once the gate above is satisfied, later issues may decide which single post-milestone-1 kernel boundary should come first.
+The first post-gate boundary is now selected in `docs/design/first-post-gate-kernel-boundary.md`.
 
-Until then, the repo should keep treating the current milestone-1 expression-projection slice as the only accepted shared-kernel boundary.
+Until that selected filter boundary is implemented with docs and harness evidence, the repo should keep treating the current milestone-1 expression-projection slice as the only accepted shared-kernel implementation boundary.
