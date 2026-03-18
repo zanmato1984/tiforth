@@ -48,6 +48,7 @@ This keeps host memory control explicit while allowing milestone-1 data construc
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 Detailed batch handoff and ownership rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
 Detailed dictionary-encoding rationale lives in `docs/design/dictionary-encoding-boundary.md`.
+Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-retry-runtime-mapping.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
 
@@ -130,12 +131,20 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 - the final `release` for batch-tied bytes happens when the last batch carrying that claim is dropped by a downstream stage, sink, or teardown path
 - double release, shrinking a live claim in place, or releasing bytes still reachable from a live batch is a contract violation
 
+## Milestone-1 Spill Representation Boundary
+
+- operator-managed spill is outside Arrow's transparent allocator behavior and outside the canonical live-batch envelope while the spilled bytes are non-resident
+- `claims[]` describe only admitted resident bytes that remain reachable from live batches or retained local state
+- spill metadata and rehydration buffers that remain resident are still governed bytes and must follow reserve-before-allocate admission
+- rehydrating spilled state is a fresh reserve-before-allocate path and may attach new claims only for newly resident governed bytes
+- a stage must not keep claim bytes attached to an outgoing batch for buffers that were fully spilled and are no longer reachable from that batch
+
 ## Open Questions
 
 - TODO: define the first later slice, if any, that allows dictionary-encoded arrays to cross the shared contract without prior normalization
 - TODO: specify required support for nested types, if any, in the first milestone
 - TODO: specify decimal and temporal metadata requirements
-- TODO: decide how spill or off-heap behavior is represented, if at all, given that spill is operator-managed rather than transparent inside Arrow allocation paths
+- TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
 - TODO: decide what later adapter-visible or serialized carrier should expose full `batch_id`, `origin`, and `claims[]` detail beyond the current local `GovernedBatch` state and `LocalExecutionSnapshot` event records
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 
