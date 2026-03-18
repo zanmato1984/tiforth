@@ -54,6 +54,8 @@ Minimum cleanup:
 
 Do not silently discard unrelated local changes just to make cleanup pass. If a dirty worktree or branch blocks cleanup, move that state into its own branch or worktree first, or leave a clear blocker note in the issue or PR.
 
+For the ordinary clean case, prefer `scripts/cleanup-finished-worktree.sh <issue-worktree>` so the fetch, fast-forward, merge check, worktree removal, branch deletion, prune, and final status confirmation stay consistent.
+
 ## Notes
 
 - Shared source-of-truth docs may be touched by multiple issues, but each issue still edits them from its own worktree.

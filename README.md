@@ -11,6 +11,7 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 - `tests/`: harness skeletons, cases, and fixtures
 - `adapters/`: engine-facing adapter boundaries for TiDB, TiFlash, and TiKV
 - `crates/`: narrow Rust implementation slices that are justified by accepted docs and local tests
+- `scripts/`: local workflow helpers for repeatable repository maintenance tasks
 
 ## Working Rules
 
