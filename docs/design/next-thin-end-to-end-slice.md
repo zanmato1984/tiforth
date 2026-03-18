@@ -89,6 +89,6 @@ The next thin slice is ready to implement when a follow-on issue can target all 
 Once this differential slice exists as executable evidence, later issues may use it to justify either:
 
 - broadening differential coverage to more engines or expression families, or
-- proposing the next shared-kernel expansion boundary with real cross-engine evidence already in hand
+- proposing the next shared-kernel expansion boundary with real cross-engine evidence already in hand and with the acceptance gate from `docs/design/kernel-expansion-acceptance.md` satisfied
 
 Until then, the next thin end-to-end slice should grow harness and adapter execution around the current semantic core rather than widening that core itself.
