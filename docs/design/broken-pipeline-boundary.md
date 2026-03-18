@@ -2,7 +2,7 @@
 
 Status: issue #9 design checkpoint, issue #62 revision pin
 
-Verified: 2026-03-17
+Verified: 2026-03-18
 
 Related issues:
 
@@ -64,6 +64,14 @@ The milestone-1 dependency boundary now records the exact upstream revision used
 
 That pin keeps the runtime evidence base reproducible while the upstream crates remain unpublished on crates.io. A later revision bump or vendored snapshot should be handled as a separate issue so the contract review and implementation change stay explicit.
 
+Milestone 1 should continue using that pinned git snapshot directly while all of these stay true:
+
+- the checked-in kernel slice still depends on one reviewed upstream snapshot
+- local builds and harness runs can consume that snapshot directly from git
+- packaging, offline, or audit requirements do not yet require a checked-in upstream source mirror
+
+A later issue should switch to a vendored snapshot only when at least one of those assumptions breaks. Examples include an offline packaging requirement, a reproducibility review that needs the exact upstream source tree checked into this repo, or an upstream-availability risk that makes the direct git pin insufficient.
+
 ### 2. Directly adopted upstream contract surfaces
 
 The following surfaces are upstream-owned and should be adopted directly instead of being redefined inside `tiforth`:
@@ -97,6 +105,8 @@ These are the places where `tiforth` adds project-specific value. They should at
 The public boundary should stay transparent:
 
 - `tiforth` public runtime-facing signatures may use the adopted upstream Arrow-bound types directly
+- the current `tiforth-kernel` crate-root re-export of `ArrowTypes` and `Batch` is sufficient ergonomic surface for the milestone-1 kernel crate
+- `tiforth` should not add a dedicated runtime-facade module unless a later multi-crate or adapter-visible boundary proves that the existing narrow re-export is no longer enough
 - `tiforth` may add narrow convenience aliases or selective re-exports for ergonomics, but it should not publish a wide `pub use` mirror of the upstream crate
 - wrappers are appropriate only when they add `tiforth`-specific policy such as host admission, operator factory wiring, expression binding, or harness observability
 - wrappers must not create renamed copies of upstream runtime states or a second task or operator protocol

@@ -37,7 +37,8 @@ The runtime state names that `tiforth` adopts by name and meaning are currently:
 ## Boundary Policy
 
 - public `tiforth` operator and expression interfaces should use the adopted upstream Arrow-bound types directly when they need runtime-facing signatures
-- `tiforth` may add narrow convenience aliases or re-exports for the adopted Arrow-bound specialization, but it should not mirror the entire upstream crate or rename runtime states
+- the current `tiforth-kernel` crate-root re-export of `ArrowTypes` and `Batch` is the only milestone-1 convenience layer needed for the adopted Arrow-bound specialization
+- `tiforth` may add narrow convenience aliases or re-exports for the adopted Arrow-bound specialization, but it should not add a dedicated runtime facade, mirror the entire upstream crate, or rename runtime states unless a later multi-crate or adapter-visible boundary proves that necessary
 - `tiforth` adds project-specific value around operator libraries, expression libraries, host admission hooks, adapter composition, and harness observability
 - scheduler helpers, ready-made schedulers, and schedule-layer awaiter or resumer helpers stay outside the shared contract
 
@@ -100,6 +101,14 @@ The current milestone-1 implementation pin is the git revision already recorded 
 - `broken-pipeline-schedule = 174e6cd07c41210158ae1d805b568968cf71f898`
 
 That revision is the current reproducible upstream contract snapshot for milestone 1. If `tiforth` later bumps that revision or vendors an upstream snapshot, that change should be handled as its own issue because it changes the verified runtime baseline.
+
+Milestone 1 should keep using that direct git pin while all of these stay true:
+
+- the repo still depends on one reviewed upstream snapshot
+- local builds and harness runs can consume that snapshot directly from git
+- packaging, offline, or audit requirements do not yet require a vendored upstream source tree
+
+If one of those assumptions stops holding, a separate follow-on issue should review either a revision bump or a vendored snapshot explicitly instead of changing the upstream dependency path incidentally.
 
 ## Host Memory Admission Boundary
 
@@ -195,10 +204,8 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 
 ## Open Questions
 
-- TODO: decide whether `tiforth` needs a small convenience re-export module for Arrow-bound runtime aliases or whether direct upstream imports are sufficient
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
 - TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
-- TODO: decide whether a later milestone should keep using the pinned git dependency above or vendor a reproducible upstream snapshot once packaging or reproducibility constraints require it
 
 ## Initial Boundary
 
