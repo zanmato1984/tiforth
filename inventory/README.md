@@ -28,6 +28,7 @@ Current checkpoint:
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary
+- `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
 - `inventory/first-expression-slice-tidb-compat-notes.md` records the first TiDB-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
