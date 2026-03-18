@@ -64,6 +64,27 @@ This adopted contract should remain precise about:
 
 `broken-pipeline-schedule` is not part of this shared contract. Its ready-made schedulers and helpers are for local testing and harness use only. Detailed milestone-1 dependency guidance lives in `docs/design/broken-pipeline-boundary.md`.
 
+## Milestone-1 Adapter-Local Orchestration Boundary
+
+Detailed milestone-1 guidance lives in `docs/design/adapter-runtime-orchestration-boundary.md`.
+
+For milestone 1, the shared runtime and differential adapter docs do **not** freeze:
+
+- connection, authentication, DSN, or environment provisioning details
+- engine-native SQL or expression derivation, planner hints, or session-variable choices
+- retry, backoff, failover, timeout, or cancellation transport behavior inside one adapter
+- buffering, streaming, pagination, or result-materialization strategy inside one adapter
+- engine-plan capture, adapter-local diagnostics, or local debug traces beyond the normalized response fields
+- adapter-local concurrency helpers, schedulers, or harness wrappers
+
+The shared boundary does still fix:
+
+- stable `slice_id`, `case_id`, `input_ref`, `projection_ref`, and `spec_refs[]` meanings for the first differential slice
+- normalized `case result` fields and first-slice error vocabulary
+- shared meanings for `tiforth` runtime, admission, and ownership events where the local kernel path is involved
+
+This keeps engine transport and orchestration out of the shared runtime contract while still requiring adapters to preserve the shared semantic carrier and observable outcome meanings.
+
 ## Milestone-1 Dependency Boundary
 
 For milestone 1:
@@ -177,9 +198,8 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 - TODO: decide whether `tiforth` needs a small convenience re-export module for Arrow-bound runtime aliases or whether direct upstream imports are sufficient
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
 - TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
-- TODO: decide what adapter-specific orchestration stays outside the shared contract
 - TODO: decide whether a later milestone should keep using the pinned git dependency above or vendor a reproducible upstream snapshot once packaging or reproducibility constraints require it
 
 ## Initial Boundary
 
-For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; the shared upstream runtime protocol itself remains upstream-owned.
+For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.
