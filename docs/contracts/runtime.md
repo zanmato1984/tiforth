@@ -209,6 +209,7 @@ This fixture remains the canonical milestone-1 serialized event carrier. It does
 ## Milestone-1 Adapter-Visible Event Carrier Boundary
 
 Detailed guidance lives in `docs/design/adapter-visible-runtime-event-carrier.md`.
+Shared callback or streaming event surfaces are gated by `docs/design/runtime-event-streaming-adoption-gate.md`.
 
 For milestone 1:
 
@@ -241,8 +242,7 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 ## Open Questions
 
 - TODO: define the first in-contract exchange slice (operator boundary, backpressure mapping, and coverage) if runtime scope expands beyond the current source -> projection -> sink path
-- TODO: decide whether a later milestone needs a shared callback or streaming event surface after fixture-style translation is no longer sufficient
 
 ## Initial Boundary
 
-For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage, the milestone-1 exchange mapping boundary under `docs/design/exchange-runtime-mapping.md`, and the adapter-visible fixture-translation boundary under `docs/design/adapter-visible-runtime-event-carrier.md`. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.
+For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage, the milestone-1 exchange mapping boundary under `docs/design/exchange-runtime-mapping.md`, the adapter-visible fixture-translation boundary under `docs/design/adapter-visible-runtime-event-carrier.md`, and the shared callback or streaming adoption gate under `docs/design/runtime-event-streaming-adoption-gate.md`. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.
