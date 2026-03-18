@@ -49,6 +49,7 @@ Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 Detailed batch handoff and ownership rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
 Detailed dictionary-encoding rationale lives in `docs/design/dictionary-encoding-boundary.md`.
 Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-retry-runtime-mapping.md`.
+Detailed nested plus decimal and temporal metadata boundary rationale lives in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
 
@@ -79,6 +80,19 @@ For the shared contract, that means:
 - when an adapter, source, or engine-native surface encounters dictionary-backed data for a milestone-1 case, it should normalize that data to the equivalent decoded logical array before the data enters the current shared slice or checked-in differential evidence
 - the current milestone-1 expression-projection slice must not emit dictionary-encoded output arrays, so its governed claims describe the ordinary decoded Arrow buffers that remain reachable after handoff
 - if a later issue allows dictionary-backed arrays to cross the shared contract directly, that issue should define the first affected slice, the supported logical families, and how ownership claims attach to dictionary values buffers versus index buffers when those lifetimes can diverge
+
+## Milestone-1 Nested And Decimal/Temporal Metadata Boundary
+
+Milestone 1 keeps nested, decimal, and temporal families outside the current shared execution boundary.
+
+For the shared data contract, that means:
+
+- stage handoff in the current shared slice does not require direct support for nested arrays (`list`, `large_list`, `fixed_size_list`, `struct`, `map`, `union`, or nested combinations)
+- decimal and temporal arrays are not required inputs or outputs for the milestone-1 executable projection slice or first differential artifacts
+- milestone-1 shared data handling does not require interpreting decimal precision and scale metadata or temporal unit and timezone metadata
+- when adapters or sources encounter those out-of-scope families for a milestone-1 request, they should either normalize to the current supported logical slice before handoff or surface an explicit unsupported outcome under the current adapter contract
+
+This boundary keeps milestone-1 contracts aligned with the current `int32` semantic core without pretending broader family support already exists.
 
 ## Milestone-1 Canonical Batch Envelope
 
@@ -142,12 +156,12 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 ## Open Questions
 
 - TODO: define the first later slice, if any, that allows dictionary-encoded arrays to cross the shared contract without prior normalization
-- TODO: specify required support for nested types, if any, in the first milestone
-- TODO: specify decimal and temporal metadata requirements
+- TODO: define the first shared slice that allows nested-family arrays to cross stage boundaries directly and specifies claim ownership behavior for nested buffers
+- TODO: define the first decimal and temporal shared semantic slices, including required precision/scale and unit/timezone metadata handling
 - TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
 - TODO: decide what later adapter-visible or serialized carrier should expose full `batch_id`, `origin`, and `claims[]` detail beyond the current local `GovernedBatch` state and `LocalExecutionSnapshot` event records
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the rule that current shared slices normalize dictionary-backed data before contract handoff. Later adapter-visible layouts, richer claim serialization, direct dictionary-aware handoff, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, the rule that current shared slices normalize dictionary-backed data before contract handoff, and the out-of-scope boundary for nested plus decimal and temporal families in the current slice. Later adapter-visible layouts, richer claim serialization, direct dictionary-aware handoff, nested-family handoff, and imported-buffer work remain open.
