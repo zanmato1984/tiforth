@@ -8,6 +8,7 @@ Current checkpoint:
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` defines the minimum artifact shape that follow-on differential harness work should emit for that slice
 - `docs/process/inventory-artifact-naming.md` defines how future checked-in inventory evidence should be named
+- `docs/process/inventory-refresh.md` defines when differential evidence should be checked into git or refreshed in follow-on PRs
 
 Likely contents later:
 

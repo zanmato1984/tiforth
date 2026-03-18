@@ -10,6 +10,7 @@ Repo docs are for stable knowledge, not for day-to-day execution tracking.
 - one primary issue should use one dedicated local git worktree
 - every PR must link at least one issue in its body
 - every PR must declare documentation impact in its body
+- every PR with in-scope `inventory/` evidence should declare inventory impact in its body
 - keep live status, checklists, blockers, and handoff notes in GitHub issues, issue comments, and PRs
 - do not create repo-local plan or status files for execution tracking
 - if a PR fully resolves its primary issue, use `Closes #...`
@@ -79,13 +80,28 @@ If a PR changes semantics, boundaries, top-level structure, or workflow-relevant
 
 See also: `docs/process/documentation-updates.md`
 
-### 4. Keep PR scope tight
+### 4. Declare inventory impact when needed
+
+If a PR adds, renames, regenerates, or intentionally skips relevant checked-in `inventory/` evidence, make that decision explicit in the PR body.
+
+Use one of these forms:
+
+- `Inventory-Impact: updated`
+- `Inventory-Impact: none - <reason>`
+
+Use `updated` when the PR changes the checked-in inventory evidence itself.
+
+Use `none` when inventory evidence is out of scope or when nearby slice / adapter / harness changes intentionally leave the checked-in artifacts alone and explain why.
+
+See also: `docs/process/inventory-refresh.md`
+
+### 5. Keep PR scope tight
 
 A PR should not silently combine unrelated issues.
 
 If two issues both need substantial changes, prefer two PRs.
 
-### 5. Use docs-first when the contract is not settled
+### 6. Use docs-first when the contract is not settled
 
 For design-heavy work, first land a docs/design PR that clarifies the contract or boundary.
 
@@ -109,6 +125,10 @@ When an issue is fully resolved by a merged PR:
 
 Docs-Impact: updated
 
+## Inventory Impact
+
+Inventory-Impact: updated
+
 ## Notes
 
 Closes #
@@ -124,6 +144,10 @@ For partial work:
 ## Documentation Impact
 
 Docs-Impact: updated
+
+## Inventory Impact
+
+Inventory-Impact: updated
 
 ## Notes
 

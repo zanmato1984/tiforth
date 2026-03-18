@@ -39,6 +39,12 @@ Update docs when a PR changes any of these in a meaningful way:
 
 - `tests/conformance/`
 
+### Inventory Evidence And Refresh Policy
+
+- `inventory/`
+- `docs/process/inventory-artifact-naming.md`
+- `docs/process/inventory-refresh.md`
+
 ### Project Workflow Rules
 
 - `docs/process/`

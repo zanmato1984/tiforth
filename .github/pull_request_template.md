@@ -17,6 +17,21 @@ Docs-Impact: none - <reason>
 
 Docs-Impact:
 
+## Inventory Impact
+
+- [ ] I updated or added checked-in inventory evidence for this PR.
+- [ ] No inventory update is needed for this PR.
+  - Reason:
+
+<!--
+Use one of these forms when inventory evidence or refresh decisions are in scope:
+
+Inventory-Impact: updated
+Inventory-Impact: none - <reason>
+-->
+
+Inventory-Impact:
+
 ## Notes
 
 <!--

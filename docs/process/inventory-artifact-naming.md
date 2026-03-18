@@ -17,10 +17,11 @@ The goal is to keep extracted catalogs, engine notes, drift reports, and coverag
 
 These rules apply to new or renamed inventory artifacts that live under `inventory/`.
 
+This note defines filenames only. Check-in and refresh policy lives in `docs/process/inventory-refresh.md`.
+
 They do not yet define:
 
 - every artifact schema
-- when artifacts must be regenerated versus checked in
 - a required subdirectory taxonomy for every future artifact family
 
 ## Filename Pattern

@@ -1,6 +1,6 @@
 # Inventory
 
-`inventory/` is reserved for extracted catalogs and drift reports.
+`inventory/` is reserved for extracted catalogs, drift reports, and other durable reviewable evidence.
 
 Expected future contents:
 
@@ -15,10 +15,12 @@ Rules:
 - treat inventory as evidence, not design authority
 - keep extracted facts separate from proposed shared specs
 - prefer machine-readable formats when practical, but do not introduce tooling yet
+- keep raw or unstable local captures out of git until a docs-defined normalized artifact shape exists
 
-Source-of-truth naming guidance:
+Source-of-truth process guidance:
 
 - `docs/process/inventory-artifact-naming.md` defines how checked-in inventory artifacts should be named
+- `docs/process/inventory-refresh.md` defines when inventory evidence should be checked into git or refreshed in follow-on PRs
 
 Current checkpoint:
 
@@ -28,4 +30,3 @@ Current checkpoint:
 ## TODOs
 
 - extend drift report formats beyond the first differential expression slice
-- decide when inventory should be checked into git versus regenerated
