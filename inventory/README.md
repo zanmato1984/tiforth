@@ -27,6 +27,11 @@ Current checkpoint:
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` documents the first differential drift artifact shape
 - earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
 
+Current inventory priority:
+
+- `docs/design/first-inventory-wave.md` defines the first donor and engine inventory scope
+- that first wave stays inside the milestone-1 projection core and the `first-expression-slice` semantic surface
+
 ## TODOs
 
 - extend drift report formats beyond the first differential expression slice
