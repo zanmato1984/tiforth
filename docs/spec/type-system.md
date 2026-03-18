@@ -27,11 +27,48 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - function signature matching
 - result type derivation
 
+## Current Milestone-1 Boundary
+
+The current executable slice only fixes the type behavior needed for milestone-1 projection coverage.
+
+### Covered Expression Families
+
+- `column(index)`
+- `literal<int32>(value)`
+- `add<int32>(lhs, rhs)`
+
+No broader coercion lattice, unsigned arithmetic contract, decimal propagation rule, or floating-point ordering rule is implied by this milestone-1 checkpoint.
+
+### `column(index)`
+
+- preserves the referenced input field's logical type
+- preserves the referenced input field's nullability
+- does not coerce the input into another logical type
+- reports an execution error when `index` is out of range
+
+### `literal<int32>(value)`
+
+- always derives logical type `int32`
+- derives `nullable = false` for non-null literals
+- derives `nullable = true` for `NULL` literals
+- does not introduce implicit widening or signedness changes in milestone 1
+
+### `add<int32>(lhs, rhs)`
+
+- requires both operands to resolve to `int32` expressions in this slice
+- derives logical type `int32`
+- derives result nullability as `lhs.nullable OR rhs.nullable`
+- propagates nulls row-wise at execution time
+- reports overflow as an execution error; milestone 1 does not wrap, saturate, or widen the result
+- reports an execution error rather than applying an implicit cast when an operand is not `int32`
+
+This fixes the current milestone-1 arithmetic typing rule without claiming it as the final shared contract for other operator families.
+
 ## Open Questions
 
 - TODO: define the coercion lattice and precedence rules
 - TODO: define signed versus unsigned interaction rules
-- TODO: define overflow behavior by operator family
+- TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
 - TODO: define NaN, infinity, and ordering semantics
 - TODO: define collation scope and ownership
 - TODO: define timezone handling and temporal normalization
