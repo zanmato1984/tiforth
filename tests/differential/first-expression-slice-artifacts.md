@@ -1,12 +1,13 @@
 # First Expression Slice Artifact Carriers
 
-Status: issue #68 design checkpoint, issue #113 harness checkpoint
+Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint
 
 Related issues:
 
 - #68 `design: define first differential expression slice and drift report format`
 - #72 `design: define first differential adapter request/response surface`
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
+- #133 `design: define reusable differential drift-report carrier guidance`
 
 ## Purpose
 
@@ -67,30 +68,17 @@ For the first slice, `error_class` must stay stable enough for:
 - `adapter_unavailable`
 - `engine_error`
 
-## `drift-report` Minimum Fields
+## `drift-report` Carrier For This Slice
 
-The aggregated drift report should record at least:
+The shared cross-slice drift-report carrier now lives in:
 
-- `slice_id`
-- `engines[]`
-- `spec_refs[]`
-- `cases[]`, where each case entry includes:
-  - `case_id`
-  - `status`: `match`, `drift`, or `unsupported`
-  - `comparison_dimensions[]`
-  - `summary`
-  - `evidence_refs[]`
-  - optional `follow_up`
+- `tests/differential/drift-report-carrier.md`
 
-### Status Meanings
+The first-expression-slice checkpoint uses that shared carrier without adding
+extra status values.
 
-- `match`: compared engines produced the same normalized outcome for the fields this slice cares about
-- `drift`: compared engines both produced evidence, but that evidence differs on compared semantics such as values, nullability, field names, or `error_class`
-- `unsupported`: the case could not be executed on one side because the adapter or engine path for that slice does not exist yet; this should be used sparingly and called out explicitly
-
-### Comparison Dimensions
-
-For the first expression slice, `comparison_dimensions[]` should only use dimensions that the slice actually compares:
+For this slice, `comparison_dimensions[]` should only use dimensions that the
+slice actually compares:
 
 - `field_name`
 - `field_nullability`
@@ -98,6 +86,10 @@ For the first expression slice, `comparison_dimensions[]` should only use dimens
 - `row_count`
 - `row_values`
 - `error_class`
+
+For this slice, `unsupported` should stay limited to explicit adapter or
+engine-path gaps for already-documented first-slice cases, and each
+`unsupported` record should include a concrete `follow_up`.
 
 ## Boundary For Now
 

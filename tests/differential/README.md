@@ -5,6 +5,7 @@ This directory is for tests that compare behavior across TiDB, TiFlash, and TiKV
 Current checkpoint:
 
 - `tests/differential/first-expression-slice.md` defines the first differential target: TiDB versus TiFlash on the milestone-1 expression-projection semantic core
+- `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for that slice
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `crates/tiforth-harness-differential` executes that slice through the current TiDB and TiFlash adapter cores and validates the checked-in paired artifacts under `inventory/`
