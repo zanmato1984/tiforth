@@ -87,7 +87,7 @@ This keeps spill explicit and compatible with the milestone-1 claim-carrying han
 
 This checkpoint does **not** define:
 
-- exchange operator runtime semantics
+- the first in-contract exchange slice beyond the milestone-1 mapping boundary in `docs/design/exchange-runtime-mapping.md`
 - adapter-local timeout, retry, or transport policy
 - spill algorithm details, file formats, or disk-manager interfaces
 - callback-oriented event streaming beyond the current fixture translation boundary
