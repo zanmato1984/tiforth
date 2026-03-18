@@ -8,6 +8,7 @@ Current checkpoint:
 
 - the first shared adapter boundary in `adapters/first-expression-slice.md` is intentionally limited to TiDB and TiFlash; TiKV remains a follow-on differential adapter issue
 - `docs/design/adapter-milestone-breakdown.md` keeps TiKV out of the first executable differential checkpoint until the TiDB-versus-TiFlash path is reviewable
+- `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local when a TiKV-specific boundary is proposed later
 
 Next checkpoint:
 
@@ -17,4 +18,3 @@ Next checkpoint:
 
 - define the minimal request and response surface needed by harnesses
 - document TiKV-specific semantic mismatches found during inventory
-- define which runtime concerns stay adapter-local

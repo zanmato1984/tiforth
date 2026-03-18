@@ -47,6 +47,7 @@ Adapters own:
 - session setup, planner hints, and connection details
 - execution against the target engine
 - translation from engine-native rows or failures into the shared normalized carrier
+- runtime orchestration, timeout or retry policy, cancellation transport, and diagnostics capture as bounded by `docs/design/adapter-runtime-orchestration-boundary.md`
 
 This keeps shared docs focused on semantics while adapters stay thin and execution-oriented.
 
