@@ -47,6 +47,7 @@ This keeps host memory control explicit while allowing milestone-1 data construc
 
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 Detailed batch handoff and ownership rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
+Detailed dictionary-encoding rationale lives in `docs/design/dictionary-encoding-boundary.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
 
@@ -65,6 +66,18 @@ The current local executable evidence lines up with that rule:
 - direct non-null literal and other non-null computed outputs reserve the full estimate, then `shrink` the bitmap portion before emit
 - direct `NULL` literals and nullable computed `add<int32>` outputs keep the full estimate because the emitted array still carries a validity bitmap
 - multi-computed outputs apply the same rule independently per computed projection column, so one emitted batch may carry both a shrunk non-null claim and an unshrunk nullable claim at the same time
+
+## Dictionary Encoding Boundary
+
+Dictionary encoding is a physical Arrow representation choice, not a new shared semantic type family.
+
+For the shared contract, that means:
+
+- specs, harnesses, and adapters reason about the underlying logical value type and nullability rather than treating `dictionary<index, values>` as a distinct semantic type
+- the current milestone-1 shared-kernel and local conformance slice do not accept dictionary-encoded arrays as a required stage-handoff format
+- when an adapter, source, or engine-native surface encounters dictionary-backed data for a milestone-1 case, it should normalize that data to the equivalent decoded logical array before the data enters the current shared slice or checked-in differential evidence
+- the current milestone-1 expression-projection slice must not emit dictionary-encoded output arrays, so its governed claims describe the ordinary decoded Arrow buffers that remain reachable after handoff
+- if a later issue allows dictionary-backed arrays to cross the shared contract directly, that issue should define the first affected slice, the supported logical families, and how ownership claims attach to dictionary values buffers versus index buffers when those lifetimes can diverge
 
 ## Milestone-1 Canonical Batch Envelope
 
@@ -119,7 +132,7 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Open Questions
 
-- TODO: decide how dictionary encoding is treated in the shared contract
+- TODO: define the first later slice, if any, that allows dictionary-encoded arrays to cross the shared contract without prior normalization
 - TODO: specify required support for nested types, if any, in the first milestone
 - TODO: specify decimal and temporal metadata requirements
 - TODO: decide how spill or off-heap behavior is represented, if at all, given that spill is operator-managed rather than transparent inside Arrow allocation paths
@@ -128,4 +141,4 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope and ownership-transfer rules while settling the current local Rust-side carrier for executable coverage. Later adapter-visible layouts, richer claim serialization, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the rule that current shared slices normalize dictionary-backed data before contract handoff. Later adapter-visible layouts, richer claim serialization, direct dictionary-aware handoff, and imported-buffer work remain open.
