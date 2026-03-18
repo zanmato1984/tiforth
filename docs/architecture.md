@@ -36,6 +36,8 @@ This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through
 
 The next end-to-end checkpoint should still grow layers 5 and 6 before it widens layer 3: `docs/design/next-thin-end-to-end-slice.md` fixes the follow-on slice as the first executable differential harness over the already-documented expression family.
 
+`docs/design/kernel-expansion-acceptance.md` now defines the gate for any later layer-3 growth after that differential checkpoint exists.
+
 ## Current Minimal Kernel Boundary
 
 The smallest currently useful kernel boundary is the milestone-1 expression-projection slice under `crates/tiforth-kernel`.
@@ -59,8 +61,16 @@ It is not yet a general shared kernel API. It exists to prove one end-to-end pat
 - Adapters should be thin.
 - Harnesses should be able to test specs independently of future kernels.
 
+## Kernel Expansion Gate
+
+After the current milestone-1 slice, layer 3 should grow only when:
+
+- the next thin end-to-end differential slice already exists as reviewable evidence
+- the proposed kernel growth is one narrow boundary with docs and harness coverage already named
+- the resulting issue can show which shared surfaces change and which stay out of scope
+
 ## TODOs
 
-- Define the next kernel expansion boundary after the current milestone-1 expression-projection slice.
+- Choose the first post-gate kernel expansion boundary after the differential slice exists.
 - Decide how adapter milestones should break down into tracked issues and harness checkpoints.
 - Extend harness result and drift-report formats beyond the first differential expression slice.

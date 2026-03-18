@@ -41,7 +41,11 @@ It also keeps the reboot honest:
 - the next thin end-to-end slice is the first executable differential harness over `first-expression-slice`, documented in `docs/design/next-thin-end-to-end-slice.md`
 - that follow-on checkpoint keeps near-term growth in adapters, harnesses, and inventory evidence rather than widening the shared kernel immediately
 
+## Kernel Expansion Gate
+
+- widening the shared kernel beyond the current milestone-1 slice now requires the acceptance gate in `docs/design/kernel-expansion-acceptance.md`
+- that gate requires executable differential evidence from the next thin slice plus docs-first scope, named harness coverage, and concrete completion evidence for any later kernel expansion
+
 ## TODOs
 
 - Decide which function and operator families are inventoried first.
-- Define acceptance criteria for expanding the kernel beyond the current milestone-1 slice.
