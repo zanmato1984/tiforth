@@ -137,7 +137,7 @@ Detailed handoff rationale lives in `docs/design/arrow-batch-handoff-ownership.m
 
 ## Observable Milestone-1 Events
 
-The shared contract must make the following events observable to local tests and adapter integrations, whether via structured logs, callback hooks, or recorded harness events:
+The shared contract must make the following events observable to local tests and adapter integrations through recorded fixtures or equivalent translated event capture:
 
 - `consumer_opened`
 - `reserve_admitted`
@@ -179,7 +179,18 @@ This fixture export exists so local Rust tests and early harness scaffolding can
 
 The carrier still includes `cancelled` because the shared runtime contract needs that terminal meaning. Milestone-1 projection tests now cover that outcome through one local-only cancellation driver: the test harness steps the compiled `pipe_exec()` directly until sink handoff becomes observable, then stops before the later `finished` step and records cancelled teardown after the sink-owned batches are dropped. This keeps the cancelled checkpoint honest for the local source -> projection -> sink slice without changing the adopted shared runtime contract or promoting a scheduler helper into it.
 
-This fixture remains local to milestone-1 Rust-side coverage. It does **not** freeze adapter-visible callbacks, a merged cross-family total order, timestamps, or full serialized `claims[]` payloads.
+This fixture remains the canonical milestone-1 serialized event carrier. It does **not** freeze a merged cross-family total order, timestamps, or full serialized `claims[]` payloads.
+
+## Milestone-1 Adapter-Visible Event Carrier Boundary
+
+Detailed guidance lives in `docs/design/adapter-visible-runtime-event-carrier.md`.
+
+For milestone 1:
+
+- `LocalExecutionSnapshot` remains an internal Rust-side carrier and should not be exposed directly through adapter-visible boundaries
+- adapter-visible integrations that need to expose local runtime, admission, or ownership events should translate those observations into `LocalExecutionFixture`-shaped records with primitive payload fields
+- first-slice adapter `case result` fields stay unchanged; event fixtures remain optional sidecar evidence rather than required request or response payload
+- callback-oriented event streaming is not part of the milestone-1 shared adapter or runtime boundary
 
 ## Minimal Adapter-Visible Error Taxonomy
 
@@ -205,8 +216,8 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 ## Open Questions
 
 - TODO: define how exchange, spill, and retry behaviors map onto the adopted runtime contract
-- TODO: decide whether later adapter-visible integrations should reuse `LocalExecutionSnapshot`, translate it into another carrier, or expose a callback-oriented API without changing the event meanings above
+- TODO: decide whether a later milestone needs a shared callback or streaming event surface after fixture-style translation is no longer sufficient
 
 ## Initial Boundary
 
-For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.
+For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage and the adapter-visible fixture-translation boundary under `docs/design/adapter-visible-runtime-event-carrier.md`. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.
