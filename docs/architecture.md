@@ -18,7 +18,7 @@ Execution primitives that implement spec-defined behavior over the data contract
 
 ### 4. Runtime
 
-Defines how kernels are scheduled, chained, canceled, instrumented, and backpressured. Directionally inspired by broken-pipeline, but not committed to donor mechanics.
+Defines how kernels are scheduled, chained, canceled, instrumented, and backpressured. For the current milestone-1 slice, `tiforth` directly adopts the Arrow-bound runtime contract from `broken-pipeline-rs`; `tiforth`-owned operators and expressions attach on top of that contract rather than replacing it.
 
 ### 5. Adapters
 
@@ -46,6 +46,7 @@ That boundary is intentionally narrow:
 
 - one static Arrow batch source, one projection pipe, and one collecting sink for the local executable slice
 - expression evaluation only for `column(index)`, `literal<int32>(value)`, and `add<int32>(lhs, rhs)`
+- direct attachment to the adopted upstream `SourceOperator`, `PipeOperator`, and `SinkOperator` traits, with expressions kept as operator-local evaluators and field-derivation helpers
 - reserve-first admission around computed output materialization
 - governed-batch handoff and live-claim tracking through the source -> projection -> sink path
 - local execution snapshots and checked-in fixtures that keep rows, errors, and ownership outcomes reviewable

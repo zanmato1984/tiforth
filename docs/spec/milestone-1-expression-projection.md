@@ -56,6 +56,9 @@ Filter is deferred unless a later issue extends this slice explicitly.
 ## Runtime Boundary
 
 - the executable path uses the adopted `broken-pipeline` core runtime contract directly
+- milestone-1 operators attach through the upstream `SourceOperator<ArrowTypes>`, `PipeOperator<ArrowTypes>`, and `SinkOperator<ArrowTypes>` traits directly; the current reference operators are `StaticRecordBatchSource`, `ProjectionPipe`, and `CollectSink`
+- `Expr` and `ProjectionExpr` stay inside operator-local field derivation and batch evaluation; they do not define alternate runtime states
+- `ProjectionRuntimeContext` is the current `tiforth`-owned attachment glue carried through `TaskContext`; it provides admission, claim, and local observability support without replacing the adopted runtime API
 - `broken-pipeline-schedule` is allowed only in local tests and harness execution
 - this slice does not define a `tiforth`-owned replacement runtime API
 - this slice should emit observable admit, deny, emit, handoff, release, and terminal runtime events as defined in `docs/contracts/runtime.md`
