@@ -8,6 +8,7 @@ Related issues:
 
 - #92 `design: define adapter-local runtime orchestration boundary`
 - #121 `design: define adapter-visible runtime event carrier boundary`
+- #135 `design: define adoption gate for shared runtime event streaming`
 
 ## Question
 
@@ -27,7 +28,7 @@ Milestone 1 chooses a translation-first boundary:
 - keep `LocalExecutionSnapshot` internal to local Rust execution paths
 - expose adapter-visible runtime, admission, and ownership observations only through translated `LocalExecutionFixture`-shaped records with primitive payload fields
 - keep this event carrier optional and sidecar-only for milestone 1; do not add required event fields to the first differential adapter request or `case result` response
-- defer any shared callback or streaming event API to a later issue
+- gate any shared callback or streaming event API behind `docs/design/runtime-event-streaming-adoption-gate.md`
 
 This keeps event meanings stable without leaking internal Rust enum layouts or freezing a transport protocol too early.
 
@@ -57,6 +58,7 @@ It does not alter the required first-slice adapter contract:
 Milestone 1 does not define a shared callback or streaming event API for adapters.
 
 Adapters may still collect local diagnostics however they need, but callback transport, lifecycle, ordering guarantees, and backpressure semantics are deferred until a later issue has a concrete cross-adapter need.
+Any follow-on shared callback or streaming proposal should satisfy the adoption gate in `docs/design/runtime-event-streaming-adoption-gate.md`.
 
 ## Why This Boundary
 
@@ -70,5 +72,5 @@ Adapters may still collect local diagnostics however they need, but callback tra
 Later issues may extend this checkpoint to define:
 
 - when fixture-style sidecar export is required instead of optional
-- whether a shared callback or streaming event API is needed
+- the first slice that satisfies `docs/design/runtime-event-streaming-adoption-gate.md` for shared callback or streaming
 - how any future event stream should align with current `consumer_*`, `batch_*`, and terminal outcome meanings without redefining them
