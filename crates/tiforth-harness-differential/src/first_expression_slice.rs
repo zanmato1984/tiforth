@@ -268,7 +268,7 @@ pub fn render_drift_report_markdown(report: &DriftReport) -> String {
     rendered.push_str(&unsupported_count.to_string());
     rendered.push_str("\n\n## Cases\n\n");
 
-    for case in &report.cases {
+    for (case_index, case) in report.cases.iter().enumerate() {
         rendered.push_str("### `");
         rendered.push_str(&case.case_id);
         rendered.push_str("`\n\n");
@@ -296,7 +296,9 @@ pub fn render_drift_report_markdown(report: &DriftReport) -> String {
             rendered.push_str(follow_up);
             rendered.push('\n');
         }
-        rendered.push('\n');
+        if case_index + 1 < report.cases.len() {
+            rendered.push('\n');
+        }
     }
 
     rendered
