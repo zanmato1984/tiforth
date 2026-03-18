@@ -109,11 +109,11 @@ Milestone 1 continues to adopt by name and meaning:
 - it matches the current executable kernel shape without inventing a wider API than the repo can test
 - it keeps expressions pure and reviewable while operators remain the only runtime-reentered units
 - it leaves adapter and harness growth room without forcing a shared `tiforth` runtime facade too early
+- the existing `tiforth-kernel` crate-root re-export of `ArrowTypes` and `Batch` already covers the current ergonomic need without hiding that the underlying contract stays upstream-owned
 - it preserves the accepted dependency boundary from `docs/design/broken-pipeline-boundary.md` and the current kernel boundary from `docs/architecture.md`
 
 ## Deferred Questions
 
-- whether `tiforth` later adds a tiny convenience re-export module for the adopted Arrow runtime aliases
 - how exchange, spill, and retry semantics map onto the adopted runtime
 - whether later adapter-visible integrations reuse `LocalExecutionSnapshot` or translate it into another carrier
 - whether a later milestone needs a broader operator-construction surface once kernels expand beyond the current source -> projection -> sink slice
