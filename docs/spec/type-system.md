@@ -32,6 +32,7 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - Arrow physical encodings such as dictionary layout do not change shared semantic type identity by themselves
 - current specs and harnesses should normalize dictionary-backed evidence to the underlying logical type before comparison
 - representation-level rules for when dictionary arrays may cross a shared stage boundary live in `docs/contracts/data.md`
+- milestone-1 nested plus decimal and temporal family scope boundaries live in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`
 
 ## Initial Coercion Lattice And Precedence
 
@@ -71,6 +72,13 @@ The current executable slice only fixes the type behavior needed for milestone-1
 
 The lattice and precedence policy above is a shared type-system checkpoint for later slices. The current executable milestone-1 path still uses exact `int32` typing for arithmetic.
 
+### Milestone-1 Out-Of-Scope Families
+
+- nested logical families are out of scope for the current executable and differential milestone-1 checkpoints
+- decimal and temporal logical families are out of scope for current milestone-1 expression evaluation and result typing
+- current milestone-1 local execution paths should fail unsupported nested, decimal, or temporal requests explicitly rather than applying implicit casts into the `int32` arithmetic path
+- first-slice differential artifacts should continue using the documented `int32` logical-type surface until a follow-on issue extends family coverage
+
 ### `column(index)`
 
 - preserves the referenced input field's logical type
@@ -104,8 +112,8 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 - TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
 - TODO: define NaN, infinity, and ordering semantics
 - TODO: define collation scope and ownership
-- TODO: define timezone handling and temporal normalization
-- TODO: define decimal precision and scale propagation rules
+- TODO: define the first executable temporal semantic slice, including timezone handling and temporal normalization rules
+- TODO: define the first executable decimal semantic slice, including precision and scale propagation rules
 - TODO: define JSON comparability and cast behavior
 
 ## Boundary For Now
