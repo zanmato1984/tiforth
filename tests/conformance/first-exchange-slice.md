@@ -18,9 +18,6 @@ Spec source: `docs/design/first-in-contract-exchange-slice.md`
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. A follow-on implementation issue should add
-local executable conformance coverage for this case set.
-
-Recommended first executable location:
+Local executable conformance coverage for this case set now lives in:
 
 - `crates/tiforth-kernel/tests/exchange_slice.rs`
