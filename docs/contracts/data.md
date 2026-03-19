@@ -51,6 +51,7 @@ Detailed dictionary-encoding rationale lives in `docs/design/dictionary-encoding
 Detailed first dictionary-aware handoff slice rationale lives in `docs/design/first-dictionary-aware-handoff-slice.md`.
 Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-retry-runtime-mapping.md`.
 Detailed nested plus decimal and temporal metadata boundary rationale lives in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`.
+Detailed first nested-aware handoff slice rationale lives in `docs/design/first-nested-aware-handoff-slice.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
 
@@ -92,6 +93,7 @@ For the shared data contract, that means:
 - decimal and temporal arrays are not required inputs or outputs for the milestone-1 executable projection slice or first differential artifacts
 - milestone-1 shared data handling does not require interpreting decimal precision and scale metadata or temporal unit and timezone metadata
 - when adapters or sources encounter those out-of-scope families for a milestone-1 request, they should either normalize to the current supported logical slice before handoff or surface an explicit unsupported outcome under the current adapter contract
+- the first nested-aware shared handoff checkpoint beyond milestone 1 is defined in `docs/design/first-nested-aware-handoff-slice.md`: passthrough of `list<int32>` through `column(index)` with separate parent-domain and child-domain claim ownership units when lifetimes can diverge
 
 This boundary keeps milestone-1 contracts aligned with the current `int32` semantic core without pretending broader family support already exists.
 
@@ -156,7 +158,7 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Open Questions
 
-- TODO: define the first shared slice that allows nested-family arrays to cross stage boundaries directly and specifies claim ownership behavior for nested buffers
+- TODO: extend nested-family shared slices beyond the first `list<int32>` passthrough checkpoint, including `struct`, `map`, `union`, and nested compute semantics
 - TODO: define the first decimal and temporal shared semantic slices, including required precision/scale and unit/timezone metadata handling
 - TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
 - TODO: decide what later adapter-visible or serialized carrier should expose full `batch_id`, `origin`, and `claims[]` detail beyond the current local `GovernedBatch` state and `LocalExecutionSnapshot` event records
@@ -164,4 +166,4 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns. Nested-family handoff, decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns and the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns. Additional nested-family expansion, decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
