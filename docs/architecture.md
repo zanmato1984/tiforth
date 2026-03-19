@@ -1,6 +1,6 @@
 # Architecture
 
-The current proposal is intentionally layered so specs and harnesses can mature before kernels grow beyond the current milestone-1 slice.
+The current proposal is intentionally layered so specs and harnesses can mature before kernels grow beyond the current milestone-1 slices.
 
 ## Proposed Layers
 
@@ -14,11 +14,11 @@ Defines the in-memory representation and batch boundaries. Directionally Arrow-n
 
 ### 3. Kernel
 
-Execution primitives that implement spec-defined behavior over the data contract. This layer is currently limited to a narrow milestone-1 slice backed by accepted docs and local tests.
+Execution primitives that implement spec-defined behavior over the data contract. This layer is currently limited to narrow milestone-1 slices backed by accepted docs and local tests.
 
 ### 4. Runtime
 
-Defines how kernels are scheduled, chained, canceled, instrumented, and backpressured. For the current milestone-1 slice, `tiforth` directly adopts the Arrow-bound runtime contract from `broken-pipeline-rs`; `tiforth`-owned operators and expressions attach on top of that contract rather than replacing it.
+Defines how kernels are scheduled, chained, canceled, instrumented, and backpressured. For the current milestone-1 slices, `tiforth` directly adopts the Arrow-bound runtime contract from `broken-pipeline-rs`; `tiforth`-owned operators and expressions attach on top of that contract rather than replacing it.
 
 ### 5. Adapters
 
@@ -34,30 +34,34 @@ The first documented differential checkpoint is the TiDB-versus-TiFlash expressi
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
 
-The next end-to-end checkpoint should still grow layers 5 and 6 before it widens layer 3: `docs/design/next-thin-end-to-end-slice.md` fixes the follow-on slice as the first executable differential harness over the already-documented expression family.
+The next end-to-end checkpoint should still grow layers 5 and 6 before it widens layer 3 further: `docs/design/next-thin-end-to-end-slice.md` fixes the follow-on slice as the first executable differential harness over the already-documented expression family.
 
 `docs/design/adapter-milestone-breakdown.md` fixes how that differential slice should break into issue-scoped adapter and harness checkpoints.
 
 `docs/design/kernel-expansion-acceptance.md` now defines the gate for any later layer-3 growth after that differential checkpoint exists.
 
-`docs/design/first-post-gate-kernel-boundary.md` now fixes the first post-gate layer-3 expansion candidate as one narrow filter boundary.
+`docs/design/first-post-gate-kernel-boundary.md` fixed the first post-gate layer-3 expansion as one narrow filter boundary, and issue #149 implements its first executable local kernel path.
 
-## Current Minimal Kernel Boundary
+## Current Minimal Kernel Boundaries
 
-The smallest currently useful kernel boundary is the milestone-1 expression-projection slice under `crates/tiforth-kernel`.
+The currently useful shared-kernel boundaries under `crates/tiforth-kernel` are:
 
-That boundary is intentionally narrow:
+- the milestone-1 expression-projection slice
+- the first post-gate filter slice for `is_not_null(column(index))`
 
-- one static Arrow batch source, one projection pipe, and one collecting sink for the local executable slice
+Those boundaries are intentionally narrow:
+
+- one static Arrow batch source, one projection or filter pipe, and one collecting sink for the local executable slices
 - expression evaluation only for `column(index)`, `literal<int32>(value)`, and `add<int32>(lhs, rhs)`
-- direct attachment to the adopted upstream `SourceOperator`, `PipeOperator`, and `SinkOperator` traits, with expressions kept as operator-local evaluators and field-derivation helpers
-- reserve-first admission around computed output materialization
-- governed-batch handoff and live-claim tracking through the source -> projection -> sink path
+- filter predicate evaluation only for `is_not_null(column(index))` with `int32` predicate input
+- direct attachment to the adopted upstream `SourceOperator`, `PipeOperator`, and `SinkOperator` traits, with expressions and filter predicates kept as operator-local evaluators and schema helpers
+- reserve-first admission around operator-owned output materialization
+- governed-batch handoff and live-claim tracking through the source -> projection or filter -> sink paths
 - local execution snapshots and checked-in fixtures that keep rows, errors, and ownership outcomes reviewable
 
-This boundary is justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, and `tests/conformance/expression-projection-slice.md`.
+These boundaries are justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/first-filter-is-not-null.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, `tests/conformance/expression-projection-slice.md`, and `tests/conformance/first-filter-is-not-null-slice.md`.
 
-It is not yet a general shared kernel API. It exists to prove one end-to-end path where shared specs, admission rules, handoff ownership, and local harness evidence all line up before broader operators or adapter-driven execution are introduced.
+They are not yet a general shared kernel API. They exist to prove end-to-end paths where shared specs, admission rules, handoff ownership, and local harness evidence all line up before broader operators or adapter-driven execution are introduced.
 
 ## Architectural Rules
 
@@ -68,7 +72,7 @@ It is not yet a general shared kernel API. It exists to prove one end-to-end pat
 
 ## Kernel Expansion Gate
 
-After the current milestone-1 slice, layer 3 should grow only when:
+After the current milestone-1 slices, layer 3 should grow only when:
 
 - the next thin end-to-end differential slice already exists as reviewable evidence
 - the proposed kernel growth is one narrow boundary with docs and harness coverage already named

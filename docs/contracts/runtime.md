@@ -142,7 +142,7 @@ Detailed guidance lives in `docs/design/exchange-runtime-mapping.md`.
 
 For milestone 1:
 
-- the current shared kernel boundary remains source -> projection -> sink and does not introduce an in-contract exchange operator
+- the current shared kernel boundary remains source -> projection or filter -> sink and does not introduce an in-contract exchange operator
 - any exchange-like fan-out or fan-in needed by adapters or harnesses stays adapter-local orchestration and does not extend adopted shared runtime states
 - any buffering or transfer path still follows reserve-before-allocate admission before resident memory growth
 - admitted resident bytes that remain reachable from live batches still follow claim-carrying handoff and release rules
@@ -202,7 +202,7 @@ Checked-in local conformance artifacts should serialize `LocalExecutionFixture` 
 
 This fixture export exists so local Rust tests and early harness scaffolding can assert one stable, reviewable carrier without depending directly on recorder internals or on the exact Rust enum layout used underneath.
 
-The carrier still includes `cancelled` because the shared runtime contract needs that terminal meaning. Milestone-1 projection tests now cover that outcome through one local-only cancellation driver: the test harness steps the compiled `pipe_exec()` directly until sink handoff becomes observable, then stops before the later `finished` step and records cancelled teardown after the sink-owned batches are dropped. This keeps the cancelled checkpoint honest for the local source -> projection -> sink slice without changing the adopted shared runtime contract or promoting a scheduler helper into it.
+The carrier still includes `cancelled` because the shared runtime contract needs that terminal meaning. Milestone-1 projection tests now cover that outcome through one local-only cancellation driver: the test harness steps the compiled `pipe_exec()` directly until sink handoff becomes observable, then stops before the later `finished` step and records cancelled teardown after the sink-owned batches are dropped. This keeps the cancelled checkpoint honest for the local source -> projection or filter -> sink slice without changing the adopted shared runtime contract or promoting a scheduler helper into it.
 
 This fixture remains the canonical milestone-1 serialized event carrier. It does **not** freeze a merged cross-family total order, timestamps, or full serialized `claims[]` payloads.
 
@@ -241,7 +241,7 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 
 ## Open Questions
 
-- TODO: define the first in-contract exchange slice (operator boundary, backpressure mapping, and coverage) if runtime scope expands beyond the current source -> projection -> sink path
+- TODO: define the first in-contract exchange slice (operator boundary, backpressure mapping, and coverage) if runtime scope expands beyond the current source -> projection or filter -> sink path
 
 ## Initial Boundary
 

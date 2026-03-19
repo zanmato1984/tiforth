@@ -138,4 +138,4 @@ Issue #82 fixed only the acceptance gate.
 
 The first post-gate boundary is now selected in `docs/design/first-post-gate-kernel-boundary.md`.
 
-Until that selected filter boundary is implemented with docs and harness evidence, the repo should keep treating the current milestone-1 expression-projection slice as the only accepted shared-kernel implementation boundary.
+Issue #149 now provides the first executable local-kernel implementation and conformance evidence for that selected filter boundary. Later expansion issues should treat the milestone-1 expression-projection slice plus the first `is_not_null(column(index))` filter slice as the current accepted shared-kernel implementation boundaries.

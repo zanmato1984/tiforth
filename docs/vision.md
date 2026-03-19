@@ -38,11 +38,12 @@ It also keeps the reboot honest:
 - the first executable differential checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired artifacts under `inventory/`
 - the first post-gate shared-kernel expansion candidate is now fixed in `docs/design/first-post-gate-kernel-boundary.md`
 - the docs-first filter prep checkpoint now covers semantics, conformance, differential slice shape, and adapter boundary through `docs/spec/first-filter-is-not-null.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `tests/differential/first-filter-is-not-null-slice.md`, and `adapters/first-filter-is-not-null-slice.md`
+- the first executable post-gate filter checkpoint now exists through `crates/tiforth-kernel` via `FilterPipe` and executable coverage in `crates/tiforth-kernel/tests/filter_is_not_null.rs`
 
 ## Next Checkpoint
 
-- the next checkpoint is the first executable filter implementation issue that wires the shared row-filter boundary into kernel and harness execution
-- that follow-on checkpoint should keep layer-3 growth thin by staying within one predicate family: `is_not_null(column(index))`
+- the next checkpoint is first executable TiDB and TiFlash adapter execution for `first-filter-is-not-null-slice` plus checked-in paired case-result artifacts and one drift report
+- that follow-on checkpoint should stay inside the existing first-filter case IDs, `input_ref`s, and `filter_ref`s before broadening predicate families or type coverage
 
 ## Kernel Expansion Gate
 
