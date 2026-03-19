@@ -1,12 +1,13 @@
 # First Differential Exchange Slice
 
-Status: issue #169 design checkpoint, issue #183 harness checkpoint
+Status: issue #169 design checkpoint, issue #183 harness checkpoint, issue #221 artifact-carrier checkpoint
 
 Related issues:
 
 - #125 `design: define milestone-1 exchange runtime mapping boundary`
 - #169 `design: define first in-contract exchange slice boundary`
 - #183 `harness: wire first-exchange-slice differential parity checkpoint`
+- #221 `docs: define first exchange differential artifact carriers`
 
 ## Question
 
@@ -20,12 +21,15 @@ exchange boundary does not change already-defined cross-engine outcomes?
 - `tests/differential/first-filter-is-not-null-slice.md`
 - `tests/differential/first-expression-slice-artifacts.md`
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md`
+- `tests/differential/first-exchange-slice-artifacts.md`
 - issue #169
 - issue #183
+- issue #221
 
 ## First Differential Decision
 
-The first differential exchange checkpoint is parity-focused, not semantics-expanding.
+The first differential exchange checkpoint is parity-focused, not
+semantics-expanding.
 
 ### 1. Engines
 
@@ -49,7 +53,16 @@ runs on these dimensions:
 - row schema, row values, and row count for row cases
 - drift classification meanings already defined by existing slice artifact docs
 
-### 4. Out Of Scope
+### 4. Artifact Carrier Boundary
+
+The stable exchange parity artifact carriers for this checkpoint now live in:
+
+- `tests/differential/first-exchange-slice-artifacts.md`
+
+That artifact note fixes the expected markdown/json parity report shape and
+filenames without widening exchange semantics.
+
+### 5. Out Of Scope
 
 - new exchange-only expression or predicate semantics
 - new adapter request fields beyond existing case refs
@@ -67,6 +80,7 @@ That harness executes baseline and exchange paths for:
 - `first-expression-slice`
 - `first-filter-is-not-null-slice`
 
-It compares normalized per-engine case outcomes plus per-case TiDB-versus-TiFlash
-drift status so the checkpoint can detect both result-surface regressions and
-drift-classification changes without introducing new slice IDs.
+It compares normalized per-engine case outcomes plus per-case
+TiDB-versus-TiFlash drift status so the checkpoint can detect both
+result-surface regressions and drift-classification changes without introducing
+new slice IDs.
