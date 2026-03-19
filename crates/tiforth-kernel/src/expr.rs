@@ -80,6 +80,11 @@ fn validate_column_input_type(index: usize, data_type: &DataType) -> Result<(), 
                 "unsupported decimal expression input at column {index}, got {data_type:?}; first decimal slice supports Decimal128 only"
             ),
         }),
+        DataType::Float16 | DataType::Float32 => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported floating expression input at column {index}, got {data_type:?}; first float slice supports Float64 only"
+            ),
+        }),
         DataType::Date64
         | DataType::Time32(_)
         | DataType::Time64(_)

@@ -151,17 +151,17 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, and local executable kernel coverage now includes `decimal128` predicate input through `crates/tiforth-kernel/tests/decimal128_slice.rs`.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, and issue #196 adds executable float64 predicate coverage; local executable kernel coverage now includes both through `crates/tiforth-kernel/tests/decimal128_slice.rs` and `crates/tiforth-kernel/tests/float64_slice.rs`.
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, or `float64` in current shared docs-first checkpoints
+- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, or `float64` in current shared checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
-- local executable kernel coverage for this predicate currently includes `int32`, `date32`, and `decimal128` in the shared-kernel conformance slices; `float64` remains docs-first coverage in this checkpoint
+- local executable kernel coverage for this predicate now includes `int32`, `date32`, `decimal128`, and `float64` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, and `crates/tiforth-kernel/tests/float64_slice.rs`
 
 ## First Temporal Follow-On Checkpoint
 
@@ -226,6 +226,10 @@ Issue #194 also adds the first docs-first float64 coverage anchors in:
 - `tests/conformance/first-float64-ordering-slice.md`
 - `tests/differential/first-float64-ordering-slice.md`
 - `adapters/first-float64-ordering-slice.md`
+
+Issue #196 adds the first executable local conformance coverage for this checkpoint in:
+
+- `crates/tiforth-kernel/tests/float64_slice.rs`
 
 For current shared contracts:
 

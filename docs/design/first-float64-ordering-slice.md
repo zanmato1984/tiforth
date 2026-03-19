@@ -9,6 +9,7 @@ Related issues:
 - #74 `spec: define milestone-1 int32 type-system boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #194 `design: define first float64 NaN, infinity, and ordering checkpoint`
+- #196 `kernel: make first-float64 predicate checkpoint executable in local conformance`
 
 ## Question
 
@@ -84,7 +85,14 @@ is:
 ## Coverage Anchor Docs
 
 Issue #194 defines the first docs-first coverage-anchor set for this
-checkpoint:
+checkpoint.
+
+Issue #196 adds the first executable local conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/float64_slice.rs`
+
+Issue #194 coverage anchors remain:
 
 - conformance checkpoint doc:
   `tests/conformance/first-float64-ordering-slice.md`

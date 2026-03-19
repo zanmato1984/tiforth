@@ -22,4 +22,4 @@ Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/con
 
 Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/conformance/first-decimal128-slice.md`, and local executable coverage for that checkpoint now exists in `crates/tiforth-kernel/tests/decimal128_slice.rs`.
 
-Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint in `tests/conformance/first-float64-ordering-slice.md`.
+Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint in `tests/conformance/first-float64-ordering-slice.md`. Issue #196 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/float64_slice.rs`.
