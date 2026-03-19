@@ -6,15 +6,16 @@ The adapter should eventually translate TiKV expression and operator behavior in
 
 Current checkpoint:
 
-- the first shared adapter boundary in `adapters/first-expression-slice.md` is intentionally limited to TiDB and TiFlash; TiKV remains a follow-on differential adapter issue
-- `docs/design/adapter-milestone-breakdown.md` keeps TiKV out of the first executable differential checkpoint until the TiDB-versus-TiFlash path is reviewable
-- `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local when a TiKV-specific boundary is proposed later
+- the first shared adapter boundary in `adapters/first-expression-slice.md` remains intentionally limited to TiDB and TiFlash
+- `adapters/first-expression-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-expression-slice`
+- `docs/design/adapter-milestone-breakdown.md` records why TiKV follows the initial TiDB/TiFlash pairwise checkpoint sequence
+- `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local
 
 Next checkpoint:
 
-- wait for the TiDB and TiFlash single-engine checkpoints plus the first pairwise drift-report checkpoint before proposing a TiKV-specific adapter boundary
+- implement one TiKV single-engine adapter path that executes documented `first-expression-slice` cases into normalized `case result` records
 
 ## TODOs
 
-- define the minimal request and response surface needed by harnesses
 - document TiKV-specific semantic mismatches found during inventory
+- extend the TiKV request and response surface beyond `first-expression-slice` after the first executable checkpoint is reviewable

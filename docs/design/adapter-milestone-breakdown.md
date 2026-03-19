@@ -2,7 +2,7 @@
 
 Status: issue #88 design checkpoint
 
-Verified: 2026-03-18
+Verified: 2026-03-19
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #72 `design: define first differential adapter request/response surface`
 - #88 `design: define adapter milestone breakdown for first differential slice`
 - #80 `design: define the next thin end-to-end slice after milestone-1 projection`
+- #218 `design: define first TiKV differential adapter request/response surface`
 
 ## Question
 
@@ -47,6 +48,7 @@ This keeps each issue narrow, preserves the one-issue-per-worktree rule, and mak
 - the shared request and response contract from `adapters/first-expression-slice.md` is already stable enough to anchor single-engine work first
 - the first checked-in differential evidence should appear only when both adapters exist and a harness issue can compare them directly
 - TiKV should stay deferred until the TiDB-versus-TiFlash path proves the request surface, normalization rules, and artifact refresh workflow
+- once that pairwise checkpoint exists, TiKV should move as its own follow-on boundary issue; issue #218 now defines that first request/response checkpoint in `adapters/first-expression-slice-tikv.md`
 
 ## Milestone Order
 
@@ -135,7 +137,7 @@ Reviewers should expect:
 
 Only after the pairwise checkpoint exists should follow-on issues broaden one dimension at a time, for example:
 
-- TiKV participation
+- TiKV executable single-engine adapter implementation on top of `adapters/first-expression-slice-tikv.md`
 - broader error normalization
 - a wider expression family
 - engine-specific compatibility notes derived from the now-executable slice
@@ -151,4 +153,4 @@ Those should remain separate issues rather than being folded back into the first
 
 ## Result
 
-The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Future adapter work should follow that order unless another accepted design issue deliberately changes the slice or the comparison surface first.
+The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 now captures the first TiKV request/response follow-on boundary, and later TiKV implementation work should remain a separate checkpoint unless another accepted design issue deliberately changes the slice or comparison surface.

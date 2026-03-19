@@ -27,7 +27,7 @@ This boundary applies only to the first differential expression slice:
 
 It does **not** yet define:
 
-- TiKV participation in the first differential slice
+- TiKV-specific adapter boundary details, which are handled separately in `adapters/first-expression-slice-tikv.md`
 - connection management, authentication, or environment provisioning
 - a generalized adapter API for later harness families
 - engine-plan capture, timing, or runtime-event export
@@ -124,7 +124,7 @@ If one side returns `adapter_unavailable`, the later drift aggregation step may 
 
 Later issues may extend this boundary to cover:
 
-- TiKV participation
+- TiKV pairwise drift aggregation and artifact policy beyond the first request/response checkpoint
 - broader error normalization
 - reusable session profiles or adapter capability advertisement
 - live TiDB and TiFlash runner orchestration beyond the current deterministic harness fixtures
