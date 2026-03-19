@@ -11,6 +11,7 @@ Current checkpoint:
 - `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for that slice
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential filter slice
+- `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential temporal `date32` slice
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `adapters/first-filter-is-not-null-slice.md` defines the minimal request and response surface for the first differential filter slice
 - `adapters/first-temporal-date32-slice.md` defines the minimal request and response surface for the first differential temporal `date32` slice
