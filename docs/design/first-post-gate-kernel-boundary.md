@@ -14,6 +14,7 @@ Related issues:
 - #137 `design: choose first post-gate kernel expansion boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
+- #149 `milestone-1: implement first executable is_not_null filter slice`
 
 ## Question
 

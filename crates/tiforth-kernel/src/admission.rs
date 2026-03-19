@@ -6,6 +6,7 @@ use crate::error::TiforthError;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConsumerKind {
     ProjectionOutput,
+    FilterOutput,
     SourceInput,
 }
 

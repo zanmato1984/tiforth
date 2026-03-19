@@ -102,15 +102,16 @@ spec issue defines explicit interaction semantics.
 
 ## Current Milestone-1 Boundary
 
-The current executable slice only fixes the type behavior needed for milestone-1 projection coverage.
+The current executable slices fix the type behavior for the milestone-1 expression-projection path plus the first executable post-gate filter path.
 
-### Covered Expression Families
+### Covered Expression And Predicate Families
 
 - `column(index)`
 - `literal<int32>(value)`
 - `add<int32>(lhs, rhs)`
+- `is_not_null(column(index))`
 
-The lattice and precedence policy above is a shared type-system checkpoint for later slices. The current executable milestone-1 path still uses exact `int32` typing for arithmetic.
+The lattice and precedence policy above is a shared type-system checkpoint for later slices. The current executable milestone-1 arithmetic path still uses exact `int32` typing for `add<int32>`.
 
 ### Milestone-1 Out-Of-Scope Families
 
@@ -150,7 +151,7 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-This checkpoint defines the first predicate typing boundary for that filter slice while leaving the milestone-1 executable projection path unchanged.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path while keeping broader predicate families and non-`int32` predicate input out of scope.
 
 ### `is_not_null(column(index))`
 

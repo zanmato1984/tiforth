@@ -29,7 +29,7 @@ How should milestone-1 exchange behavior map onto the adopted `broken-pipeline-r
 
 ## Design Summary
 
-Milestone 1 keeps exchange out of the shared runtime surface. The accepted shared kernel path remains source -> projection -> sink, and no exchange operator is introduced for this checkpoint.
+Milestone 1 keeps exchange out of the shared runtime surface. The accepted shared kernel path remains source -> projection or filter -> sink, and no exchange operator is introduced for this checkpoint.
 
 When milestone-1 workflows still need fan-out or fan-in behavior (for example, adapter or harness orchestration), that behavior stays adapter-local and must not rename or extend adopted upstream runtime-state meanings.
 

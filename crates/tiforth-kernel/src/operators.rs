@@ -11,6 +11,7 @@ use crate::admission::{
     AdmissionController, NoopAdmissionController, RecordingAdmissionController,
 };
 use crate::error::TiforthError;
+use crate::filter::{filter_batch, filter_governed_batch, FilterPredicate};
 use crate::handoff::{BatchTracker, GovernedBatch, RuntimeEvent, RuntimeEventRecorder};
 use crate::projection::{project_batch, project_governed_batch, ProjectionExpr};
 use crate::snapshot::LocalExecutionSnapshot;
@@ -103,7 +104,7 @@ impl ProjectionRuntimeContext {
         self.tracker.adopt_batch(batch, receiver)
     }
 
-    fn emit_projected_batch(
+    fn emit_pipe_batch(
         &self,
         operator_name: &str,
         batch: Batch,
@@ -242,7 +243,7 @@ impl PipeOperator<ArrowTypes> for ProjectionPipe {
             )
             .map_err(ArrowError::from)?;
             runtime
-                .emit_projected_batch(self.name(), Arc::clone(&output), column_claims)
+                .emit_pipe_batch(self.name(), Arc::clone(&output), column_claims)
                 .map_err(ArrowError::from)?;
             Ok(OpOutput::PipeEven(output))
         } else {
@@ -250,6 +251,62 @@ impl PipeOperator<ArrowTypes> for ProjectionPipe {
             let output = project_batch(
                 batch.as_ref(),
                 &self.projections,
+                admission.as_ref(),
+                self.name(),
+            )
+            .map_err(ArrowError::from)?;
+            Ok(OpOutput::PipeEven(output))
+        }
+    }
+}
+
+pub struct FilterPipe {
+    name: String,
+    predicate: FilterPredicate,
+}
+
+impl FilterPipe {
+    pub fn new(name: impl Into<String>, predicate: FilterPredicate) -> Self {
+        Self {
+            name: name.into(),
+            predicate,
+        }
+    }
+}
+
+impl PipeOperator<ArrowTypes> for FilterPipe {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn pipe(
+        &self,
+        ctx: &TaskContext<ArrowTypes>,
+        _thread_id: ThreadId,
+        input: Option<Batch>,
+    ) -> Result<OpOutput<Batch>, ArrowError> {
+        let batch = input.ok_or_else(|| ArrowError::from(TiforthError::InvalidPipeInput))?;
+        if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+            let input = runtime
+                .adopt_batch(batch, self.name())
+                .map_err(ArrowError::from)?;
+            let (output, column_claims) = filter_governed_batch(
+                &input,
+                &self.predicate,
+                runtime.admission().as_ref(),
+                self.name(),
+                &|consumer| runtime.new_claim(consumer),
+            )
+            .map_err(ArrowError::from)?;
+            runtime
+                .emit_pipe_batch(self.name(), Arc::clone(&output), column_claims)
+                .map_err(ArrowError::from)?;
+            Ok(OpOutput::PipeEven(output))
+        } else {
+            let admission: Arc<dyn AdmissionController> = Arc::new(NoopAdmissionController);
+            let output = filter_batch(
+                batch.as_ref(),
+                &self.predicate,
                 admission.as_ref(),
                 self.name(),
             )

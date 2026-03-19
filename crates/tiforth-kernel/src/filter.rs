@@ -1,0 +1,184 @@
+use std::sync::Arc;
+
+use arrow_array::builder::BooleanBuilder;
+use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
+use arrow_select::filter::filter_record_batch;
+
+use broken_pipeline::traits::arrow::Batch;
+
+use crate::admission::{AdmissionConsumer, AdmissionController, ConsumerKind, ConsumerSpec};
+use crate::error::TiforthError;
+use crate::handoff::{BatchClaim, GovernedBatch};
+
+#[derive(Clone, Debug)]
+pub enum FilterPredicate {
+    IsNotNullColumn(usize),
+}
+
+impl FilterPredicate {
+    pub fn is_not_null_column(index: usize) -> Self {
+        Self::IsNotNullColumn(index)
+    }
+}
+
+pub fn filter_batch(
+    batch: &RecordBatch,
+    predicate: &FilterPredicate,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+) -> Result<Batch, TiforthError> {
+    let selection = evaluate_selection(predicate, batch)?;
+    let consumers = reserve_filter_output_consumers(batch, controller, operator_name)?;
+    let filtered = filter_record_batch(batch, &selection).map_err(TiforthError::from);
+    let filtered = match filtered {
+        Ok(filtered) => filtered,
+        Err(error) => {
+            release_consumers_best_effort(&consumers);
+            return Err(error);
+        }
+    };
+
+    let filtered_columns = filtered.columns();
+    for (index, filtered_array) in filtered_columns.iter().enumerate() {
+        if let Err(error) = reconcile_filter_output_bytes(&consumers[index], filtered_array) {
+            release_consumers_best_effort(&consumers);
+            return Err(error);
+        }
+    }
+    release_consumers(&consumers)?;
+
+    Ok(Arc::new(filtered))
+}
+
+pub(crate) fn filter_governed_batch(
+    input: &GovernedBatch,
+    predicate: &FilterPredicate,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    claim_factory: &dyn Fn(Arc<dyn AdmissionConsumer>) -> BatchClaim,
+) -> Result<(Batch, Vec<Vec<BatchClaim>>), TiforthError> {
+    let selection = evaluate_selection(predicate, input.batch().as_ref())?;
+    let consumers =
+        reserve_filter_output_consumers(input.batch().as_ref(), controller, operator_name)?;
+    let filtered =
+        filter_record_batch(input.batch().as_ref(), &selection).map_err(TiforthError::from);
+    let filtered = match filtered {
+        Ok(filtered) => filtered,
+        Err(error) => {
+            release_consumers_best_effort(&consumers);
+            return Err(error);
+        }
+    };
+
+    let mut column_claims = Vec::with_capacity(filtered.num_columns());
+    let filtered_columns = filtered.columns();
+    for (index, filtered_array) in filtered_columns.iter().enumerate() {
+        if let Err(error) = reconcile_filter_output_bytes(&consumers[index], filtered_array) {
+            for consumer in consumers.iter().skip(index) {
+                let _ = consumer.consumer.release();
+            }
+            return Err(error);
+        }
+        let claim = claim_factory(Arc::clone(&consumers[index].consumer));
+        column_claims.push(vec![claim]);
+    }
+
+    Ok((Arc::new(filtered), column_claims))
+}
+
+struct ReservedConsumer {
+    consumer: Arc<dyn AdmissionConsumer>,
+    estimated_bytes: usize,
+}
+
+fn evaluate_selection(
+    predicate: &FilterPredicate,
+    batch: &RecordBatch,
+) -> Result<BooleanArray, TiforthError> {
+    match predicate {
+        FilterPredicate::IsNotNullColumn(index) => {
+            let column = batch
+                .columns()
+                .get(*index)
+                .ok_or(TiforthError::MissingColumn { index: *index })?;
+            let values = column
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .ok_or_else(|| TiforthError::UnsupportedDataType {
+                    detail: format!(
+                        "expected Int32 predicate input at column {index}, got {:?}",
+                        column.data_type()
+                    ),
+                })?;
+            let mut builder = BooleanBuilder::with_capacity(values.len());
+            for row in 0..values.len() {
+                builder.append_value(!values.is_null(row));
+            }
+            Ok(builder.finish())
+        }
+    }
+}
+
+fn reserve_filter_output_consumers(
+    batch: &RecordBatch,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+) -> Result<Vec<ReservedConsumer>, TiforthError> {
+    let mut consumers = Vec::with_capacity(batch.num_columns());
+    for (index, field) in batch.schema().fields().iter().enumerate() {
+        let consumer = controller.open(ConsumerSpec::new(
+            format!("{operator_name}:{}", field.name()),
+            ConsumerKind::FilterOutput,
+            false,
+        ));
+        let estimated_bytes = estimate_filter_output_bytes(batch.column(index));
+        if let Err(error) = consumer.try_reserve(estimated_bytes) {
+            release_consumers_best_effort(&consumers);
+            return Err(error);
+        }
+        consumers.push(ReservedConsumer {
+            consumer,
+            estimated_bytes,
+        });
+    }
+    Ok(consumers)
+}
+
+fn reconcile_filter_output_bytes(
+    consumer: &ReservedConsumer,
+    output: &ArrayRef,
+) -> Result<(), TiforthError> {
+    let actual = output.get_buffer_memory_size();
+    if consumer.estimated_bytes > actual {
+        consumer
+            .consumer
+            .shrink(consumer.estimated_bytes - actual)?;
+    }
+    Ok(())
+}
+
+fn estimate_filter_output_bytes(input: &ArrayRef) -> usize {
+    input.get_buffer_memory_size()
+}
+
+fn release_consumers(consumers: &[ReservedConsumer]) -> Result<(), TiforthError> {
+    let mut first_error = None;
+    for consumer in consumers {
+        if let Err(error) = consumer.consumer.release() {
+            if first_error.is_none() {
+                first_error = Some(error);
+            }
+        }
+    }
+    if let Some(error) = first_error {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
+fn release_consumers_best_effort(consumers: &[ReservedConsumer]) {
+    for consumer in consumers {
+        let _ = consumer.consumer.release();
+    }
+}

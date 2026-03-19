@@ -1,6 +1,7 @@
 pub mod admission;
 pub mod error;
 pub mod expr;
+pub mod filter;
 pub mod handoff;
 pub mod operators;
 pub mod projection;
@@ -13,9 +14,10 @@ pub use admission::{
 pub use broken_pipeline::traits::arrow::{ArrowTypes, Batch};
 pub use error::TiforthError;
 pub use expr::Expr;
+pub use filter::{filter_batch, FilterPredicate};
 pub use handoff::{BatchClaim, BatchOrigin, GovernedBatch, RuntimeEvent};
 pub use operators::{
-    CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
+    CollectSink, FilterPipe, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 pub use projection::{project_batch, ProjectionExpr};
 pub use snapshot::{

@@ -295,6 +295,7 @@ impl From<&BatchOrigin> for FixtureBatchOrigin {
 fn consumer_kind_name(kind: &ConsumerKind) -> &'static str {
     match kind {
         ConsumerKind::ProjectionOutput => "projection_output",
+        ConsumerKind::FilterOutput => "filter_output",
         ConsumerKind::SourceInput => "source_input",
     }
 }

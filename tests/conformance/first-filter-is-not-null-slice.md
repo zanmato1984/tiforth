@@ -12,12 +12,20 @@ Spec source: `docs/spec/first-filter-is-not-null.md`
 - `missing column`: out-of-range `column(index)` fails as an execution error
 - `unsupported predicate type`: non-`int32` predicate input fails as an execution error
 
-## Initial Harness Boundary
+## Executable Harness Boundary
 
-Issue #139 defines this as a docs-first conformance checkpoint for the first post-gate filter boundary.
+Issue #149 turns this checkpoint into executable local conformance coverage in:
 
-This file fixes expected behavior for future executable coverage without expanding current milestone-1 projection-only kernel code.
+- `crates/tiforth-kernel/tests/filter_is_not_null.rs`
+
+That coverage now asserts at least one executable case for each canonical behavior above:
+
+- all-rows-kept result retention
+- all-rows-dropped result retention
+- mixed keep/drop with schema, order, and value passthrough checks
+- missing-column execution error
+- unsupported-predicate-type execution error
 
 ## Follow-On Coverage
 
-When the first filter implementation issue lands, executable conformance coverage should include at least one fixture or test assertion for each canonical case above.
+Later issues may extend this first executable filter coverage with additional fixture snapshots, broader logical-type support, and cross-engine differential execution artifacts for the same slice IDs under `tests/differential/first-filter-is-not-null-slice.md`.
