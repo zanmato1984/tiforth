@@ -162,6 +162,21 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is not `int32`
 
+## First Temporal Follow-On Checkpoint
+
+Issue #174 adds a docs-first temporal checkpoint in
+`docs/design/first-temporal-semantic-slice.md`.
+
+For current shared contracts:
+
+- the first admitted temporal logical type beyond milestone 1 is `date32`
+- the first temporal checkpoint reuses existing expression and predicate
+  families: passthrough `column(index)` plus `is_not_null(column(index))`
+- this checkpoint does not define temporal arithmetic, ordering, casts,
+  extraction, truncation, or timezone-aware timestamp semantics
+- broader temporal families remain out of scope until follow-on issues define
+  their semantics and coverage
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
@@ -171,7 +186,7 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
   binary slice, including shared collation identifiers (if needed),
   ordering and comparison semantics, and conformance plus differential
   coverage
-- TODO: define the first executable temporal semantic slice, including timezone handling and temporal normalization rules
+- TODO: extend temporal semantics beyond the first `date32` checkpoint, including timezone-aware timestamp normalization and ordering rules
 - TODO: define the first executable decimal semantic slice, including precision and scale propagation rules
 - TODO: define JSON comparability and cast behavior
 
