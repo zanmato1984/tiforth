@@ -52,18 +52,19 @@ The currently useful shared-kernel boundaries under `crates/tiforth-kernel` are:
 - the first post-gate filter slice for `is_not_null(column(index))`
 - the first temporal `date32` executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
 - the first decimal `decimal128` executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
+- the first float64 NaN and infinity ordering executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
 
 Those boundaries are intentionally narrow:
 
 - one static Arrow batch source, one projection or filter pipe, and one collecting sink for the local executable slices
 - expression evaluation only for `column(index)`, `literal<int32>(value)`, and `add<int32>(lhs, rhs)`
-- filter predicate evaluation for `is_not_null(column(index))` with `int32` predicate input in the first filter slice, `date32` predicate input in the first temporal slice, and `decimal128` predicate input in the first decimal slice
+- filter predicate evaluation for `is_not_null(column(index))` with `int32` predicate input in the first filter slice, `date32` predicate input in the first temporal slice, `decimal128` predicate input in the first decimal slice, and `float64` predicate input in the first float64 slice
 - direct attachment to the adopted upstream `SourceOperator`, `PipeOperator`, and `SinkOperator` traits, with expressions and filter predicates kept as operator-local evaluators and schema helpers
 - reserve-first admission around operator-owned output materialization
 - governed-batch handoff and live-claim tracking through the source -> projection or filter -> sink paths
 - local execution snapshots and checked-in fixtures that keep rows, errors, and ownership outcomes reviewable
 
-These boundaries are justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/first-filter-is-not-null.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, `tests/conformance/expression-projection-slice.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `docs/design/first-temporal-semantic-slice.md`, `tests/conformance/first-temporal-date32-slice.md`, `docs/design/first-decimal-semantic-slice.md`, and `tests/conformance/first-decimal128-slice.md`.
+These boundaries are justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/first-filter-is-not-null.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, `tests/conformance/expression-projection-slice.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `docs/design/first-temporal-semantic-slice.md`, `tests/conformance/first-temporal-date32-slice.md`, `docs/design/first-decimal-semantic-slice.md`, `tests/conformance/first-decimal128-slice.md`, `docs/design/first-float64-ordering-slice.md`, and `tests/conformance/first-float64-ordering-slice.md`.
 
 They are not yet a general shared kernel API. They exist to prove end-to-end paths where shared specs, admission rules, handoff ownership, and local harness evidence all line up before broader operators or adapter-driven execution are introduced.
 
