@@ -15,7 +15,7 @@ Current checkpoint:
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `adapters/first-filter-is-not-null-slice.md` defines the minimal request and response surface for the first differential filter slice
 - `adapters/first-temporal-date32-slice.md` defines the minimal request and response surface for the first differential temporal `date32` slice
-- `crates/tiforth-harness-differential` executes the first-expression and first-filter-is-not-null slices through the current TiDB and TiFlash adapter cores, validates checked-in paired artifacts under `inventory/`, and now executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
+- `crates/tiforth-harness-differential` executes the first-expression, first-filter-is-not-null, and first-temporal-date32 slices through the current TiDB and TiFlash adapter cores, validates checked-in paired artifacts under `inventory/`, and now executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs` wires a live-runner path for `first-filter-is-not-null-slice` that can emit normalized artifacts using TiDB and TiFlash MySQL endpoints from environment configuration
 - `scripts/refresh-first-filter-live-artifacts.sh` provides the canonical local command for env-validated dry runs and checked-in first-filter artifact refresh
 - `docs/design/next-thin-end-to-end-slice.md` defines the next thin end-to-end checkpoint as executing that documented slice through adapters and into checked-in differential evidence

@@ -27,6 +27,7 @@ Current checkpoint:
 - `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable carrier for first-slice `case-results` artifacts plus first-slice constraints on the shared `drift-report` carrier
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md` defines the stable carrier for first-filter `case-results` artifacts plus first-filter constraints on the shared `drift-report` carrier
+- `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable carrier for first-temporal `date32` case-results artifacts plus first-temporal constraints on the shared `drift-report` carrier
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary
@@ -35,6 +36,10 @@ Current checkpoint:
 - `inventory/first-filter-is-not-null-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first-filter checkpoint
+- `inventory/first-temporal-date32-slice-tidb-case-results.json` records the current TiDB-side case results for the first temporal `date32` harness checkpoint
+- `inventory/first-temporal-date32-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first temporal checkpoint
+- `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first temporal checkpoint
+- `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first temporal checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first-filter predicate slice
 - `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first-filter predicate slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
@@ -45,6 +50,8 @@ Current checkpoint:
 - earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
 - issue #159 fixes milestone-1 drift-report sidecar policy: checked-in Markdown `drift-report` artifacts are required and machine-readable sidecars remain optional
 - issue #161 adds the first checked-in JSON drift-report sidecars for the first-expression and first-filter differential slices
+- issue #185 defines docs-first artifact carriers for the first temporal `date32` differential slice
+- issue #187 adds the first checked-in temporal `date32` differential case-results artifacts plus paired drift-report outputs
 
 Current inventory priority:
 

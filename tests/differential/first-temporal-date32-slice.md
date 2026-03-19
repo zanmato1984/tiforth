@@ -1,12 +1,13 @@
 # First Differential Temporal `date32` Slice
 
-Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint
 
 Related issues:
 
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #185 `docs: define first temporal date32 differential artifact carriers`
+- #187 `harness: execute first-temporal-date32 differential artifacts for TiDB and TiFlash`
 
 ## Question
 
@@ -124,7 +125,7 @@ semantic sources.
 
 ### 3. Comparison Rules
 
-For the first temporal slice, future harness code should compare:
+For the first temporal slice, harness code compares:
 
 - output field order and field names
 - logical result types and nullability

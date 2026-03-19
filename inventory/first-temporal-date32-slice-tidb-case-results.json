@@ -1,0 +1,217 @@
+{
+  "slice_id": "first-temporal-date32-slice",
+  "engine": "tidb",
+  "adapter": "tidb-sql",
+  "cases": [
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "date32-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-date32-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "d",
+            "logical_type": "date32",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "date32-column-null-preserve",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-date32-nullable",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "d",
+            "logical_type": "date32",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            null
+          ],
+          [
+            2
+          ],
+          [
+            null
+          ]
+        ],
+        "row_count": 4
+      }
+    },
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "date32-is-not-null-all-kept",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-date32-basic",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "d",
+            "logical_type": "date32",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "date32-is-not-null-all-dropped",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-date32-all-null",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "d",
+            "logical_type": "date32",
+            "nullable": true
+          }
+        ],
+        "rows": [],
+        "row_count": 0
+      }
+    },
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "date32-is-not-null-mixed-keep-drop",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-date32-nullable",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "d",
+            "logical_type": "date32",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            2
+          ]
+        ],
+        "row_count": 2
+      }
+    },
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "date32-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-date32-basic",
+      "filter_ref": "is-not-null-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'where clause'"
+      }
+    },
+    {
+      "slice_id": "first-temporal-date32-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "unsupported-temporal-type-error",
+      "spec_refs": [
+        "docs/design/first-temporal-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-date32-slice.md",
+        "tests/differential/first-temporal-date32-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_temporal_type",
+        "engine_code": "1105",
+        "engine_message": "unsupported temporal type: timestamp input is out of scope for first-temporal-date32-slice"
+      }
+    }
+  ]
+}
