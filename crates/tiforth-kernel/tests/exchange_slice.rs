@@ -235,6 +235,7 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
     assert_eq!(sink.batches().len(), 0);
 
     drop(pipe_runtime);
+    drop(pipeline);
     drop(sink);
     runtime_context.record_terminal_cancelled();
 
