@@ -42,6 +42,8 @@ Examples:
 
 For the ordinary clean setup case, prefer `scripts/start-issue-worktree.sh <issue-number>` so base-branch fast-forward plus issue branch/worktree creation stay repeatable.
 
+That helper now verifies the target GitHub issue is open before creating local state. If `gh` is unavailable or you intentionally need offline setup, rerun with `TIFORTH_SKIP_ISSUE_CHECK=1`.
+
 ## Completion Cleanup
 
 When an issue is done or its PR is merged, finish by restoring local checkout hygiene.
