@@ -131,6 +131,15 @@ Stage handoff transfers the semantic envelope, not just the raw `RecordBatch`.
 
 This allows zero-copy passthrough for shared Arrow arrays while keeping exactly one live ownership claim for every governed buffer that remains reachable.
 
+## First In-Contract Exchange Ownership Follow-On
+
+Issue #169 now fixes one post-milestone exchange checkpoint in
+`docs/design/first-in-contract-exchange-slice.md`.
+
+For that first exchange slice, buffered incoming claims remain attached to their
+batch envelope while queued, and exchange-owned resident buffers follow the same
+reserve-before-allocate plus claim-lifecycle rules already defined above.
+
 ## Milestone-1 Local Runtime Carrier
 
 For the current Rust kernel slice, local runtime state carries the semantic batch envelope through:
@@ -166,4 +175,4 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns and the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns. Additional nested-family expansion, decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, and the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`. Additional nested-family expansion, decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.

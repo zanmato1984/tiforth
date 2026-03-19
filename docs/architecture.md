@@ -42,6 +42,8 @@ The next end-to-end checkpoint should still grow layers 5 and 6 before it widens
 
 `docs/design/first-post-gate-kernel-boundary.md` fixed the first post-gate layer-3 expansion as one narrow filter boundary, and issue #149 implements its first executable local kernel path.
 
+`docs/design/first-in-contract-exchange-slice.md` now fixes the first post-milestone in-contract runtime exchange checkpoint as one narrow single-producer and single-consumer local queue boundary with required conformance and differential coverage, without widening current shared-kernel semantics.
+
 ## Current Minimal Kernel Boundaries
 
 The currently useful shared-kernel boundaries under `crates/tiforth-kernel` are:

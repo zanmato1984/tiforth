@@ -1,8 +1,8 @@
 # Milestone-1 Exchange Mapping On The Adopted Runtime Contract
 
-Status: issue #125 design checkpoint
+Status: issue #125 design checkpoint, issue #169 follow-on checkpoint
 
-Verified: 2026-03-18
+Verified: 2026-03-19
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #92 `design: define adapter-local runtime orchestration boundary`
 - #123 `design: define milestone-1 spill and retry runtime mapping`
 - #125 `design: define milestone-1 exchange runtime mapping boundary`
+- #169 `design: define first in-contract exchange slice boundary`
 
 ## Question
 
@@ -26,6 +27,7 @@ How should milestone-1 exchange behavior map onto the adopted `broken-pipeline-r
 - `docs/design/spill-retry-runtime-mapping.md`
 - `docs/design/next-thin-end-to-end-slice.md`
 - issue #125
+- issue #169
 
 ## Design Summary
 
@@ -48,17 +50,15 @@ This fixes the current "how does exchange map?" answer for milestone 1: it maps 
 - it matches the current accepted kernel boundary and executable coverage, which does not yet include exchange operators
 - it prevents premature protocol growth while preserving the adopted upstream runtime vocabulary
 - it keeps memory-admission and ownership semantics consistent even when local orchestration stages buffer or transfer data
-- it preserves room for a later narrow exchange issue that can define one concrete in-contract slice with harness coverage
+- it preserved room for one later narrow exchange issue that can define one concrete in-contract slice with harness coverage
 
-## Follow-On Requirements
+## First Post-Milestone-1 In-Contract Slice
 
-Any later issue that introduces an in-contract exchange slice should explicitly define:
+Issue #169 now defines that follow-on checkpoint in:
 
-- the first affected slice or operator boundary
-- stage-level send or receive behavior and backpressure mapping on adopted runtime states
-- cancellation, drain, and error propagation behavior through existing runtime outcomes
-- ownership-claim behavior for buffered, forwarded, and released batches
-- conformance or differential evidence that exercises the new exchange boundary
+- `docs/design/first-in-contract-exchange-slice.md`
+
+That follow-on keeps exchange narrow (single-producer and single-consumer local queue semantics) and names required conformance and differential coverage without changing milestone-1 executable boundaries.
 
 ## Deferred Boundary
 
