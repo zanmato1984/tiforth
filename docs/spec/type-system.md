@@ -151,7 +151,7 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, while executable local-kernel predicate input remains limited to `int32` and `date32` until a follow-on issue lands.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, and local executable kernel coverage now includes `decimal128` predicate input through `crates/tiforth-kernel/tests/decimal128_slice.rs`.
 
 ### `is_not_null(column(index))`
 
@@ -161,7 +161,7 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
-- local executable kernel coverage for this predicate remains limited to `int32` and `date32` until a follow-on decimal kernel issue lands
+- local executable kernel coverage for this predicate now includes `int32`, `date32`, and `decimal128` in the current shared-kernel conformance slices
 
 ## First Temporal Follow-On Checkpoint
 
@@ -212,8 +212,8 @@ For current shared contracts:
 - broader decimal families remain out of scope until follow-on issues define
   their semantics and coverage
 
-Local executable decimal kernel coverage remains out of scope until a follow-on
-issue lands in `crates/tiforth-kernel`.
+Local executable decimal kernel conformance coverage now exists in
+`crates/tiforth-kernel/tests/decimal128_slice.rs`.
 
 ## Open Questions
 

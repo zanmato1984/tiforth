@@ -87,6 +87,8 @@ checkpoint:
 - differential checkpoint doc:
   `tests/differential/first-decimal128-slice.md`
 - adapter boundary doc: `adapters/first-decimal128-slice.md`
+- local executable conformance coverage:
+  `crates/tiforth-kernel/tests/decimal128_slice.rs`
 
 Before kernel or adapter expansion claims broader decimal support, follow-on
 issues should preserve these anchors or replace them explicitly.
@@ -105,4 +107,5 @@ The first decimal checkpoint is now explicit and narrow: `decimal128`
 column-passthrough plus `is_not_null` predicate semantics, with existing
 runtime and ownership contracts unchanged and broader decimal policy deferred
 to follow-on issues. Coverage anchors are fixed under
-`tests/conformance/`, `tests/differential/`, and `adapters/`.
+`tests/conformance/`, `tests/differential/`, and `adapters/`, and local
+executable conformance now exists under `crates/tiforth-kernel/tests/`.
