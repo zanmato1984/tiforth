@@ -12,10 +12,11 @@ Current checkpoint:
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiDB session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
 - `crates/tiforth-adapter-tidb` now encodes the first-expression-slice request catalog, TiDB-oriented SQL lowering, and row / error normalization behind a runner boundary
 - `crates/tiforth-harness-differential` now exercises that TiDB adapter core alongside the TiFlash adapter core and validates the first checked-in pairwise artifacts under `inventory/`
+- `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs` now provides an env-configured live TiDB runner implementation for `first-filter-is-not-null-slice`
 
 Next checkpoint:
 
-- wire the execution core to a live TiDB runner so the checked-in pairwise artifacts can move beyond deterministic adapter-core fixture evidence
+- refresh checked-in first-filter differential artifacts from live TiDB plus TiFlash runs when shared review environments are available
 
 ## TODOs
 

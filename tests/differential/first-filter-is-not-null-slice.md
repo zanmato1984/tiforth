@@ -166,7 +166,8 @@ in `adapters/first-filter-is-not-null-slice.md`.
 
 Later issues may extend this slice to cover:
 
-- live TiDB and TiFlash runner orchestration beyond deterministic fixture runners
+- checked-in artifact refresh from live TiDB and TiFlash runner output when shared
+  review environments are available
 - broader predicate families and wider logical-type coverage
 - TiKV participation
 
