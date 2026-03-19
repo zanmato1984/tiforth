@@ -15,3 +15,5 @@ Issue #25 adds the current local fixture expectation for that slice: prefer asse
 Issue #27 adds the first checked-in fixture files for that carrier under `tests/conformance/fixtures/local-execution/`. The format and scope for those local JSON artifacts are described in `tests/conformance/local-execution-fixtures.md`.
 
 Issue #139 adds the first post-gate filter conformance case checkpoint in `tests/conformance/first-filter-is-not-null-slice.md`.
+
+Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance/signed-unsigned-interaction-checkpoint.md`.

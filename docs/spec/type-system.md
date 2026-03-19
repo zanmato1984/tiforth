@@ -60,6 +60,28 @@ When multiple operator or function signatures are possible:
 
 This keeps signature selection deterministic while preserving explicit errors for unsupported or ambiguous type combinations.
 
+### Signed Versus Unsigned Interaction Checkpoint
+
+Issue #141 defines the first shared signed-versus-unsigned interaction
+boundary for this initial lattice checkpoint.
+
+- no implicit coercions are allowed between signed and unsigned integer
+  families in this checkpoint
+- mixed signed and unsigned candidates are not formed indirectly by widening
+  through `float64`
+- any candidate signature that would require a signed-to-unsigned or
+  unsigned-to-signed implicit coercion is rejected before precedence ranking
+- if no candidate remains after that rejection, execution fails with an
+  explicit error instead of guessing
+- exact unsigned matches are still selectable when a function family
+  explicitly defines one; untyped `NULL` may adopt that selected unsigned type
+  after signature selection, but `NULL` does not choose between signed and
+  unsigned candidates by itself
+
+For this checkpoint, representative mixed requests such as `int32` with
+`uint32`, or `int64` with `uint64`, are execution errors unless a follow-on
+spec issue defines explicit interaction semantics.
+
 ## Current Milestone-1 Boundary
 
 The current executable slice only fixes the type behavior needed for milestone-1 projection coverage.
@@ -124,7 +146,6 @@ This checkpoint defines the first predicate typing boundary for that filter slic
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
-- TODO: define signed versus unsigned interaction rules
 - TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
 - TODO: define NaN, infinity, and ordering semantics
 - TODO: define collation scope and ownership
