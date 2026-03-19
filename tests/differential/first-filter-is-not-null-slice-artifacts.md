@@ -1,6 +1,6 @@
 # First Filter Slice Artifact Carriers
 
-Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint
+Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
 - #155 `harness: wire live TiDB and TiFlash runners for first-filter-is-not-null-slice`
+- #157 `workflow: add script for first-filter live artifact refresh`
 
 ## Purpose
 
@@ -126,12 +127,25 @@ Optional per prefix:
 - `_PASSWORD`
 - `_BIN` (defaults to `mysql`)
 
-When required env is missing, the run still returns a normalized artifact set
-and each unavailable side remains an explicit `adapter_unavailable` outcome.
+Canonical local refresh command:
 
-By default the entrypoint prints rendered artifacts to stdout. Use
-`--write-artifacts` to overwrite the checked-in first-filter artifact files
-under `inventory/`.
+```bash
+scripts/refresh-first-filter-live-artifacts.sh --write-artifacts
+```
+
+The helper fails fast when required env vars are missing so artifact refresh
+runs do not silently overwrite checked-in evidence with
+`adapter_unavailable` outcomes.
+
+For diagnostics or dry runs, use:
+
+```bash
+scripts/refresh-first-filter-live-artifacts.sh
+```
+
+By default the helper runs the live entrypoint in dry-run mode and prints
+rendered artifacts to stdout. Use `--write-artifacts` to overwrite the
+checked-in first-filter artifact files under `inventory/`.
 
 ## Boundary For Now
 
