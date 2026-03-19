@@ -28,6 +28,7 @@ Current checkpoint:
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable carrier for first-slice `case-results` artifacts plus first-slice constraints on the shared `drift-report` carrier
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md` defines the stable carrier for first-filter `case-results` artifacts plus first-filter constraints on the shared `drift-report` carrier
 - `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable carrier for first-temporal `date32` case-results artifacts plus first-temporal constraints on the shared `drift-report` carrier
+- `tests/differential/first-decimal128-slice-artifacts.md` defines the stable carrier for first-decimal `decimal128` case-results artifacts plus first-decimal constraints on the shared `drift-report` carrier
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary
@@ -40,6 +41,10 @@ Current checkpoint:
 - `inventory/first-temporal-date32-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first temporal checkpoint
+- `inventory/first-decimal128-slice-tidb-case-results.json` records the current TiDB-side case results for the first decimal `decimal128` harness checkpoint
+- `inventory/first-decimal128-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first decimal checkpoint
+- `inventory/first-decimal128-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first decimal checkpoint
+- `inventory/first-decimal128-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first decimal checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first-filter predicate slice
 - `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first-filter predicate slice
 - `inventory/first-temporal-date32-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first temporal `date32` differential slice
@@ -54,6 +59,7 @@ Current checkpoint:
 - issue #161 adds the first checked-in JSON drift-report sidecars for the first-expression and first-filter differential slices
 - issue #185 defines docs-first artifact carriers for the first temporal `date32` differential slice
 - issue #187 adds the first checked-in temporal `date32` differential case-results artifacts plus paired drift-report outputs
+- issue #206 adds the first checked-in decimal `decimal128` differential case-results artifacts plus paired drift-report outputs
 - issue #204 adds the first checked-in temporal `date32` per-engine compatibility notes artifacts
 
 Current inventory priority:

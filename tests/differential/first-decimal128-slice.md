@@ -1,6 +1,6 @@
 # First Differential Decimal `decimal128` Slice
 
-Status: issue #189 design checkpoint
+Status: issue #189 design checkpoint, issue #206 executable differential checkpoint
 
 Related issues:
 
@@ -175,11 +175,12 @@ in `adapters/first-decimal128-slice.md`.
 
 Later issues may extend this slice to cover:
 
-- checked-in inventory artifacts for this slice
 - broader decimal logical families and precision/scale policy
 - decimal arithmetic, cast, and coercion semantics
 - TiKV participation
 
+Issue #206 now adds executable adapter/harness wiring plus checked-in decimal `case-results` and `drift-report` artifacts for this slice.
+
 Until then, this checkpoint fixes only the first decimal differential
-semantics, request IDs, adapter-boundary shape, and normalized comparison
+semantics, request IDs, adapter-boundary shape, normalized comparison
 rules.

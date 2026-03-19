@@ -1,11 +1,12 @@
 # First Differential Decimal `decimal128` Adapter Boundary
 
-Status: issue #189 design checkpoint
+Status: issue #189 design checkpoint, issue #206 executable adapter checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #189 `design: define first decimal semantic slice boundary`
+- #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
 
 ## Purpose
 
@@ -158,7 +159,10 @@ Later issues may extend this boundary to cover:
 
 - broader decimal error normalization
 - reusable session profiles or adapter capability advertisement
-- checked-in artifact carriers and live runner wiring for this slice
+- live runner wiring for this slice
+
+Issue #206 now wires this boundary into executable TiDB and TiFlash adapter
+cores and paired differential artifacts.
 
 Until then, this note fixes only the minimum request-and-response contract for
 first-slice decimal `decimal128` differential comparison.
