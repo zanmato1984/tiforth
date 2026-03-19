@@ -34,35 +34,35 @@ Verified: 2026-03-19
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 3 row(s) for `float64-column-passthrough` with field `f` normalized as `float64` under comparison_mode `row-order-preserved`.
+- summary: TiDB and TiFlash both returned 3 row(s) for `float64-column-passthrough` with field `f` normalized as `float64` under `row-order-preserved`.
 - evidence_refs: `inventory/first-float64-ordering-slice-tidb-case-results.json#float64-column-passthrough`, `inventory/first-float64-ordering-slice-tiflash-case-results.json#float64-column-passthrough`
 
 ### `float64-special-values-passthrough`
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 5 row(s) for `float64-special-values-passthrough` with field `f` normalized as `float64` under comparison_mode `row-order-preserved`.
+- summary: TiDB and TiFlash both returned 5 row(s) for `float64-special-values-passthrough` with field `f` normalized as `float64` under `row-order-preserved`.
 - evidence_refs: `inventory/first-float64-ordering-slice-tidb-case-results.json#float64-special-values-passthrough`, `inventory/first-float64-ordering-slice-tiflash-case-results.json#float64-special-values-passthrough`
 
 ### `float64-is-not-null-all-kept`
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 5 row(s) for `float64-is-not-null-all-kept` with field `f` normalized as `float64` under comparison_mode `row-order-preserved`.
+- summary: TiDB and TiFlash both returned 5 row(s) for `float64-is-not-null-all-kept` with field `f` normalized as `float64` under `row-order-preserved`.
 - evidence_refs: `inventory/first-float64-ordering-slice-tidb-case-results.json#float64-is-not-null-all-kept`, `inventory/first-float64-ordering-slice-tiflash-case-results.json#float64-is-not-null-all-kept`
 
 ### `float64-is-not-null-mixed-keep-drop`
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 3 row(s) for `float64-is-not-null-mixed-keep-drop` with field `f` normalized as `float64` under comparison_mode `row-order-preserved`.
+- summary: TiDB and TiFlash both returned 3 row(s) for `float64-is-not-null-mixed-keep-drop` with field `f` normalized as `float64` under `row-order-preserved`.
 - evidence_refs: `inventory/first-float64-ordering-slice-tidb-case-results.json#float64-is-not-null-mixed-keep-drop`, `inventory/first-float64-ordering-slice-tiflash-case-results.json#float64-is-not-null-mixed-keep-drop`
 
 ### `float64-canonical-ordering-normalization`
 
 - status: `match`
 - comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
-- summary: TiDB and TiFlash both returned 6 row(s) for `float64-canonical-ordering-normalization` with field `f` normalized as `float64` under comparison_mode `float64-multiset-canonical`.
+- summary: TiDB and TiFlash both returned 6 row(s) for `float64-canonical-ordering-normalization` with field `f` normalized as `float64` under `float64-multiset-canonical`.
 - evidence_refs: `inventory/first-float64-ordering-slice-tidb-case-results.json#float64-canonical-ordering-normalization`, `inventory/first-float64-ordering-slice-tiflash-case-results.json#float64-canonical-ordering-normalization`
 
 ### `float64-missing-column-error`
