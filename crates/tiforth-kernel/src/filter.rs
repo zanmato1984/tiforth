@@ -116,6 +116,14 @@ fn evaluate_selection(
 fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
     match data_type {
         DataType::Int32 | DataType::Date32 => Ok(()),
+        DataType::Decimal128(precision, scale) => {
+            validate_decimal128_metadata(index, *precision, *scale, "predicate")
+        }
+        DataType::Decimal256(_, _) => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported decimal predicate input at column {index}, got {data_type:?}; first decimal slice supports Decimal128 only"
+            ),
+        }),
         DataType::Date64
         | DataType::Time32(_)
         | DataType::Time64(_)
@@ -128,10 +136,26 @@ fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(
         }),
         _ => Err(TiforthError::UnsupportedDataType {
             detail: format!(
-                "expected Int32 or Date32 predicate input at column {index}, got {data_type:?}"
+                "expected Int32, Date32, or Decimal128 predicate input at column {index}, got {data_type:?}"
             ),
         }),
     }
+}
+
+fn validate_decimal128_metadata(
+    index: usize,
+    precision: u8,
+    scale: i8,
+    surface: &str,
+) -> Result<(), TiforthError> {
+    if !(1..=38).contains(&precision) || scale < 0 || scale > precision as i8 {
+        return Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "invalid decimal128 {surface} input metadata at column {index}: precision {precision}, scale {scale}; expected precision 1..=38 and scale 0..=precision"
+            ),
+        });
+    }
+    Ok(())
 }
 
 fn reserve_filter_output_consumers(

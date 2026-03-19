@@ -20,4 +20,4 @@ Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance
 
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
 
-Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/conformance/first-decimal128-slice.md`.
+Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/conformance/first-decimal128-slice.md`, and local executable coverage for that checkpoint now exists in `crates/tiforth-kernel/tests/decimal128_slice.rs`.

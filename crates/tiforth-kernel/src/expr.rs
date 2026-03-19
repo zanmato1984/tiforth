@@ -72,6 +72,14 @@ impl Expr {
 
 fn validate_column_input_type(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
     match data_type {
+        DataType::Decimal128(precision, scale) => {
+            validate_decimal128_metadata(index, *precision, *scale, "expression")
+        }
+        DataType::Decimal256(_, _) => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported decimal expression input at column {index}, got {data_type:?}; first decimal slice supports Decimal128 only"
+            ),
+        }),
         DataType::Date64
         | DataType::Time32(_)
         | DataType::Time64(_)
@@ -84,4 +92,20 @@ fn validate_column_input_type(index: usize, data_type: &DataType) -> Result<(), 
         }),
         _ => Ok(()),
     }
+}
+
+fn validate_decimal128_metadata(
+    index: usize,
+    precision: u8,
+    scale: i8,
+    surface: &str,
+) -> Result<(), TiforthError> {
+    if !(1..=38).contains(&precision) || scale < 0 || scale > precision as i8 {
+        return Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "invalid decimal128 {surface} input metadata at column {index}: precision {precision}, scale {scale}; expected precision 1..=38 and scale 0..=precision"
+            ),
+        });
+    }
+    Ok(())
 }

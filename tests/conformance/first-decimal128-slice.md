@@ -34,6 +34,7 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-No local executable decimal conformance coverage exists yet in
-`crates/tiforth-kernel`; this checkpoint currently fixes docs-first semantic
-and differential anchors only.
+Local executable decimal conformance coverage now exists in
+`crates/tiforth-kernel/tests/decimal128_slice.rs` for the canonical
+projection and predicate cases above, including missing-column, unsupported
+decimal-family, and invalid-decimal-metadata execution errors.
