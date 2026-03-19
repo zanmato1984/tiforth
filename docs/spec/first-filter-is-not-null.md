@@ -75,6 +75,10 @@ For one predicate `is_not_null(column(k))`:
 - shared data/runtime boundaries: `docs/contracts/data.md`,
   `docs/contracts/runtime.md`
 - conformance checkpoint cases: `tests/conformance/first-filter-is-not-null-slice.md`
+- differential checkpoint shape:
+  `tests/differential/first-filter-is-not-null-slice.md`
+- adapter request/response boundary:
+  `adapters/first-filter-is-not-null-slice.md`
 
 ## Deferred Work
 
