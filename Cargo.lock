@@ -477,6 +477,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiforth-adapter-tikv"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "tiforth-harness-differential"
 version = "0.1.0"
 dependencies = [

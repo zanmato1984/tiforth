@@ -11,6 +11,7 @@ Related issues:
 - #88 `design: define adapter milestone breakdown for first differential slice`
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #218 `design: define first TiKV differential adapter request/response surface`
+- #220 `adapter: execute first-expression-slice through TiKV`
 
 ## Purpose
 
@@ -120,5 +121,7 @@ separately define:
 ## Result
 
 TiKV now has a concrete docs-first request and response boundary for the
-existing `first-expression-slice` harness surface. Implementation and inventory
-evidence remain follow-on work.
+existing `first-expression-slice` harness surface, and issue #220 implements a
+first executable single-engine adapter core in
+`crates/tiforth-adapter-tikv`. TiKV pairwise drift policy and checked-in
+compatibility evidence remain follow-on work.

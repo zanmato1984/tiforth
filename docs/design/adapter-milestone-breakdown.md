@@ -11,6 +11,7 @@ Related issues:
 - #88 `design: define adapter milestone breakdown for first differential slice`
 - #80 `design: define the next thin end-to-end slice after milestone-1 projection`
 - #218 `design: define first TiKV differential adapter request/response surface`
+- #220 `adapter: execute first-expression-slice through TiKV`
 
 ## Question
 
@@ -137,7 +138,7 @@ Reviewers should expect:
 
 Only after the pairwise checkpoint exists should follow-on issues broaden one dimension at a time, for example:
 
-- TiKV executable single-engine adapter implementation on top of `adapters/first-expression-slice-tikv.md`
+- TiKV executable single-engine adapter implementation on top of `adapters/first-expression-slice-tikv.md` (issue #220 now lands this checkpoint in `crates/tiforth-adapter-tikv`)
 - broader error normalization
 - a wider expression family
 - engine-specific compatibility notes derived from the now-executable slice
@@ -153,4 +154,4 @@ Those should remain separate issues rather than being folded back into the first
 
 ## Result
 
-The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 now captures the first TiKV request/response follow-on boundary, and later TiKV implementation work should remain a separate checkpoint unless another accepted design issue deliberately changes the slice or comparison surface.
+The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 captures the first TiKV request/response boundary, and issue #220 now lands the first TiKV single-engine executable adapter checkpoint in `crates/tiforth-adapter-tikv`. Pairwise TiKV drift policy and compatibility inventory remain separate follow-on checkpoints unless another accepted design issue deliberately changes the slice or comparison surface.
