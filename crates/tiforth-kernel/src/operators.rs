@@ -24,6 +24,56 @@ enum SourceBatch {
     },
 }
 
+enum ExchangeQueuedBatch {
+    Plain(Batch),
+    Governed(GovernedBatch),
+}
+
+impl ExchangeQueuedBatch {
+    fn from_input(
+        ctx: &TaskContext<ArrowTypes>,
+        operator_name: &str,
+        batch: Batch,
+    ) -> Result<Self, ArrowError> {
+        if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+            let governed = runtime
+                .adopt_batch(batch, operator_name)
+                .map_err(ArrowError::from)?;
+            Ok(Self::Governed(governed))
+        } else {
+            Ok(Self::Plain(batch))
+        }
+    }
+
+    fn emit(
+        self,
+        ctx: &TaskContext<ArrowTypes>,
+        operator_name: &str,
+    ) -> Result<OpOutput<Batch>, ArrowError> {
+        match self {
+            Self::Plain(batch) => Ok(OpOutput::SourcePipeHasMore(batch)),
+            Self::Governed(batch) => {
+                let output = Arc::clone(batch.batch());
+                if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+                    runtime
+                        .emit_pipe_batch(
+                            operator_name,
+                            Arc::clone(&output),
+                            batch.column_claims().to_vec(),
+                        )
+                        .map_err(ArrowError::from)?;
+                }
+                Ok(OpOutput::SourcePipeHasMore(output))
+            }
+        }
+    }
+}
+
+struct ExchangeState {
+    queue: VecDeque<ExchangeQueuedBatch>,
+    pending: Option<ExchangeQueuedBatch>,
+}
+
 #[derive(Clone)]
 pub struct ProjectionRuntimeContext {
     admission: Arc<dyn AdmissionController>,
@@ -312,6 +362,97 @@ impl PipeOperator<ArrowTypes> for FilterPipe {
             )
             .map_err(ArrowError::from)?;
             Ok(OpOutput::PipeEven(output))
+        }
+    }
+}
+
+pub struct ExchangePipe {
+    name: String,
+    capacity: usize,
+    state: Mutex<ExchangeState>,
+}
+
+impl ExchangePipe {
+    pub fn new(name: impl Into<String>, capacity: usize) -> Self {
+        assert!(capacity > 0, "exchange capacity must be greater than zero");
+        Self {
+            name: name.into(),
+            capacity,
+            state: Mutex::new(ExchangeState {
+                queue: VecDeque::with_capacity(capacity),
+                pending: None,
+            }),
+        }
+    }
+
+    fn blocked(ctx: &TaskContext<ArrowTypes>) -> Result<OpOutput<Batch>, ArrowError> {
+        Ok(OpOutput::Blocked(ctx.make_resumer()?))
+    }
+}
+
+impl PipeOperator<ArrowTypes> for ExchangePipe {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn pipe(
+        &self,
+        ctx: &TaskContext<ArrowTypes>,
+        _thread_id: ThreadId,
+        input: Option<Batch>,
+    ) -> Result<OpOutput<Batch>, ArrowError> {
+        let mut state = self.state.lock().expect("exchange state mutex poisoned");
+
+        if let Some(batch) = input {
+            if state.pending.is_some() {
+                return Err(ArrowError::from(TiforthError::OwnershipContractViolation {
+                    detail: format!(
+                        "{} received new input while a blocked input was still pending",
+                        self.name()
+                    ),
+                }));
+            }
+            let queued = ExchangeQueuedBatch::from_input(ctx, self.name(), batch)?;
+            if state.queue.len() >= self.capacity {
+                state.pending = Some(queued);
+                return Self::blocked(ctx);
+            }
+            state.queue.push_back(queued);
+            return Ok(OpOutput::PipeSinkNeedsMore);
+        }
+
+        if let Some(outgoing) = state.queue.pop_front() {
+            if state.pending.is_some() && state.queue.len() < self.capacity {
+                let pending = state
+                    .pending
+                    .take()
+                    .expect("pending exchange input should exist");
+                state.queue.push_back(pending);
+            }
+            drop(state);
+            return outgoing.emit(ctx, self.name());
+        }
+
+        if let Some(pending) = state.pending.take() {
+            drop(state);
+            return pending.emit(ctx, self.name());
+        }
+
+        Ok(OpOutput::PipeSinkNeedsMore)
+    }
+
+    fn has_drain(&self) -> bool {
+        true
+    }
+
+    fn drain(
+        &self,
+        ctx: &TaskContext<ArrowTypes>,
+        thread_id: ThreadId,
+    ) -> Result<OpOutput<Batch>, ArrowError> {
+        match self.pipe(ctx, thread_id, None)? {
+            OpOutput::PipeSinkNeedsMore => Ok(OpOutput::Finished(None)),
+            other => Ok(other),
         }
     }
 }
