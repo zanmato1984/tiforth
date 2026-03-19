@@ -23,6 +23,7 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - nullability
 - coercion and cast rules
 - comparison behavior
+- collation-sensitive comparison and ordering behavior
 - arithmetic behavior
 - function signature matching
 - result type derivation
@@ -33,6 +34,23 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - current specs and harnesses should normalize dictionary-backed evidence to the underlying logical type before comparison
 - representation-level rules for when dictionary arrays may cross a shared stage boundary live in `docs/contracts/data.md`
 - milestone-1 nested plus decimal and temporal family scope boundaries live in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`
+
+## Initial Collation Scope And Ownership Checkpoint
+
+Issue #143 adds a docs-first checkpoint in `docs/design/collation-scope-ownership.md`.
+
+For current shared contracts:
+
+- milestone-1 executable slices remain collation-insensitive because they are
+  limited to the current `int32` projection and first filter predicate
+  boundaries
+- shared contracts do not yet require runtime collation state,
+  batch-level collation metadata, or a shared collation negotiation API
+- adapter-local session and engine collation settings remain
+  orchestration details unless and until a later shared slice defines
+  explicit collation-sensitive semantics
+
+This checkpoint resolves ownership scope without claiming executable string or binary collation behavior in milestone 1.
 
 ## Initial Coercion Lattice And Precedence
 
@@ -148,7 +166,10 @@ This checkpoint defines the first predicate typing boundary for that filter slic
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
 - TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
 - TODO: define NaN, infinity, and ordering semantics
-- TODO: define collation scope and ownership
+- TODO: define the first executable collation-sensitive string or
+  binary slice, including shared collation identifiers (if needed),
+  ordering and comparison semantics, and conformance plus differential
+  coverage
 - TODO: define the first executable temporal semantic slice, including timezone handling and temporal normalization rules
 - TODO: define the first executable decimal semantic slice, including precision and scale propagation rules
 - TODO: define JSON comparability and cast behavior
