@@ -105,6 +105,22 @@ The lattice and precedence policy above is a shared type-system checkpoint for l
 
 This fixes the current milestone-1 arithmetic typing rule without claiming it as the final shared contract for other operator families.
 
+## First Post-Gate Filter Predicate Checkpoint
+
+Issue #139 adds the first docs-first filter semantic checkpoint in
+`docs/spec/first-filter-is-not-null.md`.
+
+This checkpoint defines the first predicate typing boundary for that filter slice while leaving the milestone-1 executable projection path unchanged.
+
+### `is_not_null(column(index))`
+
+- requires one `column(index)` operand that resolves to logical type `int32`
+- derives logical result type `boolean`
+- derives `nullable = false` for predicate evaluation
+- evaluates row-wise as `true` for non-null input values and `false` for null input values
+- reports an execution error when `index` is out of range
+- reports an execution error rather than applying an implicit cast when the operand is not `int32`
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries

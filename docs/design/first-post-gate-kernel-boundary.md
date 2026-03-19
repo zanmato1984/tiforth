@@ -12,6 +12,7 @@ Related issues:
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #129 `inventory: add first-expression-slice coverage-gap artifact`
 - #137 `design: choose first post-gate kernel expansion boundary`
+- #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 
 ## Question
 
@@ -79,6 +80,8 @@ A follow-on implementation issue for this boundary should name and update, or ex
 4. conformance cases under `tests/conformance/` for keep, drop, and mixed-row outcomes
 5. one differential slice/checkpoint update under `tests/differential/` that compares the new filter behavior across TiDB and TiFlash
 6. adapter boundary updates under `adapters/` only where the shared filter request or normalized result fields must grow
+
+Issue #139 now establishes docs-first checkpoints for items 1, 2, and 4 through `docs/spec/first-filter-is-not-null.md`, `docs/spec/type-system.md`, and `tests/conformance/first-filter-is-not-null-slice.md`.
 
 ## Completion Signal For This Decision
 
