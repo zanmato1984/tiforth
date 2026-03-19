@@ -37,6 +37,7 @@ It also keeps the reboot honest:
 - the first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`
 - the first executable differential checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired artifacts under `inventory/`
 - the first machine-readable drift-report sidecars now exist for both milestone-1 differential slices under `inventory/` alongside their required Markdown drift reports
+- the first checked-in per-engine compatibility notes now cover both first-expression and first-filter slices under `inventory/` for TiDB and TiFlash
 - the first post-gate shared-kernel expansion candidate is now fixed in `docs/design/first-post-gate-kernel-boundary.md`
 - the docs-first filter prep checkpoint now covers semantics, conformance, differential slice shape, and adapter boundary through `docs/spec/first-filter-is-not-null.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `tests/differential/first-filter-is-not-null-slice.md`, and `adapters/first-filter-is-not-null-slice.md`
 - the first executable post-gate filter checkpoint now exists through `crates/tiforth-kernel` via `FilterPipe` and executable coverage in `crates/tiforth-kernel/tests/filter_is_not_null.rs`
