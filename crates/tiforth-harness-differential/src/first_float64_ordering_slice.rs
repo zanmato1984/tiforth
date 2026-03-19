@@ -750,11 +750,11 @@ fn matching_rows_summary(
 ) -> String {
     match schema {
         [field] => format!(
-            "TiDB and TiFlash both returned {row_count} row(s) for `{case_id}` with field `{}` normalized as `{}` under comparison_mode `{comparison_mode}`.",
+            "TiDB and TiFlash both returned {row_count} row(s) for `{case_id}` with field `{}` normalized as `{}` under `{comparison_mode}`.",
             field.name, field.logical_type
         ),
         _ => format!(
-            "TiDB and TiFlash both returned matching row output for `{case_id}` under comparison_mode `{comparison_mode}`."
+            "TiDB and TiFlash both returned matching row output for `{case_id}` under `{comparison_mode}`."
         ),
     }
 }
@@ -765,7 +765,7 @@ fn drifting_rows_summary(
     comparison_mode: &str,
 ) -> String {
     format!(
-        "TiDB and TiFlash disagree on {} for `{case_id}` under comparison_mode `{comparison_mode}`.",
+        "TiDB and TiFlash disagree on {} for `{case_id}` under `{comparison_mode}`.",
         join_inline_codes(dimensions.iter().copied().map(comparison_dimension_name))
     )
 }
