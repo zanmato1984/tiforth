@@ -35,6 +35,8 @@ Current checkpoint:
 - `inventory/first-filter-is-not-null-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first-filter checkpoint
+- `inventory/first-filter-is-not-null-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first-filter predicate slice
+- `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first-filter predicate slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
