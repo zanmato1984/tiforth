@@ -1,0 +1,255 @@
+{
+  "slice_id": "first-float64-ordering-slice",
+  "engine": "tiflash",
+  "adapter": "tiflash-sql",
+  "cases": [
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "float64-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float64-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "f",
+            "logical_type": "float64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "-1.5"
+          ],
+          [
+            "0.0"
+          ],
+          [
+            "2.25"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "float64-special-values-passthrough",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float64-special-values",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "f",
+            "logical_type": "float64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "-Infinity"
+          ],
+          [
+            "-0.0"
+          ],
+          [
+            "0.0"
+          ],
+          [
+            "Infinity"
+          ],
+          [
+            "NaN"
+          ]
+        ],
+        "row_count": 5
+      }
+    },
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "float64-is-not-null-all-kept",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float64-special-values",
+      "comparison_mode": "row-order-preserved",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "f",
+            "logical_type": "float64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "-Infinity"
+          ],
+          [
+            "-0.0"
+          ],
+          [
+            "0.0"
+          ],
+          [
+            "Infinity"
+          ],
+          [
+            "NaN"
+          ]
+        ],
+        "row_count": 5
+      }
+    },
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "float64-is-not-null-mixed-keep-drop",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float64-nullable-special-values",
+      "comparison_mode": "row-order-preserved",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "f",
+            "logical_type": "float64",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            "-Infinity"
+          ],
+          [
+            "NaN"
+          ],
+          [
+            "1.0"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "float64-canonical-ordering-normalization",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float64-ordering-scramble",
+      "comparison_mode": "float64-multiset-canonical",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "f",
+            "logical_type": "float64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "-Infinity"
+          ],
+          [
+            "-0.0"
+          ],
+          [
+            "0.0"
+          ],
+          [
+            "1.0"
+          ],
+          [
+            "Infinity"
+          ],
+          [
+            "NaN"
+          ]
+        ],
+        "row_count": 6
+      }
+    },
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "float64-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float64-basic",
+      "comparison_mode": "row-order-preserved",
+      "filter_ref": "is-not-null-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'where clause'"
+      }
+    },
+    {
+      "slice_id": "first-float64-ordering-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-floating-type-error",
+      "spec_refs": [
+        "docs/design/first-float64-ordering-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-float64-ordering-slice.md",
+        "tests/differential/first-float64-ordering-slice.md"
+      ],
+      "input_ref": "first-float32-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_floating_type",
+        "engine_code": "1105",
+        "engine_message": "unsupported floating type: float32 input is out of scope for first-float64-ordering-slice"
+      }
+    }
+  ]
+}
