@@ -37,7 +37,7 @@ It also keeps the reboot honest:
 - the first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`
 - the first executable differential checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired artifacts under `inventory/`
 - the first machine-readable drift-report sidecars now exist for both milestone-1 differential slices under `inventory/` alongside their required Markdown drift reports
-- the first checked-in per-engine compatibility notes now cover first-expression, first-filter, and first-temporal-date32 slices under `inventory/` for TiDB and TiFlash
+- the first checked-in per-engine compatibility notes now cover first-expression, first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering slices under `inventory/` for TiDB and TiFlash
 - the first post-gate shared-kernel expansion candidate is now fixed in `docs/design/first-post-gate-kernel-boundary.md`
 - the docs-first filter prep checkpoint now covers semantics, conformance, differential slice shape, and adapter boundary through `docs/spec/first-filter-is-not-null.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `tests/differential/first-filter-is-not-null-slice.md`, and `adapters/first-filter-is-not-null-slice.md`
 - the first temporal date32 checkpoint now has docs and local executable conformance coverage through `docs/design/first-temporal-semantic-slice.md`, `tests/conformance/first-temporal-date32-slice.md`, and `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, with differential and adapter anchors in `tests/differential/first-temporal-date32-slice.md` and `adapters/first-temporal-date32-slice.md`
