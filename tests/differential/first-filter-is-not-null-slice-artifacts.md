@@ -1,12 +1,13 @@
 # First Filter Slice Artifact Carriers
 
-Status: issue #147 design checkpoint, issue #153 harness checkpoint
+Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
+- #155 `harness: wire live TiDB and TiFlash runners for first-filter-is-not-null-slice`
 
 ## Purpose
 
@@ -97,6 +98,40 @@ slice actually compares:
 For this slice, `unsupported` should stay limited to explicit adapter or
 engine-path gaps for already-documented first-slice cases, and each
 `unsupported` record should include a concrete `follow_up`.
+
+## Live Runner Wiring
+
+Issue #155 adds a live runner path for this slice without changing the carrier
+schema:
+
+- runner module:
+  `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs`
+- executable entrypoint:
+  `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs`
+
+The live entrypoint consumes these env-var prefixes:
+
+- `TIFORTH_TIDB_MYSQL_*`
+- `TIFORTH_TIFLASH_MYSQL_*`
+
+Required per prefix:
+
+- `_HOST`
+- `_PORT`
+- `_USER`
+- `_DATABASE`
+
+Optional per prefix:
+
+- `_PASSWORD`
+- `_BIN` (defaults to `mysql`)
+
+When required env is missing, the run still returns a normalized artifact set
+and each unavailable side remains an explicit `adapter_unavailable` outcome.
+
+By default the entrypoint prints rendered artifacts to stdout. Use
+`--write-artifacts` to overwrite the checked-in first-filter artifact files
+under `inventory/`.
 
 ## Boundary For Now
 

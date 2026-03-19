@@ -40,11 +40,12 @@ It also keeps the reboot honest:
 - the docs-first filter prep checkpoint now covers semantics, conformance, differential slice shape, and adapter boundary through `docs/spec/first-filter-is-not-null.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `tests/differential/first-filter-is-not-null-slice.md`, and `adapters/first-filter-is-not-null-slice.md`
 - the first executable post-gate filter checkpoint now exists through `crates/tiforth-kernel` via `FilterPipe` and executable coverage in `crates/tiforth-kernel/tests/filter_is_not_null.rs`
 - the first executable differential filter checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired first-filter artifacts under `inventory/`
+- the first live-runner orchestration path for `first-filter-is-not-null-slice` now exists through `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs` and `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs`
 
 ## Next Checkpoint
 
-- the next checkpoint is live TiDB and TiFlash runner orchestration for `first-filter-is-not-null-slice` beyond deterministic fixture runners while preserving the same shared case IDs and normalized carriers
-- that follow-on checkpoint should stay inside the existing first-filter case IDs, `input_ref`s, and `filter_ref`s before broadening predicate families or type coverage
+- the next checkpoint is to refresh first-filter differential evidence from the live-runner path when TiDB and TiFlash environments are available, while preserving the same shared case IDs and normalized carriers
+- that follow-on checkpoint should keep the current first-filter case IDs, `input_ref`s, and `filter_ref`s stable before broadening predicate families or type coverage
 
 ## Kernel Expansion Gate
 
