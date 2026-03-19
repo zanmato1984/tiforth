@@ -10,6 +10,7 @@ Related issues:
 - #68 `design: define first differential expression slice and drift report format`
 - #74 `spec: define milestone-1 int32 type-system boundary`
 - #90 `design: define dictionary-encoding boundary in shared data contract`
+- #145 `design: define first dictionary-aware shared handoff slice`
 
 ## Question
 
@@ -37,7 +38,7 @@ For milestone 1:
 - stage handoff inside the current shared slice is defined only for decoded logical arrays
 - adapters or sources that observe dictionary-backed engine data must normalize it before the current shared slice or checked-in differential evidence uses it
 - current milestone-1 projection outputs must not emit dictionary-encoded arrays
-- later issues may introduce direct dictionary-aware handoff only by naming the first affected slice, the supported logical families, and the ownership-accounting rule for dictionary values buffers versus index buffers
+- later direct dictionary-aware handoff is gated by naming the affected slice, supported logical families, and ownership-accounting rules; issue #145 is the first accepted checkpoint under that gate
 
 ## Why This Boundary
 
@@ -68,13 +69,15 @@ For milestone 1:
 
 ## Follow-On Boundary
 
-Direct dictionary-aware handoff remains open for a later issue. That follow-on should define:
+Issue #145 defines the first direct dictionary-aware handoff checkpoint in
+`docs/design/first-dictionary-aware-handoff-slice.md`.
 
-- the first affected slice or operator family
-- the supported logical families
-- whether passthrough dictionary arrays and newly materialized dictionary arrays are both allowed or only one of those paths
-- how claim ownership attaches to dictionary values buffers, index buffers, and any shared dictionaries when their lifetimes diverge
-- which conformance or differential cases prove the new boundary
+That follow-on keeps scope narrow:
+
+- passthrough `dictionary<int32, int32>` through `column(index)` is allowed
+- newly materialized projection outputs stay decoded
+- dictionary index storage and dictionary values storage use separate claim
+  ownership units when their lifetimes can diverge
 
 ## Result
 
