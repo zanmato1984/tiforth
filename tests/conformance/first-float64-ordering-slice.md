@@ -1,6 +1,6 @@
 # First Float64 NaN/Infinity Ordering Slice Cases
 
-Status: issue #194 docs checkpoint
+Status: issue #194 docs checkpoint, issue #196 executable checkpoint
 
 Spec source: `docs/design/first-float64-ordering-slice.md`
 
@@ -37,6 +37,10 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This is currently a docs-first checkpoint. Local executable kernel coverage for
-`float64` special-value comparison and ordering semantics remains follow-on
-work.
+Local executable kernel coverage for this checkpoint now exists in:
+
+- `crates/tiforth-kernel/tests/float64_slice.rs`
+
+Shared NaN equality and ordering intent remains a conformance and differential
+comparison rule in this checkpoint; milestone-1 local kernel coverage does not
+add standalone float comparison or ordering operators.

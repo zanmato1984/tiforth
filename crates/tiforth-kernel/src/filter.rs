@@ -115,13 +115,18 @@ fn evaluate_selection(
 
 fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
     match data_type {
-        DataType::Int32 | DataType::Date32 => Ok(()),
+        DataType::Int32 | DataType::Date32 | DataType::Float64 => Ok(()),
         DataType::Decimal128(precision, scale) => {
             validate_decimal128_metadata(index, *precision, *scale, "predicate")
         }
         DataType::Decimal256(_, _) => Err(TiforthError::UnsupportedDataType {
             detail: format!(
                 "unsupported decimal predicate input at column {index}, got {data_type:?}; first decimal slice supports Decimal128 only"
+            ),
+        }),
+        DataType::Float16 | DataType::Float32 => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported floating predicate input at column {index}, got {data_type:?}; first float slice supports Float64 only"
             ),
         }),
         DataType::Date64
@@ -136,7 +141,7 @@ fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(
         }),
         _ => Err(TiforthError::UnsupportedDataType {
             detail: format!(
-                "expected Int32, Date32, or Decimal128 predicate input at column {index}, got {data_type:?}"
+                "expected Int32, Date32, Decimal128, or Float64 predicate input at column {index}, got {data_type:?}"
             ),
         }),
     }
