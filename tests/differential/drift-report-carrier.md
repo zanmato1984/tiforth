@@ -1,12 +1,13 @@
 # Differential Drift Report Carrier
 
-Status: issue #133 design checkpoint
+Status: issue #133 design checkpoint, issue #159 sidecar-policy checkpoint
 
 Related issues:
 
 - #68 `design: define first differential expression slice and drift report format`
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #133 `design: define reusable differential drift-report carrier guidance`
+- #159 `docs: define machine-readable sidecar policy for differential drift reports`
 
 ## Purpose
 
@@ -81,8 +82,24 @@ allowed for that slice.
 
 Milestone 1 keeps drift reports as review-first Markdown artifacts.
 
-This carrier does not yet define:
+For milestone 1, this means:
 
-- a required machine-readable drift-report sidecar format
+- each differential slice checks in one Markdown `drift-report` artifact
+- a machine-readable `drift-report` sidecar is optional and not required for
+  slice completion
+- current milestone-1 slices are complete without a checked-in sidecar artifact
+
+If a follow-on slice adds a machine-readable sidecar, it should:
+
+- derive that sidecar from the same normalized `case-results` evidence used by
+  the Markdown report
+- use the same `slice_id`, `engines[]`, status vocabulary, and `cases[]` case
+  identity as the paired Markdown report
+- update this shared carrier and the slice-specific artifact doc before adding
+  sidecar-only fields
+
+This carrier still does not yet define:
+
+- one required machine-readable drift-report schema for all slices
 - merged summaries across more than one engine pair in one artifact
 - adapter-internal traces, engine plans, or local orchestration metadata

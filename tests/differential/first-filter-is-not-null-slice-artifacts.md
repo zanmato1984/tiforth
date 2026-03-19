@@ -1,6 +1,6 @@
 # First Filter Slice Artifact Carriers
 
-Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint
+Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint
 
 Related issues:
 
@@ -9,6 +9,7 @@ Related issues:
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
 - #155 `harness: wire live TiDB and TiFlash runners for first-filter-is-not-null-slice`
 - #157 `workflow: add script for first-filter live artifact refresh`
+- #159 `docs: define machine-readable sidecar policy for differential drift reports`
 
 ## Purpose
 
@@ -99,6 +100,10 @@ slice actually compares:
 For this slice, `unsupported` should stay limited to explicit adapter or
 engine-path gaps for already-documented first-slice cases, and each
 `unsupported` record should include a concrete `follow_up`.
+
+For the issue #159 sidecar-policy checkpoint, this slice does not require a
+machine-readable `drift-report` sidecar; the checked-in Markdown
+`drift-report` remains the only required aggregated report artifact.
 
 ## Live Runner Wiring
 

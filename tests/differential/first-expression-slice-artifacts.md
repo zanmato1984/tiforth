@@ -1,6 +1,6 @@
 # First Expression Slice Artifact Carriers
 
-Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint
+Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #72 `design: define first differential adapter request/response surface`
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #133 `design: define reusable differential drift-report carrier guidance`
+- #159 `docs: define machine-readable sidecar policy for differential drift reports`
 
 ## Purpose
 
@@ -90,6 +91,10 @@ slice actually compares:
 For this slice, `unsupported` should stay limited to explicit adapter or
 engine-path gaps for already-documented first-slice cases, and each
 `unsupported` record should include a concrete `follow_up`.
+
+For the issue #159 sidecar-policy checkpoint, this slice does not require a
+machine-readable `drift-report` sidecar; the checked-in Markdown
+`drift-report` remains the only required aggregated report artifact.
 
 ## Boundary For Now
 
