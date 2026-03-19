@@ -52,6 +52,7 @@ Detailed first dictionary-aware handoff slice rationale lives in `docs/design/fi
 Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-retry-runtime-mapping.md`.
 Detailed nested plus decimal and temporal metadata boundary rationale lives in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`.
 Detailed first nested-aware handoff slice rationale lives in `docs/design/first-nested-aware-handoff-slice.md`.
+Detailed first temporal semantic slice rationale lives in `docs/design/first-temporal-semantic-slice.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
 
@@ -96,6 +97,21 @@ For the shared data contract, that means:
 - the first nested-aware shared handoff checkpoint beyond milestone 1 is defined in `docs/design/first-nested-aware-handoff-slice.md`: passthrough of `list<int32>` through `column(index)` with separate parent-domain and child-domain claim ownership units when lifetimes can diverge
 
 This boundary keeps milestone-1 contracts aligned with the current `int32` semantic core without pretending broader family support already exists.
+
+## First Temporal Follow-On Checkpoint
+
+Issue #174 now fixes one post-milestone temporal checkpoint in
+`docs/design/first-temporal-semantic-slice.md`.
+
+For that first temporal slice, shared data-contract scope is intentionally
+narrow:
+
+- shared temporal handoff admits logical `date32` arrays only
+- shared handoff does not require batch-carried timezone metadata in this slice
+- adapters may keep engine-local date and timezone session settings, but shared
+  differential comparison for this slice is over normalized `date32` day-domain
+  values plus nullability
+- other temporal logical families remain out of scope until a follow-on issue
 
 ## Milestone-1 Canonical Batch Envelope
 
@@ -168,11 +184,11 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 ## Open Questions
 
 - TODO: extend nested-family shared slices beyond the first `list<int32>` passthrough checkpoint, including `struct`, `map`, `union`, and nested compute semantics
-- TODO: define the first decimal and temporal shared semantic slices, including required precision/scale and unit/timezone metadata handling
+- TODO: define the first decimal shared semantic slice, including required precision/scale handling, and extend temporal support beyond the first `date32` checkpoint to unit/timezone-sensitive families
 - TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
 - TODO: decide what later adapter-visible or serialized carrier should expose full `batch_id`, `origin`, and `claims[]` detail beyond the current local `GovernedBatch` state and `LocalExecutionSnapshot` event records
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, and the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`. Additional nested-family expansion, decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, and the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`. Additional nested-family expansion, decimal and broader temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
