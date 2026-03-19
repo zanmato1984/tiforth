@@ -54,6 +54,10 @@ Current checkpoint:
 - `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first-filter predicate slice
 - `inventory/first-temporal-date32-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first temporal `date32` differential slice
 - `inventory/first-temporal-date32-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first temporal differential slice
+- `inventory/first-decimal128-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first decimal `decimal128` differential slice
+- `inventory/first-decimal128-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first decimal differential slice
+- `inventory/first-float64-ordering-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first float64 ordering differential slice
+- `inventory/first-float64-ordering-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first float64 ordering differential slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
@@ -67,6 +71,7 @@ Current checkpoint:
 - issue #206 adds the first checked-in decimal `decimal128` differential case-results artifacts plus paired drift-report outputs
 - issue #208 adds the first checked-in float64 ordering differential case-results artifacts plus paired drift-report outputs
 - issue #204 adds the first checked-in temporal `date32` per-engine compatibility notes artifacts
+- issue #214 adds the first checked-in decimal `decimal128` and float64 ordering per-engine compatibility notes artifacts
 
 Current inventory priority:
 
