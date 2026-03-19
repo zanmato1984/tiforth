@@ -80,4 +80,6 @@ After the current milestone-1 slices, layer 3 should grow only when:
 
 ## TODOs
 
-- Extend harness result and drift-report formats beyond the first differential expression slice.
+- Extend harness result and drift-report formats beyond the current first
+  differential slices (`first-expression-slice` and
+  `first-filter-is-not-null-slice`).
