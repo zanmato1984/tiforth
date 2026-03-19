@@ -3,19 +3,23 @@ use tiforth_adapter_tidb::{
     first_expression_slice as tidb_expression, first_filter_is_not_null_slice as tidb_filter,
 };
 use tiforth_adapter_tiflash::{
-    first_expression_slice as tiflash_expression,
-    first_filter_is_not_null_slice as tiflash_filter,
+    first_expression_slice as tiflash_expression, first_filter_is_not_null_slice as tiflash_filter,
 };
 
 use crate::{first_expression_slice, first_filter_is_not_null_slice};
 
 pub const FIRST_EXCHANGE_SLICE_ID: &str = "first-exchange-slice";
+pub const DRIFT_REPORT_REF: &str =
+    "inventory/first-exchange-slice-baseline-vs-exchange-drift-report.md";
+pub const DRIFT_REPORT_SIDECAR_REF: &str =
+    "inventory/first-exchange-slice-baseline-vs-exchange-drift-report.json";
 
-const FIRST_EXCHANGE_SLICE_SPEC_REFS: [&str; 4] = [
+const FIRST_EXCHANGE_SLICE_SPEC_REFS: [&str; 5] = [
     "docs/design/first-in-contract-exchange-slice.md",
     "tests/differential/first-expression-slice.md",
     "tests/differential/first-filter-is-not-null-slice.md",
     "tests/differential/first-exchange-slice.md",
+    "tests/differential/first-exchange-slice-artifacts.md",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,14 +103,13 @@ where
     ET: tidb_expression::TidbRunner + tidb_filter::TidbRunner,
     EF: tiflash_expression::TiflashRunner + tiflash_filter::TiflashRunner,
 {
-    let baseline_expression =
-        first_expression_slice::execute_first_expression_slice(
-            baseline_tidb_runner,
-            baseline_tiflash_runner,
-        )
-        .map_err(|error| HarnessError::BaselineExpression {
-            error: format!("{error:?}"),
-        })?;
+    let baseline_expression = first_expression_slice::execute_first_expression_slice(
+        baseline_tidb_runner,
+        baseline_tiflash_runner,
+    )
+    .map_err(|error| HarnessError::BaselineExpression {
+        error: format!("{error:?}"),
+    })?;
     let exchange_expression = first_expression_slice::execute_first_expression_slice(
         exchange_tidb_runner,
         exchange_tiflash_runner,
@@ -179,6 +182,14 @@ where
     })
 }
 
+pub fn render_exchange_parity_artifact_json(
+    report: &ExchangeParityReport,
+) -> Result<String, serde_json::Error> {
+    let mut rendered = serde_json::to_string_pretty(report)?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
 pub fn render_exchange_parity_markdown(report: &ExchangeParityReport) -> String {
     let match_count = report
         .cases
@@ -193,7 +204,9 @@ pub fn render_exchange_parity_markdown(report: &ExchangeParityReport) -> String 
 
     let mut rendered = String::new();
     rendered.push_str("# First Exchange Slice Differential Parity Report\n\n");
-    rendered.push_str("Status: issue #183 harness checkpoint\n\n");
+    rendered.push_str(
+        "Status: issue #183 harness checkpoint, issue #221 artifact-carrier checkpoint\n\n",
+    );
     rendered.push_str("Verified: 2026-03-19\n\n");
     rendered.push_str("## Spec Refs\n\n");
     for spec_ref in &report.spec_refs {
@@ -467,7 +480,8 @@ fn compare_expression_outcomes(
             },
         ) => {
             let mut dimensions = Vec::new();
-            if expression_schema_names(baseline_schema) != expression_schema_names(exchange_schema) {
+            if expression_schema_names(baseline_schema) != expression_schema_names(exchange_schema)
+            {
                 dimensions.push(ComparisonDimension::FieldName);
             }
             if expression_schema_nullability(baseline_schema)
@@ -544,11 +558,13 @@ fn compare_filter_outcomes(
             if filter_schema_names(baseline_schema) != filter_schema_names(exchange_schema) {
                 dimensions.push(ComparisonDimension::FieldName);
             }
-            if filter_schema_nullability(baseline_schema) != filter_schema_nullability(exchange_schema)
+            if filter_schema_nullability(baseline_schema)
+                != filter_schema_nullability(exchange_schema)
             {
                 dimensions.push(ComparisonDimension::FieldNullability);
             }
-            if filter_schema_logical_types(baseline_schema) != filter_schema_logical_types(exchange_schema)
+            if filter_schema_logical_types(baseline_schema)
+                != filter_schema_logical_types(exchange_schema)
             {
                 dimensions.push(ComparisonDimension::LogicalType);
             }
@@ -761,12 +777,10 @@ mod tests {
 
         assert_eq!(report.slice_id, FIRST_EXCHANGE_SLICE_ID);
         assert_eq!(report.cases.len(), 33);
-        assert!(
-            report
-                .cases
-                .iter()
-                .all(|case| case.status == ParityStatus::Match)
-        );
+        assert!(report
+            .cases
+            .iter()
+            .all(|case| case.status == ParityStatus::Match));
     }
 
     #[test]
@@ -860,6 +874,32 @@ mod tests {
         assert!(rendered.contains("- `drift`: 1"));
     }
 
+    #[test]
+    fn exchange_json_renderer_round_trips_report_shape() {
+        let report = ExchangeParityReport {
+            slice_id: FIRST_EXCHANGE_SLICE_ID.to_string(),
+            spec_refs: FIRST_EXCHANGE_SLICE_SPEC_REFS
+                .iter()
+                .map(|spec_ref| (*spec_ref).to_string())
+                .collect(),
+            cases: vec![ParityCase {
+                subject: ComparisonSubject::TidbCaseResults,
+                slice_id: "first-expression-slice".to_string(),
+                case_id: "column-passthrough".to_string(),
+                engine: Some("tidb".to_string()),
+                status: ParityStatus::Match,
+                comparison_dimensions: vec![ComparisonDimension::RowValues],
+                summary: "ok".to_string(),
+            }],
+        };
+
+        let rendered = render_exchange_parity_artifact_json(&report).unwrap();
+        let parsed: ExchangeParityReport = serde_json::from_str(&rendered).unwrap();
+
+        assert_eq!(parsed, report);
+        assert!(rendered.ends_with('\n'));
+    }
+
     impl tidb_expression::TidbRunner for FixtureTidbRunner {
         fn run(
             &self,
@@ -891,8 +931,10 @@ mod tests {
         fn run(
             &self,
             plan: &tiflash_expression::TiflashExecutionPlan,
-        ) -> Result<tiflash_expression::EngineExecutionResult, tiflash_expression::EngineExecutionError>
-        {
+        ) -> Result<
+            tiflash_expression::EngineExecutionResult,
+            tiflash_expression::EngineExecutionError,
+        > {
             let _mode = self.mode;
             baseline_tiflash_expression(plan.request.case_id.as_str())
         }
@@ -943,22 +985,22 @@ mod tests {
                 true,
                 vec![Some(2), None, Some(4)],
             )),
-            "add-int32-overflow-error" => Err(tidb_expression::EngineExecutionError::AdapterUnavailable {
-                message: Some(
-                    "TiDB adapter core does not yet narrow the shared int32 overflow boundary."
-                        .to_string(),
-                ),
-            }),
+            "add-int32-overflow-error" => {
+                Err(tidb_expression::EngineExecutionError::AdapterUnavailable {
+                    message: Some(
+                        "TiDB adapter core does not yet narrow the shared int32 overflow boundary."
+                            .to_string(),
+                    ),
+                })
+            }
             other => panic!("unexpected case_id: {other}"),
         }
     }
 
     fn baseline_tiflash_expression(
         case_id: &str,
-    ) -> Result<
-        tiflash_expression::EngineExecutionResult,
-        tiflash_expression::EngineExecutionError,
-    > {
+    ) -> Result<tiflash_expression::EngineExecutionResult, tiflash_expression::EngineExecutionError>
+    {
         match case_id {
             "column-passthrough" => Ok(rows_result_tiflash_expression(
                 "a",
