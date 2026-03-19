@@ -20,5 +20,5 @@ Next checkpoint:
 
 ## TODOs
 
-- extend the request and response surface beyond the first differential expression slice
+- extend the request and response surface beyond the current first differential slices (`first-expression-slice` and `first-filter-is-not-null-slice`)
 - document TiFlash-specific semantic mismatches found during inventory
