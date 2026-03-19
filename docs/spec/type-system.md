@@ -155,13 +155,13 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, or `decimal128` in current shared docs-first checkpoints
+- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, or `float64` in current shared docs-first checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
-- local executable kernel coverage for this predicate now includes `int32`, `date32`, and `decimal128` in the current shared-kernel conformance slices
+- local executable kernel coverage for this predicate currently includes `int32`, `date32`, and `decimal128` in the shared-kernel conformance slices; `float64` remains docs-first coverage in this checkpoint
 
 ## First Temporal Follow-On Checkpoint
 
@@ -215,11 +215,40 @@ For current shared contracts:
 Local executable decimal kernel conformance coverage now exists in
 `crates/tiforth-kernel/tests/decimal128_slice.rs`.
 
+
+## First Float64 NaN/Infinity Ordering Checkpoint
+
+Issue #194 adds a docs-first float64 checkpoint in
+`docs/design/first-float64-ordering-slice.md`.
+
+Issue #194 also adds the first docs-first float64 coverage anchors in:
+
+- `tests/conformance/first-float64-ordering-slice.md`
+- `tests/differential/first-float64-ordering-slice.md`
+- `adapters/first-float64-ordering-slice.md`
+
+For current shared contracts:
+
+- the first admitted floating checkpoint for NaN, infinity, and ordering
+  semantics is `float64`
+- this checkpoint reuses existing expression and predicate families:
+  passthrough `column(index)` plus `is_not_null(column(index))`
+- `NaN`, `Infinity`, `-Infinity`, `0.0`, and `-0.0` are non-null `float64`
+  values for this checkpoint
+- comparison intent treats `NaN` as unequal to any value (including `NaN`) and
+  treats `0.0` and `-0.0` as compare-equal
+- ordered-comparison intent treats comparisons involving `NaN` as false and
+  orders non-NaN values as `-Infinity < finite < Infinity`
+- canonical differential ordering for this checkpoint is
+  `-Infinity < finite < Infinity < NaN`, with `-0.0` ordered before `0.0` only
+  as a stable canonicalization tie-break
+- broader floating behavior (arithmetic, coercion, casts, and SQL ordering
+  policy) remains follow-on scope
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
 - TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
-- TODO: define NaN, infinity, and ordering semantics
 - TODO: define the first executable collation-sensitive string or
   binary slice, including shared collation identifiers (if needed),
   ordering and comparison semantics, and conformance plus differential

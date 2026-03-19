@@ -10,6 +10,7 @@ Current checkpoint:
 - `adapters/first-filter-is-not-null-slice.md` defines the shared request and response surface for the docs-first differential filter checkpoint
 - `adapters/first-temporal-date32-slice.md` defines the shared request and response surface for the docs-first differential temporal `date32` checkpoint
 - `adapters/first-decimal128-slice.md` defines the shared request and response surface for the docs-first differential decimal `decimal128` checkpoint
+- `adapters/first-float64-ordering-slice.md` defines the shared request and response surface for the docs-first differential float64 NaN/infinity ordering checkpoint
 - `docs/design/adapter-milestone-breakdown.md` fixes the next TiDB checkpoint as a single-engine adapter issue before pairwise drift aggregation lands
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiDB session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
 - `crates/tiforth-adapter-tidb` now encodes first-expression-slice, first-filter-is-not-null-slice, and first-temporal-date32-slice request catalogs with TiDB-oriented SQL lowering and row / error normalization behind runner boundaries
@@ -23,5 +24,5 @@ Next checkpoint:
 
 ## TODOs
 
-- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, and `first-decimal128-slice`)
+- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, and `first-float64-ordering-slice`)
 - extend TiDB compatibility notes beyond the current first-expression and first-filter slice boundaries as new semantic families land
