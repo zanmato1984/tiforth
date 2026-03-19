@@ -17,3 +17,5 @@ Issue #27 adds the first checked-in fixture files for that carrier under `tests/
 Issue #139 adds the first post-gate filter conformance case checkpoint in `tests/conformance/first-filter-is-not-null-slice.md`.
 
 Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance/signed-unsigned-interaction-checkpoint.md`.
+
+Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
