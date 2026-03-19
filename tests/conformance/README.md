@@ -19,3 +19,5 @@ Issue #139 adds the first post-gate filter conformance case checkpoint in `tests
 Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance/signed-unsigned-interaction-checkpoint.md`.
 
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
+
+Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/conformance/first-decimal128-slice.md`.
