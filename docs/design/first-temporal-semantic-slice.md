@@ -1,6 +1,6 @@
 # First Temporal Semantic Slice
 
-Status: issue #174 design checkpoint
+Status: issue #174 design checkpoint, issue #176 coverage-anchor checkpoint
 
 Verified: 2026-03-19
 
@@ -11,6 +11,7 @@ Related issues:
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #149 `milestone-1: implement first executable is_not_null filter slice`
 - #174 `design: define first temporal semantic slice boundary`
+- #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 
 ## Question
 
@@ -27,7 +28,11 @@ timestamp and timezone policy too early?
 - `docs/spec/first-filter-is-not-null.md`
 - `tests/conformance/first-filter-is-not-null-slice.md`
 - `tests/differential/first-filter-is-not-null-slice.md`
+- `tests/conformance/first-temporal-date32-slice.md`
+- `tests/differential/first-temporal-date32-slice.md`
+- `adapters/first-temporal-date32-slice.md`
 - issue #174
+- issue #176
 
 ## Design Summary
 
@@ -68,16 +73,19 @@ The shared data handoff boundary for this first temporal slice is:
 - reserve-before-allocate admission and claim-carrying handoff behavior remain
   unchanged from `docs/contracts/data.md`
 
-## Required Coverage Anchors
+## Coverage Anchor Docs
+
+Issue #176 now provides the first docs-first coverage-anchor set for this
+checkpoint:
+
+- conformance checkpoint doc:
+  `tests/conformance/first-temporal-date32-slice.md`
+- differential checkpoint doc:
+  `tests/differential/first-temporal-date32-slice.md`
+- adapter boundary doc: `adapters/first-temporal-date32-slice.md`
 
 Before kernel or adapter expansion claims broader temporal support, follow-on
-issues should define and exercise coverage anchored to:
-
-- conformance checkpoint doc path:
-  `tests/conformance/first-temporal-date32-slice.md`
-- differential checkpoint doc path:
-  `tests/differential/first-temporal-date32-slice.md`
-- adapter boundary doc path: `adapters/first-temporal-date32-slice.md`
+issues should preserve these anchors or replace them explicitly.
 
 ## Out Of Scope For This Checkpoint
 
@@ -93,4 +101,5 @@ issues should define and exercise coverage anchored to:
 The first temporal checkpoint is now explicit and narrow: `date32`
 column-passthrough plus `is_not_null` predicate semantics, with existing
 runtime and ownership contracts unchanged and broader temporal policy deferred
-to follow-on issues.
+to follow-on issues. The first coverage-anchor docs are now fixed under
+`tests/conformance/`, `tests/differential/`, and `adapters/`.

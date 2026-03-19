@@ -167,6 +167,12 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 Issue #174 adds a docs-first temporal checkpoint in
 `docs/design/first-temporal-semantic-slice.md`.
 
+Issue #176 adds the first docs-first temporal coverage anchors in:
+
+- `tests/conformance/first-temporal-date32-slice.md`
+- `tests/differential/first-temporal-date32-slice.md`
+- `adapters/first-temporal-date32-slice.md`
+
 For current shared contracts:
 
 - the first admitted temporal logical type beyond milestone 1 is `date32`
