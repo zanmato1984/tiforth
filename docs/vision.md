@@ -47,6 +47,7 @@ It also keeps the reboot honest:
 - the first executable post-gate filter checkpoint now exists through `crates/tiforth-kernel` via `FilterPipe` and executable coverage in `crates/tiforth-kernel/tests/filter_is_not_null.rs`
 - the first executable differential filter checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired first-filter artifacts under `inventory/`
 - the first executable differential exchange-parity checkpoint now exists through `crates/tiforth-harness-differential/src/first_exchange_slice.rs` over the existing `first-expression-slice` and `first-filter-is-not-null-slice` case IDs
+- the first exchange parity artifact-carrier checkpoint now defines baseline-versus-exchange markdown and JSON drift-report carriers through `tests/differential/first-exchange-slice-artifacts.md`
 - the first live-runner orchestration path for `first-filter-is-not-null-slice` now exists through `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs` and `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs`
 
 ## Next Checkpoint
