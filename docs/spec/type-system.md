@@ -151,16 +151,17 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice, while keeping broader predicate families and non-`int32`/non-`date32` predicate input out of scope.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, while executable local-kernel predicate input remains limited to `int32` and `date32` until a follow-on issue lands.
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32` or `date32`
+- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, or `decimal128` in current shared docs-first checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
-- reports an execution error rather than applying an implicit cast when the operand is neither `int32` nor `date32`
+- reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
+- local executable kernel coverage for this predicate remains limited to `int32` and `date32` until a follow-on decimal kernel issue lands
 
 ## First Temporal Follow-On Checkpoint
 
@@ -187,6 +188,33 @@ For current shared contracts:
 - broader temporal families remain out of scope until follow-on issues define
   their semantics and coverage
 
+## First Decimal Follow-On Checkpoint
+
+Issue #189 adds a docs-first decimal checkpoint in
+`docs/design/first-decimal-semantic-slice.md`.
+
+Issue #189 also adds the first docs-first decimal coverage anchors in:
+
+- `tests/conformance/first-decimal128-slice.md`
+- `tests/differential/first-decimal128-slice.md`
+- `adapters/first-decimal128-slice.md`
+
+For current shared contracts:
+
+- the first admitted decimal logical type beyond milestone 1 is
+  `decimal128(precision, scale)`
+- the first decimal checkpoint reuses existing expression and predicate
+  families: passthrough `column(index)` plus `is_not_null(column(index))`
+- this checkpoint preserves decimal precision and scale metadata and compares
+  row outcomes through canonical decimal strings
+- this checkpoint does not define decimal arithmetic, cast, coercion, or
+  rounding semantics
+- broader decimal families remain out of scope until follow-on issues define
+  their semantics and coverage
+
+Local executable decimal kernel coverage remains out of scope until a follow-on
+issue lands in `crates/tiforth-kernel`.
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
@@ -197,7 +225,7 @@ For current shared contracts:
   ordering and comparison semantics, and conformance plus differential
   coverage
 - TODO: extend temporal semantics beyond the first `date32` checkpoint, including timezone-aware timestamp normalization and ordering rules
-- TODO: define the first executable decimal semantic slice, including precision and scale propagation rules
+- TODO: extend decimal semantics beyond the first `decimal128` checkpoint, including arithmetic, cast/coercion, precision/scale propagation, and rounding behavior
 - TODO: define JSON comparability and cast behavior
 
 ## Boundary For Now
