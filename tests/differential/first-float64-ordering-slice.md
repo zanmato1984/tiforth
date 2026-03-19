@@ -1,11 +1,12 @@
 # First Differential Float64 NaN/Infinity Ordering Slice
 
-Status: issue #194 design checkpoint
+Status: issue #194 design checkpoint, issue #208 harness checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #194 `design: define first float64 NaN, infinity, and ordering checkpoint`
+- #208 `harness: execute first-float64-ordering-slice differential artifacts for TiDB and TiFlash`
 
 ## Question
 
@@ -198,12 +199,13 @@ target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-float64-ordering-slice.md`.
 
+Issue #208 now adds executable adapter/harness wiring plus checked-in float64 `case-results` and `drift-report` artifacts for this slice.
+
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
 
-- checked-in inventory artifacts for this slice
-- executable local and live differential harness coverage
+- live differential runner coverage against real TiDB and TiFlash environments
 - float arithmetic and coercion semantics
 - SQL ordering and null-ordering policy checkpoints
 - TiKV participation
