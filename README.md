@@ -13,6 +13,25 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 - `crates/`: narrow Rust implementation slices that are justified by accepted docs and local tests
 - `scripts/`: local workflow helpers for repeatable repository maintenance tasks
 
+## Local Rust Setup
+
+Kernel and harness crate development expects a local Rust toolchain with `rustfmt`.
+
+For a clean machine setup, run:
+
+```sh
+scripts/setup-rust-toolchain.sh
+```
+
+Then run formatting and tests locally:
+
+```sh
+cargo fmt --all -- --check
+cargo test --workspace
+```
+
+`rust-toolchain.toml` keeps the repository on the stable channel with the required formatting component.
+
 ## Working Rules
 
 - Preserve donor ideas, not donor code, unless a tracked issue or accepted decision explicitly says otherwise.
