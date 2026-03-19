@@ -7,6 +7,7 @@ Related issues:
 - #137 `design: choose first post-gate kernel expansion boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
+- #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
 
 ## Question
 
@@ -21,7 +22,9 @@ filter semantic boundary?
 - `docs/design/first-post-gate-kernel-boundary.md`
 - `tests/differential/README.md`
 - `adapters/first-expression-slice.md`
+- `tests/differential/first-filter-is-not-null-slice-artifacts.md`
 - issue #147
+- issue #153
 
 ## First Slice Decision
 
@@ -163,10 +166,9 @@ in `adapters/first-filter-is-not-null-slice.md`.
 
 Later issues may extend this slice to cover:
 
-- first executable TiDB and TiFlash adapter wiring for this filter slice
-- checked-in per-engine `case-results` plus paired drift artifacts
+- live TiDB and TiFlash runner orchestration beyond deterministic fixture runners
 - broader predicate families and wider logical-type coverage
 - TiKV participation
 
 Until then, this checkpoint fixes only the first differential filter semantics,
-request IDs, and adapter-boundary shape.
+request IDs, adapter-boundary shape, and stable first artifact carriers.

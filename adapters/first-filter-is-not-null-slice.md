@@ -6,6 +6,7 @@ Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
+- #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
 
 ## Purpose
 
@@ -16,6 +17,8 @@ The goal is to give future harness work one explicit contract between:
 
 - the shared differential filter slice in
   `tests/differential/first-filter-is-not-null-slice.md`
+- the stable first-filter artifact carriers in
+  `tests/differential/first-filter-is-not-null-slice-artifacts.md`
 - the existing drift-report carrier guidance in
   `tests/differential/drift-report-carrier.md`
 - TiDB and TiFlash execution plumbing that should stay adapter-local
@@ -90,7 +93,7 @@ surface.
 
 ## Response Surface
 
-Each adapter invocation should return one normalized `case result` record.
+Each adapter invocation should return one normalized `case result` record whose fields match the minimum carrier now defined in `tests/differential/first-filter-is-not-null-slice-artifacts.md`.
 
 That record must include at least:
 
@@ -146,7 +149,6 @@ classify the paired case as `unsupported` in the drift report.
 
 Later issues may extend this boundary to cover:
 
-- checked-in case-result and drift-report artifacts for this slice
 - broader error normalization once this first vocabulary is too narrow
 - reusable session profiles or adapter capability advertisement
 - live TiDB and TiFlash runner orchestration beyond deterministic local
