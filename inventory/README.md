@@ -39,12 +39,9 @@ Current checkpoint:
 - `inventory/first-expression-slice-tidb-compat-notes.md` records the first TiDB-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
 - `inventory/first-expression-slice-tiflash-compat-notes.md` records the matching TiFlash-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
 - earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
+- issue #159 now fixes milestone-1 drift-report sidecar policy: checked-in Markdown `drift-report` artifacts are required; machine-readable sidecars are optional and not required
 
 Current inventory priority:
 
 - `docs/design/first-inventory-wave.md` defines the first donor and engine inventory scope
 - that first wave stays inside the milestone-1 projection core and the `first-expression-slice` semantic surface
-
-## TODOs
-
-- decide whether a later checkpoint needs a required machine-readable `drift-report` sidecar in addition to Markdown summaries
