@@ -15,7 +15,7 @@ Current checkpoint:
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiFlash session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
 - `crates/tiforth-adapter-tiflash` now encodes first-expression-slice, first-filter-is-not-null-slice, and first-temporal-date32-slice request catalogs with TiFlash-oriented SQL lowering and row / error normalization behind runner boundaries
 - `crates/tiforth-harness-differential` now exercises that TiFlash adapter core alongside the TiDB adapter core and validates the first checked-in pairwise artifacts under `inventory/`
-- `inventory/first-expression-slice-tiflash-compat-notes.md` and `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` now capture TiFlash-side compatibility notes for the first-expression and first-filter executable differential slices
+- `inventory/first-expression-slice-tiflash-compat-notes.md`, `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md`, and `inventory/first-temporal-date32-slice-tiflash-compat-notes.md` now capture TiFlash-side compatibility notes for the first-expression, first-filter, and first-temporal executable differential slices
 - `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs` now provides an env-configured live TiFlash runner implementation for `first-filter-is-not-null-slice`
 
 Next checkpoint:
@@ -25,4 +25,4 @@ Next checkpoint:
 ## TODOs
 
 - extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, and `first-float64-ordering-slice`)
-- extend TiFlash compatibility notes beyond the current first-expression and first-filter slice boundaries as new semantic families land
+- extend TiFlash compatibility notes beyond the current first-expression, first-filter, and first-temporal-date32 slice boundaries as new semantic families land
