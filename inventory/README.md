@@ -30,16 +30,19 @@ Current checkpoint:
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary
+- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first-slice checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-filter harness checkpoint
 - `inventory/first-filter-is-not-null-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first-filter checkpoint
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first-filter checkpoint
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
 - `inventory/first-expression-slice-tidb-compat-notes.md` records the first TiDB-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
 - `inventory/first-expression-slice-tiflash-compat-notes.md` records the matching TiFlash-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
 - earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
-- issue #159 now fixes milestone-1 drift-report sidecar policy: checked-in Markdown `drift-report` artifacts are required; machine-readable sidecars are optional and not required
+- issue #159 fixes milestone-1 drift-report sidecar policy: checked-in Markdown `drift-report` artifacts are required and machine-readable sidecars remain optional
+- issue #161 adds the first checked-in JSON drift-report sidecars for the first-expression and first-filter differential slices
 
 Current inventory priority:
 

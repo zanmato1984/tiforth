@@ -1,6 +1,6 @@
 # First Filter Slice Artifact Carriers
 
-Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint
+Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #155 `harness: wire live TiDB and TiFlash runners for first-filter-is-not-null-slice`
 - #157 `workflow: add script for first-filter live artifact refresh`
 - #159 `docs: define machine-readable sidecar policy for differential drift reports`
+- #161 `harness: add machine-readable drift-report sidecars for first differential slices`
 
 ## Purpose
 
@@ -26,12 +27,13 @@ defined in `adapters/first-filter-is-not-null-slice.md`.
 
 ## Artifact Set
 
-The first executable differential filter checkpoint produces three checked-in
+The first executable differential filter checkpoint produces four checked-in
 artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
 3. one aggregated TiDB-versus-TiFlash `drift-report`
+4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
 These carriers should stay simple and JSON-serializable at the record level
 even when the drift report also renders a human-readable Markdown summary.
@@ -41,6 +43,7 @@ Current checked-in examples:
 - `inventory/first-filter-is-not-null-slice-tidb-case-results.json`
 - `inventory/first-filter-is-not-null-slice-tiflash-case-results.json`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md`
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -101,9 +104,10 @@ For this slice, `unsupported` should stay limited to explicit adapter or
 engine-path gaps for already-documented first-slice cases, and each
 `unsupported` record should include a concrete `follow_up`.
 
-For the issue #159 sidecar-policy checkpoint, this slice does not require a
-machine-readable `drift-report` sidecar; the checked-in Markdown
-`drift-report` remains the only required aggregated report artifact.
+For the issue #161 first-sidecar checkpoint, this slice now also checks in a
+machine-readable `drift-report` sidecar that mirrors the shared carrier fields
+(`slice_id`, `engines[]`, `spec_refs[]`, and `cases[]`) used by the paired
+Markdown report.
 
 ## Live Runner Wiring
 
@@ -150,7 +154,8 @@ scripts/refresh-first-filter-live-artifacts.sh
 
 By default the helper runs the live entrypoint in dry-run mode and prints
 rendered artifacts to stdout. Use `--write-artifacts` to overwrite the
-checked-in first-filter artifact files under `inventory/`.
+checked-in first-filter artifact files under `inventory/`, including the JSON
+drift-report sidecar.
 
 ## Boundary For Now
 

@@ -1,6 +1,6 @@
 # First Expression Slice Artifact Carriers
 
-Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint
+Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint
 
 Related issues:
 
@@ -9,6 +9,7 @@ Related issues:
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #133 `design: define reusable differential drift-report carrier guidance`
 - #159 `docs: define machine-readable sidecar policy for differential drift reports`
+- #161 `harness: add machine-readable drift-report sidecars for first differential slices`
 
 ## Purpose
 
@@ -20,11 +21,12 @@ The minimal adapter request and response boundary that feeds these artifacts is 
 
 ## Artifact Set
 
-The first executable differential checkpoint produces three checked-in artifacts:
+The first executable differential checkpoint produces four checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
 3. one aggregated TiDB-versus-TiFlash `drift-report`
+4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
 These carriers should stay simple and JSON-serializable at the record level even when the drift report also renders a human-readable Markdown summary.
 
@@ -33,6 +35,7 @@ Current checked-in examples:
 - `inventory/first-expression-slice-tidb-case-results.json`
 - `inventory/first-expression-slice-tiflash-case-results.json`
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
+- `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -92,9 +95,10 @@ For this slice, `unsupported` should stay limited to explicit adapter or
 engine-path gaps for already-documented first-slice cases, and each
 `unsupported` record should include a concrete `follow_up`.
 
-For the issue #159 sidecar-policy checkpoint, this slice does not require a
-machine-readable `drift-report` sidecar; the checked-in Markdown
-`drift-report` remains the only required aggregated report artifact.
+For the issue #161 first-sidecar checkpoint, this slice now also checks in a
+machine-readable `drift-report` sidecar that mirrors the shared carrier fields
+(`slice_id`, `engines[]`, `spec_refs[]`, and `cases[]`) used by the paired
+Markdown report.
 
 ## Boundary For Now
 
