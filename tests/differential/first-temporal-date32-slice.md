@@ -1,11 +1,12 @@
 # First Differential Temporal `date32` Slice
 
-Status: issue #176 design checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint
 
 Related issues:
 
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
+- #185 `docs: define first temporal date32 differential artifact carriers`
 
 ## Question
 
@@ -169,7 +170,8 @@ in `adapters/first-temporal-date32-slice.md`.
 
 Later issues may extend this slice to cover:
 
-- checked-in artifact carriers and inventory refresh from live runner output
+- checked-in inventory refresh from live runner output against the carrier
+  contract in `tests/differential/first-temporal-date32-slice-artifacts.md`
 - broader temporal logical families and timezone-sensitive behavior
 - temporal arithmetic, cast, extract, or truncation semantics
 - TiKV participation
