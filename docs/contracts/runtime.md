@@ -147,6 +147,16 @@ For milestone 1:
 - any buffering or transfer path still follows reserve-before-allocate admission before resident memory growth
 - admitted resident bytes that remain reachable from live batches still follow claim-carrying handoff and release rules
 
+## First In-Contract Exchange Follow-On Checkpoint
+
+Post-milestone-1 runtime expansion for exchange is now fixed in:
+
+- `docs/design/first-in-contract-exchange-slice.md`
+
+That checkpoint defines one narrow in-contract exchange boundary plus required
+conformance and differential coverage while preserving adopted runtime-state
+meanings.
+
 ## Milestone-1 Stage Handoff And Ownership
 
 - every data-bearing handoff uses the canonical semantic envelope from `docs/contracts/data.md`: adopted upstream `Batch` payload plus batch identity, origin metadata, and live ownership claims
@@ -239,10 +249,16 @@ Operator-specific compute failures such as arithmetic overflow remain outside th
 - requiring transparent spill inside Arrow allocation internals
 - requiring direct host-allocator routing for every Arrow growth path in milestone 1
 
-## Open Questions
+## First In-Contract Exchange Follow-On Boundary
 
-- TODO: define the first in-contract exchange slice (operator boundary, backpressure mapping, and coverage) if runtime scope expands beyond the current source -> projection or filter -> sink path
+Issue #169 resolves the former runtime-contract exchange TODO by naming one
+concrete post-milestone checkpoint in
+`docs/design/first-in-contract-exchange-slice.md`.
+
+Later runtime-expansion issues may build on that first exchange slice, but they
+should continue to preserve adopted runtime-state meanings and claim-carrying
+handoff semantics unless a separately accepted contract change says otherwise.
 
 ## Initial Boundary
 
-For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage, the milestone-1 exchange mapping boundary under `docs/design/exchange-runtime-mapping.md`, the adapter-visible fixture-translation boundary under `docs/design/adapter-visible-runtime-event-carrier.md`, and the shared callback or streaming adoption gate under `docs/design/runtime-event-streaming-adoption-gate.md`. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.
+For milestone 1, this contract now fixes the observable handoff, ownership, and error meanings that sit around the adopted `broken-pipeline-rs` Arrow-bound runtime surface, plus the local Rust-side snapshot carrier used by current executable coverage, the milestone-1 exchange mapping boundary under `docs/design/exchange-runtime-mapping.md`, the first post-milestone in-contract exchange checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the adapter-visible fixture-translation boundary under `docs/design/adapter-visible-runtime-event-carrier.md`, and the shared callback or streaming adoption gate under `docs/design/runtime-event-streaming-adoption-gate.md`. `tiforth` begins where operator, expression, admission, ownership, and adapter-layer semantics begin; adapter-local orchestration stays outside the shared contract under `docs/design/adapter-runtime-orchestration-boundary.md`, and the shared upstream runtime protocol itself remains upstream-owned.

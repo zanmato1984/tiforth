@@ -115,7 +115,7 @@ Milestone 1 continues to adopt by name and meaning:
 
 ## Deferred Questions
 
-- how a first in-contract exchange slice should attach through adopted runtime states once one is proposed under `docs/design/exchange-runtime-mapping.md`
+- how later runtime-expansion work should attach exchange implementations beyond the first in-contract slice in `docs/design/first-in-contract-exchange-slice.md`
 - whether a later milestone needs a shared callback or streaming event API after the current fixture-translation boundary
 - whether a later milestone needs a broader operator-construction surface once kernels expand beyond the current source -> projection -> sink slice
 
