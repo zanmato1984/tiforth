@@ -1,6 +1,7 @@
 # First Temporal Semantic Slice
 
-Status: issue #174 design checkpoint, issue #176 coverage-anchor checkpoint
+Status: issue #174 design checkpoint, issue #176 coverage-anchor checkpoint,
+issue #178 executable local checkpoint
 
 Verified: 2026-03-19
 
@@ -12,6 +13,7 @@ Related issues:
 - #149 `milestone-1: implement first executable is_not_null filter slice`
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
+- #178 `milestone-1: implement first executable temporal date32 slice in local kernel`
 
 ## Question
 
@@ -33,6 +35,7 @@ timestamp and timezone policy too early?
 - `adapters/first-temporal-date32-slice.md`
 - issue #174
 - issue #176
+- issue #178
 
 ## Design Summary
 
@@ -75,7 +78,7 @@ The shared data handoff boundary for this first temporal slice is:
 
 ## Coverage Anchor Docs
 
-Issue #176 now provides the first docs-first coverage-anchor set for this
+Issue #176 provides the first docs-first coverage-anchor set for this
 checkpoint:
 
 - conformance checkpoint doc:
@@ -83,6 +86,10 @@ checkpoint:
 - differential checkpoint doc:
   `tests/differential/first-temporal-date32-slice.md`
 - adapter boundary doc: `adapters/first-temporal-date32-slice.md`
+
+Issue #178 adds first executable local coverage for this checkpoint in:
+
+- `crates/tiforth-kernel/tests/temporal_date32_slice.rs`
 
 Before kernel or adapter expansion claims broader temporal support, follow-on
 issues should preserve these anchors or replace them explicitly.
@@ -101,5 +108,7 @@ issues should preserve these anchors or replace them explicitly.
 The first temporal checkpoint is now explicit and narrow: `date32`
 column-passthrough plus `is_not_null` predicate semantics, with existing
 runtime and ownership contracts unchanged and broader temporal policy deferred
-to follow-on issues. The first coverage-anchor docs are now fixed under
-`tests/conformance/`, `tests/differential/`, and `adapters/`.
+to follow-on issues. Coverage anchors remain fixed under
+`tests/conformance/`, `tests/differential/`, and `adapters/`, and first
+executable local conformance coverage now exists in
+`crates/tiforth-kernel/tests/temporal_date32_slice.rs`.

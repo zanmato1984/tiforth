@@ -29,6 +29,7 @@ impl Expr {
                     .fields()
                     .get(*index)
                     .ok_or(TiforthError::MissingColumn { index: *index })?;
+                validate_column_input_type(*index, field.data_type())?;
                 Ok(Field::new(
                     name,
                     field.data_type().clone(),
@@ -66,5 +67,21 @@ impl Expr {
                 Ok(lhs.int32_nullable(input_schema)? || rhs.int32_nullable(input_schema)?)
             }
         }
+    }
+}
+
+fn validate_column_input_type(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
+    match data_type {
+        DataType::Date64
+        | DataType::Time32(_)
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_)
+        | DataType::Interval(_) => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported temporal expression input at column {index}, got {data_type:?}; first temporal slice supports Date32 only"
+            ),
+        }),
+        _ => Ok(()),
     }
 }

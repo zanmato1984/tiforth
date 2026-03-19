@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use arrow_array::builder::BooleanBuilder;
-use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
+use arrow_array::{Array, ArrayRef, BooleanArray, RecordBatch};
+use arrow_schema::DataType;
 use arrow_select::filter::filter_record_batch;
 
 use broken_pipeline::traits::arrow::Batch;
@@ -101,21 +102,35 @@ fn evaluate_selection(
                 .columns()
                 .get(*index)
                 .ok_or(TiforthError::MissingColumn { index: *index })?;
-            let values = column
-                .as_any()
-                .downcast_ref::<Int32Array>()
-                .ok_or_else(|| TiforthError::UnsupportedDataType {
-                    detail: format!(
-                        "expected Int32 predicate input at column {index}, got {:?}",
-                        column.data_type()
-                    ),
-                })?;
-            let mut builder = BooleanBuilder::with_capacity(values.len());
-            for row in 0..values.len() {
-                builder.append_value(!values.is_null(row));
+            validate_predicate_input_type(*index, column.data_type())?;
+
+            let mut builder = BooleanBuilder::with_capacity(column.len());
+            for row in 0..column.len() {
+                builder.append_value(!column.is_null(row));
             }
             Ok(builder.finish())
         }
+    }
+}
+
+fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
+    match data_type {
+        DataType::Int32 | DataType::Date32 => Ok(()),
+        DataType::Date64
+        | DataType::Time32(_)
+        | DataType::Time64(_)
+        | DataType::Timestamp(_, _)
+        | DataType::Duration(_)
+        | DataType::Interval(_) => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported temporal predicate input at column {index}, got {data_type:?}; first temporal slice supports Date32 only"
+            ),
+        }),
+        _ => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "expected Int32 or Date32 predicate input at column {index}, got {data_type:?}"
+            ),
+        }),
     }
 }
 

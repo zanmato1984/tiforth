@@ -167,7 +167,7 @@ fn filter_pipe_reports_unsupported_predicate_type_error() {
 
     assert!(error
         .to_string()
-        .contains("unsupported data type: expected Int32 predicate input at column 0, got Utf8"));
+        .contains("unsupported data type: expected Int32 or Date32 predicate input at column 0, got Utf8"));
     assert!(sink.batches().is_empty());
 }
 

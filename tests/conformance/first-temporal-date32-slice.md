@@ -1,5 +1,7 @@
 # First Temporal `date32` Slice Cases
 
+Status: issue #176 docs checkpoint, issue #178 executable local checkpoint
+
 Spec source: `docs/design/first-temporal-semantic-slice.md`
 
 ## Canonical Cases
@@ -28,9 +30,6 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. A follow-on implementation issue should add
-local executable conformance coverage for this case set.
-
-Recommended first executable location:
+This checkpoint now has local executable conformance coverage in:
 
 - `crates/tiforth-kernel/tests/temporal_date32_slice.rs`
