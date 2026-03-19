@@ -42,6 +42,8 @@ Current checkpoint:
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first temporal checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first-filter predicate slice
 - `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first-filter predicate slice
+- `inventory/first-temporal-date32-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first temporal `date32` differential slice
+- `inventory/first-temporal-date32-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first temporal differential slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
@@ -52,6 +54,7 @@ Current checkpoint:
 - issue #161 adds the first checked-in JSON drift-report sidecars for the first-expression and first-filter differential slices
 - issue #185 defines docs-first artifact carriers for the first temporal `date32` differential slice
 - issue #187 adds the first checked-in temporal `date32` differential case-results artifacts plus paired drift-report outputs
+- issue #204 adds the first checked-in temporal `date32` per-engine compatibility notes artifacts
 
 Current inventory priority:
 
