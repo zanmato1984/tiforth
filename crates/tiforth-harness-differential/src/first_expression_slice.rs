@@ -8,6 +8,8 @@ pub const TIFLASH_CASE_RESULTS_REF: &str =
     "inventory/first-expression-slice-tiflash-case-results.json";
 pub const DRIFT_REPORT_REF: &str =
     "inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md";
+pub const DRIFT_REPORT_SIDECAR_REF: &str =
+    "inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HarnessError {
@@ -212,6 +214,14 @@ pub fn render_case_results_artifact_json(
     artifact: &CaseResultsArtifact,
 ) -> Result<String, serde_json::Error> {
     let mut rendered = serde_json::to_string_pretty(artifact)?;
+    rendered.push('\n');
+    Ok(rendered)
+}
+
+pub fn render_drift_report_artifact_json(
+    report: &DriftReport,
+) -> Result<String, serde_json::Error> {
+    let mut rendered = serde_json::to_string_pretty(report)?;
     rendered.push('\n');
     Ok(rendered)
 }
@@ -854,6 +864,10 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../../inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md"
     );
+    const DRIFT_REPORT_SIDECAR_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json"
+    );
 
     #[test]
     fn canonical_requests_match_across_adapter_cores() {
@@ -892,6 +906,10 @@ mod tests {
         assert_eq!(
             render_drift_report_markdown(&bundle.drift_report),
             std::fs::read_to_string(DRIFT_REPORT_PATH).unwrap()
+        );
+        assert_eq!(
+            render_drift_report_artifact_json(&bundle.drift_report).unwrap(),
+            std::fs::read_to_string(DRIFT_REPORT_SIDECAR_PATH).unwrap()
         );
     }
 

@@ -6,7 +6,8 @@ use tiforth_harness_differential::first_filter_is_not_null_live::{
     TIFLASH_MYSQL_ENV_PREFIX,
 };
 use tiforth_harness_differential::first_filter_is_not_null_slice::{
-    execute_first_filter_is_not_null_slice, render_case_results_artifact_json, DRIFT_REPORT_REF,
+    execute_first_filter_is_not_null_slice, render_case_results_artifact_json,
+    render_drift_report_artifact_json, DRIFT_REPORT_REF, DRIFT_REPORT_SIDECAR_REF,
     TIDB_CASE_RESULTS_REF, TIFLASH_CASE_RESULTS_REF,
 };
 
@@ -35,6 +36,8 @@ fn run() -> Result<(), String> {
             format!("failed to render TiFlash case-results artifact as JSON: {error}")
         })?;
     let drift_report = render_live_drift_report_markdown(&bundle.drift_report);
+    let drift_report_sidecar = render_drift_report_artifact_json(&bundle.drift_report)
+        .map_err(|error| format!("failed to render drift-report sidecar as JSON: {error}"))?;
 
     if write_artifacts {
         fs::write(TIDB_CASE_RESULTS_REF, &tidb_case_results)
@@ -43,11 +46,14 @@ fn run() -> Result<(), String> {
             .map_err(|error| format!("failed to write `{TIFLASH_CASE_RESULTS_REF}`: {error}"))?;
         fs::write(DRIFT_REPORT_REF, &drift_report)
             .map_err(|error| format!("failed to write `{DRIFT_REPORT_REF}`: {error}"))?;
+        fs::write(DRIFT_REPORT_SIDECAR_REF, &drift_report_sidecar)
+            .map_err(|error| format!("failed to write `{DRIFT_REPORT_SIDECAR_REF}`: {error}"))?;
 
         println!("Updated:");
         println!("- {TIDB_CASE_RESULTS_REF}");
         println!("- {TIFLASH_CASE_RESULTS_REF}");
         println!("- {DRIFT_REPORT_REF}");
+        println!("- {DRIFT_REPORT_SIDECAR_REF}");
         return Ok(());
     }
 
@@ -62,6 +68,8 @@ fn run() -> Result<(), String> {
     print!("{tiflash_case_results}");
     println!("=== {DRIFT_REPORT_REF} ===");
     print!("{drift_report}");
+    println!("=== {DRIFT_REPORT_SIDECAR_REF} ===");
+    print!("{drift_report_sidecar}");
 
     Ok(())
 }
