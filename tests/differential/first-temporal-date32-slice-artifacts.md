@@ -1,12 +1,13 @@
 # First Temporal `date32` Slice Artifact Carriers
 
-Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint
 
 Related issues:
 
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #185 `docs: define first temporal date32 differential artifact carriers`
+- #187 `harness: execute first-temporal-date32 differential artifacts for TiDB and TiFlash`
 
 ## Purpose
 
@@ -23,23 +24,20 @@ defined in `adapters/first-temporal-date32-slice.md`.
 
 ## Artifact Set
 
-The first executable temporal differential checkpoint should produce four
-checked-in artifacts:
+The first executable temporal differential checkpoint produces four checked-in
+artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Planned artifact filenames for this slice:
+Current artifact filenames for this slice:
 
 - `inventory/first-temporal-date32-slice-tidb-case-results.json`
 - `inventory/first-temporal-date32-slice-tiflash-case-results.json`
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json`
-
-Issue #185 is docs-first only and does not add or refresh those `inventory/`
-files.
 
 ## `case-results` Artifact Shape
 
@@ -109,15 +107,12 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-This checkpoint documents carriers only.
+Issue #187 adds executable fixture-runner wiring and checks in the first
+`first-temporal-date32-slice` artifacts listed above.
 
-Follow-on harness work should add executable runner wiring for this slice and
-then refresh or check in the planned `inventory/` files using the same carrier
-shape defined here.
-
-Until that executable checkpoint lands, PRs that touch this note may declare:
-
-- `Inventory-Impact: none - temporal artifact carriers documented but no live-runner output refreshed`
+Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
+normalized fields, or drift conclusions change under
+`docs/process/inventory-refresh.md`.
 
 ## Boundary For Now
 
