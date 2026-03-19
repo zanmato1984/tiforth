@@ -48,6 +48,7 @@ This keeps host memory control explicit while allowing milestone-1 data construc
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 Detailed batch handoff and ownership rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
 Detailed dictionary-encoding rationale lives in `docs/design/dictionary-encoding-boundary.md`.
+Detailed first dictionary-aware handoff slice rationale lives in `docs/design/first-dictionary-aware-handoff-slice.md`.
 Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-retry-runtime-mapping.md`.
 Detailed nested plus decimal and temporal metadata boundary rationale lives in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`.
 
@@ -76,10 +77,10 @@ Dictionary encoding is a physical Arrow representation choice, not a new shared 
 For the shared contract, that means:
 
 - specs, harnesses, and adapters reason about the underlying logical value type and nullability rather than treating `dictionary<index, values>` as a distinct semantic type
-- the current milestone-1 shared-kernel and local conformance slice do not accept dictionary-encoded arrays as a required stage-handoff format
-- when an adapter, source, or engine-native surface encounters dictionary-backed data for a milestone-1 case, it should normalize that data to the equivalent decoded logical array before the data enters the current shared slice or checked-in differential evidence
+- the current milestone-1 executable projection slice does not require dictionary-encoded arrays as stage-handoff input
+- when an adapter, source, or engine-native surface encounters dictionary-backed data outside the first dictionary-aware slice below, it should normalize that data to the equivalent decoded logical array before the data enters the current executable slice or checked-in differential evidence
 - the current milestone-1 expression-projection slice must not emit dictionary-encoded output arrays, so its governed claims describe the ordinary decoded Arrow buffers that remain reachable after handoff
-- if a later issue allows dictionary-backed arrays to cross the shared contract directly, that issue should define the first affected slice, the supported logical families, and how ownership claims attach to dictionary values buffers versus index buffers when those lifetimes can diverge
+- the first dictionary-aware shared handoff slice is defined in `docs/design/first-dictionary-aware-handoff-slice.md`: passthrough of `dictionary<int32, int32>` through `column(index)` with separate index-domain and values-domain claim ownership units when lifetimes can diverge
 
 ## Milestone-1 Nested And Decimal/Temporal Metadata Boundary
 
@@ -155,7 +156,6 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Open Questions
 
-- TODO: define the first later slice, if any, that allows dictionary-encoded arrays to cross the shared contract without prior normalization
 - TODO: define the first shared slice that allows nested-family arrays to cross stage boundaries directly and specifies claim ownership behavior for nested buffers
 - TODO: define the first decimal and temporal shared semantic slices, including required precision/scale and unit/timezone metadata handling
 - TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
@@ -164,4 +164,4 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, the rule that current shared slices normalize dictionary-backed data before contract handoff, and the out-of-scope boundary for nested plus decimal and temporal families in the current slice. Later adapter-visible layouts, richer claim serialization, direct dictionary-aware handoff, nested-family handoff, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns. Nested-family handoff, decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
