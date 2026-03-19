@@ -21,7 +21,7 @@ This spec defines the first executable `tiforth` slice:
 - one collecting sink for local tests
 - expression evaluation for `column`, `literal<int32>`, and `add<int32>`
 
-Filter is deferred unless a later issue extends this slice explicitly.
+Filter execution is deferred unless a later issue extends this slice explicitly. The first post-gate filter semantic checkpoint is documented in `docs/spec/first-filter-is-not-null.md`.
 
 ## Batch Contract
 
