@@ -179,4 +179,6 @@ Before starting issue work:
 3. do the work there
 4. open the PR from that branch
 
+For the ordinary clean setup case, prefer `scripts/start-issue-worktree.sh <issue-number>` before step 3 so issue startup stays repeatable.
+
 See also: `docs/process/worktrees.md`

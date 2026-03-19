@@ -40,6 +40,8 @@ Examples:
 4. Run coding agents only inside that worktree.
 5. Open the PR from that branch.
 
+For the ordinary clean setup case, prefer `scripts/start-issue-worktree.sh <issue-number>` so base-branch fast-forward plus issue branch/worktree creation stay repeatable.
+
 ## Completion Cleanup
 
 When an issue is done or its PR is merged, finish by restoring local checkout hygiene.
