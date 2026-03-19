@@ -151,16 +151,16 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path while keeping broader predicate families and non-`int32` predicate input out of scope.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice, while keeping broader predicate families and non-`int32`/non-`date32` predicate input out of scope.
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`
+- requires one `column(index)` operand that resolves to logical type `int32` or `date32`
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
-- reports an execution error rather than applying an implicit cast when the operand is not `int32`
+- reports an execution error rather than applying an implicit cast when the operand is neither `int32` nor `date32`
 
 ## First Temporal Follow-On Checkpoint
 
@@ -172,6 +172,10 @@ Issue #176 adds the first docs-first temporal coverage anchors in:
 - `tests/conformance/first-temporal-date32-slice.md`
 - `tests/differential/first-temporal-date32-slice.md`
 - `adapters/first-temporal-date32-slice.md`
+
+Issue #178 adds the first executable local conformance coverage for this checkpoint in:
+
+- `crates/tiforth-kernel/tests/temporal_date32_slice.rs`
 
 For current shared contracts:
 
