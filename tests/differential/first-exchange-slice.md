@@ -1,11 +1,12 @@
 # First Differential Exchange Slice
 
-Status: issue #169 design checkpoint
+Status: issue #169 design checkpoint, issue #183 harness checkpoint
 
 Related issues:
 
 - #125 `design: define milestone-1 exchange runtime mapping boundary`
 - #169 `design: define first in-contract exchange slice boundary`
+- #183 `harness: wire first-exchange-slice differential parity checkpoint`
 
 ## Question
 
@@ -20,6 +21,7 @@ exchange boundary does not change already-defined cross-engine outcomes?
 - `tests/differential/first-expression-slice-artifacts.md`
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md`
 - issue #169
+- issue #183
 
 ## First Differential Decision
 
@@ -54,8 +56,17 @@ runs on these dimensions:
 - TiKV expansion
 - exchange transport details that remain adapter-local orchestration
 
-## Follow-On Boundary
+## Executable Harness Wiring
 
-A follow-on implementation issue may add executable differential harness wiring
-for this parity checkpoint. Until then, this file fixes the expected exchange
-parity behavior and keeps existing differential slice IDs stable.
+Issue #183 now provides executable parity wiring in:
+
+- `crates/tiforth-harness-differential/src/first_exchange_slice.rs`
+
+That harness executes baseline and exchange paths for:
+
+- `first-expression-slice`
+- `first-filter-is-not-null-slice`
+
+It compares normalized per-engine case outcomes plus per-case TiDB-versus-TiFlash
+drift status so the checkpoint can detect both result-surface regressions and
+drift-classification changes without introducing new slice IDs.
