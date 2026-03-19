@@ -14,6 +14,7 @@ Examples:
 This helper:
 - finds or uses the repository's base worktree
 - checks that the base worktree is clean
+- verifies the requested GitHub issue is open (unless `TIFORTH_SKIP_ISSUE_CHECK=1`)
 - fast-forwards the base branch
 - creates a new issue branch from the base branch
 - creates the dedicated issue worktree for that branch
@@ -39,6 +40,32 @@ detect_base_worktree() {
       }
     }
   '
+}
+
+verify_issue_is_open() {
+  local issue_number=$1
+
+  if [[ ${TIFORTH_SKIP_ISSUE_CHECK:-0} == "1" ]]; then
+    return 0
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "Cannot verify issue #$issue_number because \`gh\` is not installed." >&2
+    echo "Install GitHub CLI or rerun with TIFORTH_SKIP_ISSUE_CHECK=1 to bypass verification." >&2
+    exit 1
+  fi
+
+  local issue_state
+  if ! issue_state=$(gh issue view "$issue_number" --json state --jq '.state' 2>/dev/null); then
+    echo "Unable to load issue #$issue_number with \`gh issue view\`." >&2
+    echo "Ensure the issue exists and GitHub auth/network are available, or rerun with TIFORTH_SKIP_ISSUE_CHECK=1." >&2
+    exit 1
+  fi
+
+  if [[ "$issue_state" != "OPEN" ]]; then
+    echo "Issue #$issue_number is $issue_state; start-issue-worktree expects an open issue." >&2
+    exit 1
+  fi
 }
 
 if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
@@ -67,6 +94,8 @@ if [[ ! "$issue_number" =~ ^[0-9]+$ ]]; then
   echo "Issue number must be numeric (examples: 165 or #165): $issue_input" >&2
   exit 1
 fi
+
+verify_issue_is_open "$issue_number"
 
 base_worktree=$(detect_base_worktree "$base_branch")
 if [[ -z "$base_worktree" ]]; then
