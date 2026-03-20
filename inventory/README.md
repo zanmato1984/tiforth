@@ -75,6 +75,9 @@ Current checkpoint:
 - `inventory/first-temporal-date32-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first temporal `date32` differential slice
 - `inventory/first-temporal-date32-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first temporal differential slice
 - `inventory/first-temporal-date32-slice-tikv-compat-notes.md` records TiKV-side compatibility notes for the same first temporal differential slice
+- `inventory/first-temporal-timestamp-tz-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first temporal timezone-aware `timestamp_tz(us)` differential slice
+- `inventory/first-temporal-timestamp-tz-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first temporal timezone-aware differential slice
+- `inventory/first-temporal-timestamp-tz-slice-tikv-compat-notes.md` records TiKV-side compatibility notes for the same first temporal timezone-aware differential slice
 - `inventory/first-decimal128-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first decimal `decimal128` differential slice
 - `inventory/first-decimal128-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first decimal differential slice
 - `inventory/first-float64-ordering-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first float64 ordering differential slice
