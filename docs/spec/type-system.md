@@ -249,6 +249,31 @@ For current shared contracts:
 - broader floating behavior (arithmetic, coercion, casts, and SQL ordering
   policy) remains follow-on scope
 
+## First JSON Comparability/Cast Checkpoint
+
+Issue #224 adds a docs-first JSON checkpoint in
+`docs/design/first-json-semantic-slice.md`.
+
+Issue #224 also adds the first docs-first JSON coverage anchors in:
+
+- `tests/conformance/first-json-slice.md`
+- `tests/differential/first-json-slice.md`
+- `adapters/first-json-slice.md`
+
+For current shared contracts:
+
+- the first admitted JSON logical type beyond milestone 1 is `json`
+- this checkpoint admits passthrough `column(index)`, docs-first structural
+  equality intent `json_eq(lhs, rhs)`, and explicit cast boundaries
+  `cast<string>(json_expr)` and `cast<json>(string_expr)`
+- this checkpoint defines object-key-order-insensitive equality intent,
+  array-order-sensitive equality intent, and canonical JSON-string
+  normalization for differential comparison
+- this checkpoint does not define JSON path extraction, containment,
+  mutation, ordering, or implicit cast expansion
+- local executable kernel and adapter coverage for this JSON checkpoint remains
+  follow-on scope
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
@@ -259,7 +284,7 @@ For current shared contracts:
   coverage
 - TODO: extend temporal semantics beyond the first `date32` checkpoint, including timezone-aware timestamp normalization and ordering rules
 - TODO: extend decimal semantics beyond the first `decimal128` checkpoint, including arithmetic, cast/coercion, precision/scale propagation, and rounding behavior
-- TODO: define JSON comparability and cast behavior
+- TODO: extend JSON semantics beyond the first checkpoint, including path extraction, containment, ordering, implicit casts, and executable adapter/kernel coverage
 
 ## Boundary For Now
 
