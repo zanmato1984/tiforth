@@ -1,0 +1,131 @@
+{
+  "slice_id": "first-decimal128-slice",
+  "engines": [
+    "tidb",
+    "tikv"
+  ],
+  "spec_refs": [
+    "docs/design/first-decimal-semantic-slice.md",
+    "docs/spec/type-system.md",
+    "tests/conformance/first-decimal128-slice.md",
+    "tests/differential/first-decimal128-slice.md"
+  ],
+  "cases": [
+    {
+      "case_id": "decimal128-column-passthrough",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiKV both returned 3 row(s) for `decimal128-column-passthrough` with field `d` normalized as `decimal128(10,2)`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#decimal128-column-passthrough",
+        "inventory/first-decimal128-slice-tikv-case-results.json#decimal128-column-passthrough"
+      ]
+    },
+    {
+      "case_id": "decimal128-column-null-preserve",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiKV both returned 4 row(s) for `decimal128-column-null-preserve` with field `d` normalized as `decimal128(10,2)`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#decimal128-column-null-preserve",
+        "inventory/first-decimal128-slice-tikv-case-results.json#decimal128-column-null-preserve"
+      ]
+    },
+    {
+      "case_id": "decimal128-is-not-null-all-kept",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiKV both returned 3 row(s) for `decimal128-is-not-null-all-kept` with field `d` normalized as `decimal128(10,2)`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#decimal128-is-not-null-all-kept",
+        "inventory/first-decimal128-slice-tikv-case-results.json#decimal128-is-not-null-all-kept"
+      ]
+    },
+    {
+      "case_id": "decimal128-is-not-null-all-dropped",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiKV both returned 0 row(s) for `decimal128-is-not-null-all-dropped` with field `d` normalized as `decimal128(10,2)`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#decimal128-is-not-null-all-dropped",
+        "inventory/first-decimal128-slice-tikv-case-results.json#decimal128-is-not-null-all-dropped"
+      ]
+    },
+    {
+      "case_id": "decimal128-is-not-null-mixed-keep-drop",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiKV both returned 2 row(s) for `decimal128-is-not-null-mixed-keep-drop` with field `d` normalized as `decimal128(10,2)`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#decimal128-is-not-null-mixed-keep-drop",
+        "inventory/first-decimal128-slice-tikv-case-results.json#decimal128-is-not-null-mixed-keep-drop"
+      ]
+    },
+    {
+      "case_id": "decimal128-missing-column-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "TiDB and TiKV both normalized `decimal128-missing-column-error` as `missing_column`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#decimal128-missing-column-error",
+        "inventory/first-decimal128-slice-tikv-case-results.json#decimal128-missing-column-error"
+      ]
+    },
+    {
+      "case_id": "unsupported-decimal-type-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "TiDB and TiKV both normalized `unsupported-decimal-type-error` as `unsupported_decimal_type`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#unsupported-decimal-type-error",
+        "inventory/first-decimal128-slice-tikv-case-results.json#unsupported-decimal-type-error"
+      ]
+    },
+    {
+      "case_id": "invalid-decimal-metadata-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "TiDB and TiKV both normalized `invalid-decimal-metadata-error` as `invalid_decimal_metadata`.",
+      "evidence_refs": [
+        "inventory/first-decimal128-slice-tidb-case-results.json#invalid-decimal-metadata-error",
+        "inventory/first-decimal128-slice-tikv-case-results.json#invalid-decimal-metadata-error"
+      ]
+    }
+  ]
+}

@@ -1,11 +1,13 @@
 # First Decimal `decimal128` Slice Artifact Carriers
 
-Status: issue #206 artifact-carrier and harness checkpoint
+Status: issue #206 artifact-carrier and harness checkpoint, issue #284 TiKV artifact expansion checkpoint
 
 Related issues:
 
 - #189 `design: define first decimal semantic slice boundary`
 - #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
+- #278 `design: define first TiKV decimal128 adapter request/response surface`
+- #284 `harness: execute first-decimal128 TiKV single-engine and pairwise artifacts`
 
 ## Purpose
 
@@ -22,20 +24,29 @@ defined in `adapters/first-decimal128-slice.md`.
 
 ## Artifact Set
 
-The first executable decimal differential checkpoint produces four checked-in
-artifacts:
+The current executable decimal differential checkpoint produces nine checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
-3. one aggregated TiDB-versus-TiFlash `drift-report`
-4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+3. one normalized TiKV `case-results` artifact
+4. one aggregated TiDB-versus-TiFlash `drift-report`
+5. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+6. one aggregated TiDB-versus-TiKV `drift-report`
+7. one machine-readable TiDB-versus-TiKV `drift-report` sidecar
+8. one aggregated TiFlash-versus-TiKV `drift-report`
+9. one machine-readable TiFlash-versus-TiKV `drift-report` sidecar
 
 Current artifact filenames for this slice:
 
 - `inventory/first-decimal128-slice-tidb-case-results.json`
 - `inventory/first-decimal128-slice-tiflash-case-results.json`
+- `inventory/first-decimal128-slice-tikv-case-results.json`
 - `inventory/first-decimal128-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-decimal128-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-decimal128-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-decimal128-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-decimal128-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-decimal128-slice-tiflash-vs-tikv-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -107,8 +118,7 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-Issue #206 adds executable fixture-runner wiring and checks in the first
-`first-decimal128-slice` artifacts listed above.
+Issue #206 adds executable fixture-runner wiring and checks in the first TiDB/TiFlash `first-decimal128-slice` artifacts listed above. Issue #284 extends the same carrier set with TiKV single-engine and pairwise artifacts.
 
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 normalized fields, or drift conclusions change under
@@ -121,7 +131,7 @@ The first decimal artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- merged multi-engine summaries beyond one engine-pair per drift artifact
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - decimal arithmetic, cast, coercion, or rounding evidence
