@@ -1,0 +1,80 @@
+# First Temporal Date32 Slice TiDB-vs-TiKV Drift Report
+
+Status: issue #270 follow-on harness checkpoint
+
+Verified: 2026-03-20
+
+## Evidence Source
+
+- this checkpoint runs the current TiDB and TiKV adapter cores through deterministic harness fixture runners
+- live engine connection and orchestration remain out of scope for this artifact set
+- the stable artifact-carrier boundary lives in `tests/differential/first-temporal-date32-slice-artifacts.md`
+
+## Engines
+
+- `tidb`
+- `tikv`
+
+## Spec Refs
+
+- `docs/design/first-temporal-semantic-slice.md`
+- `docs/spec/type-system.md`
+- `tests/conformance/first-temporal-date32-slice.md`
+- `tests/differential/first-temporal-date32-slice.md`
+
+## Summary
+
+- `match`: 7
+- `drift`: 0
+- `unsupported`: 0
+
+## Cases
+
+### `date32-column-passthrough`
+
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiKV both returned 3 row(s) for `date32-column-passthrough` with field `d` normalized as `date32`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#date32-column-passthrough`, `inventory/first-temporal-date32-slice-tikv-case-results.json#date32-column-passthrough`
+
+### `date32-column-null-preserve`
+
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiKV both returned 4 row(s) for `date32-column-null-preserve` with field `d` normalized as `date32`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#date32-column-null-preserve`, `inventory/first-temporal-date32-slice-tikv-case-results.json#date32-column-null-preserve`
+
+### `date32-is-not-null-all-kept`
+
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiKV both returned 3 row(s) for `date32-is-not-null-all-kept` with field `d` normalized as `date32`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#date32-is-not-null-all-kept`, `inventory/first-temporal-date32-slice-tikv-case-results.json#date32-is-not-null-all-kept`
+
+### `date32-is-not-null-all-dropped`
+
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiKV both returned 0 row(s) for `date32-is-not-null-all-dropped` with field `d` normalized as `date32`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#date32-is-not-null-all-dropped`, `inventory/first-temporal-date32-slice-tikv-case-results.json#date32-is-not-null-all-dropped`
+
+### `date32-is-not-null-mixed-keep-drop`
+
+- status: `match`
+- comparison_dimensions: `field_name`, `field_nullability`, `logical_type`, `row_count`, `row_values`
+- summary: TiDB and TiKV both returned 2 row(s) for `date32-is-not-null-mixed-keep-drop` with field `d` normalized as `date32`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#date32-is-not-null-mixed-keep-drop`, `inventory/first-temporal-date32-slice-tikv-case-results.json#date32-is-not-null-mixed-keep-drop`
+
+### `date32-missing-column-error`
+
+- status: `match`
+- comparison_dimensions: `error_class`
+- summary: TiDB and TiKV both normalized `date32-missing-column-error` as `missing_column`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#date32-missing-column-error`, `inventory/first-temporal-date32-slice-tikv-case-results.json#date32-missing-column-error`
+
+### `unsupported-temporal-type-error`
+
+- status: `match`
+- comparison_dimensions: `error_class`
+- summary: TiDB and TiKV both normalized `unsupported-temporal-type-error` as `unsupported_temporal_type`.
+- evidence_refs: `inventory/first-temporal-date32-slice-tidb-case-results.json#unsupported-temporal-type-error`, `inventory/first-temporal-date32-slice-tikv-case-results.json#unsupported-temporal-type-error`

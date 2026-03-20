@@ -1,6 +1,6 @@
 # First Differential Temporal `date32` Adapter Boundary
 
-Status: issue #176 design checkpoint, issue #264 TiKV boundary checkpoint, issue #266 TiKV single-engine checkpoint
+Status: issue #176 design checkpoint, issue #264 TiKV boundary checkpoint, issue #266 TiKV single-engine checkpoint, issue #270 TiKV pairwise checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
 - #266 `adapter: execute first-temporal-date32-slice through TiKV`
+- #270 `harness: add first-temporal-date32-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -34,8 +35,7 @@ This boundary applies only to the first temporal differential slice:
 
 It does **not** yet define:
 
-- TiKV participation in this shared TiDB-versus-TiFlash pairwise checkpoint;
-  TiKV single-engine checkpoint details are handled separately in
+- TiKV-specific single-engine and pairwise checkpoint details, which are handled separately in
   `adapters/first-temporal-date32-slice-tikv.md`
 - timezone-aware timestamp normalization or ordering policy
 - temporal arithmetic, cast, extract, or truncation semantics
@@ -161,9 +161,7 @@ Later issues may extend this boundary to cover:
 - broader temporal error normalization
 - reusable session profiles or adapter capability advertisement
 - checked-in artifact carriers and live runner wiring for this slice
-- TiKV pairwise drift-policy and artifact checkpoints for this slice on top of
-  the single-engine TiKV checkpoint in
-  `adapters/first-temporal-date32-slice-tikv.md`
+- TiKV live-runner and refresh workflow details beyond the current deterministic artifact checkpoints
 
 Until then, this note fixes only the minimum request-and-response contract for
 first-slice temporal `date32` differential comparison.

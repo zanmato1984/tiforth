@@ -1,6 +1,6 @@
 # First TiKV Temporal `date32` Adapter Boundary
 
-Status: issue #264 design checkpoint, issue #266 executable checkpoint
+Status: issue #264 design checkpoint, issue #266 executable checkpoint, issue #270 pairwise checkpoint
 
 Verified: 2026-03-20
 
@@ -10,6 +10,7 @@ Related issues:
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
 - #266 `adapter: execute first-temporal-date32-slice through TiKV`
+- #270 `harness: add first-temporal-date32-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -31,8 +32,6 @@ This boundary applies only to:
 
 It does not define:
 
-- pairwise TiKV-versus-TiDB or TiKV-versus-TiFlash temporal drift-report
-  policy for this slice, which remains follow-on scope
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - temporal semantics beyond the existing first `date32` checkpoint
@@ -114,19 +113,23 @@ unchanged:
   `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv.rs`
 - issue #266 lands first TiKV temporal compatibility notes and normalized
   `case-results` inventory artifacts
+- issue #270 adds deterministic TiKV pairwise drift rendering at
+  `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_pairwise.rs`
+- issue #270 lands paired TiDB-versus-TiKV and TiFlash-versus-TiKV temporal
+  drift-report artifacts under `inventory/`
 - normalized field meanings stay aligned with
   `tests/differential/first-temporal-date32-slice-artifacts.md`
 
 ## Follow-On Boundary
 
-After this first request/response plus single-engine executable checkpoint,
-follow-on issues may separately define:
+After this request/response plus single-engine and pairwise executable
+checkpoint, follow-on issues may separately define:
 
-- TiKV pairwise drift-report policy and checked-in artifacts for this slice
 - live TiKV runner wiring and refresh workflow for this slice
 
 ## Result
 
-TiKV now has a concrete docs-first request and response boundary plus an
-executable single-engine first-temporal checkpoint while preserving the shared
-first differential temporal checkpoint as TiDB-versus-TiFlash.
+TiKV now has a concrete docs-first request and response boundary plus
+executable single-engine and pairwise first-temporal checkpoints while
+preserving the shared first differential temporal checkpoint as
+TiDB-versus-TiFlash.
