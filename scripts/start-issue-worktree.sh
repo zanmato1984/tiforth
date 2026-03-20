@@ -18,6 +18,7 @@ This helper:
 - fast-forwards the base branch
 - creates a new issue branch from the base branch
 - creates the dedicated issue worktree for that branch
+- sets and verifies local `format.signoff=true` in the issue worktree
 USAGE
 }
 
@@ -150,11 +151,18 @@ fi
 
 git -C "$base_worktree" worktree add -b "$branch" "$issue_worktree" "$base_branch"
 
+git -C "$issue_worktree" config --local format.signoff true
+if [[ $(git -C "$issue_worktree" config --local --get format.signoff) != "true" ]]; then
+  echo "Failed to set format.signoff=true in issue worktree: $issue_worktree" >&2
+  exit 1
+fi
+
 echo
 echo "Created issue worktree:"
 echo "  issue: #$issue_number"
 echo "  branch: $branch"
 echo "  path: $issue_worktree"
+echo "  format.signoff: true"
 echo
 echo "Next:"
 echo "  cd \"$issue_worktree\""
