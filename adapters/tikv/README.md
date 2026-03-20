@@ -28,6 +28,4 @@ Next checkpoint:
 
 ## TODOs
 
-- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression case-results evidence changes
-- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-filter case-results evidence changes
 - extend the TiKV request and response surface beyond `first-expression-slice` and `first-filter-is-not-null-slice` after current checkpoints are reviewable
