@@ -12,6 +12,7 @@ Related issues:
 - #113 `harness: compare first-expression-slice results for TiDB and TiFlash`
 - #218 `design: define first TiKV differential adapter request/response surface`
 - #220 `adapter: execute first-expression-slice through TiKV`
+- #228 `inventory: add first-expression-slice TiKV compatibility notes checkpoint`
 
 ## Purpose
 
@@ -115,13 +116,20 @@ After this first request/response checkpoint is executable, follow-on issues may
 separately define:
 
 - TiKV pairwise drift aggregation rules
-- TiKV compatibility-note inventory checkpoints
+- checked-in TiKV single-engine `case-results` artifacts for
+  `first-expression-slice`
 - broader expression families or error normalization
+
+Issue #228 now lands the first TiKV compatibility-note inventory checkpoint in
+`inventory/first-expression-slice-tikv-compat-notes.md`.
 
 ## Result
 
 TiKV now has a concrete docs-first request and response boundary for the
-existing `first-expression-slice` harness surface, and issue #220 implements a
-first executable single-engine adapter core in
-`crates/tiforth-adapter-tikv`. TiKV pairwise drift policy and checked-in
-compatibility evidence remain follow-on work.
+existing `first-expression-slice` harness surface, issue #220's first
+executable single-engine adapter core in `crates/tiforth-adapter-tikv`, and
+issue #228's first checked-in TiKV compatibility-notes artifact in
+`inventory/first-expression-slice-tikv-compat-notes.md`.
+
+Pairwise TiKV drift policy and checked-in TiKV `case-results` artifacts remain
+follow-on work.

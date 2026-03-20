@@ -11,11 +11,13 @@ Current checkpoint:
 - `docs/design/adapter-milestone-breakdown.md` records why TiKV follows the initial TiDB/TiFlash pairwise checkpoint sequence
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local
 - `crates/tiforth-adapter-tikv` now encodes `first-expression-slice` request catalogs with TiKV-oriented SQL lowering and row / error normalization behind a runner boundary
+- `inventory/first-expression-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-expression-slice`
 
 Next checkpoint:
 
-- document TiKV-specific semantic mismatches from executable first-expression-slice runs as compatibility notes once that inventory checkpoint is accepted
+- add first checked-in TiKV single-engine `case-results` artifacts for `first-expression-slice` so compatibility notes can anchor to normalized run evidence
 
 ## TODOs
 
+- define TiKV pairwise drift aggregation policy once first single-engine TiKV artifacts are reviewable
 - extend the TiKV request and response surface beyond `first-expression-slice` after the first executable checkpoint and compatibility notes are reviewable

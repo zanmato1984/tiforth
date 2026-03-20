@@ -63,6 +63,7 @@ Current checkpoint:
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
 - `inventory/first-expression-slice-tidb-compat-notes.md` records the first TiDB-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
 - `inventory/first-expression-slice-tiflash-compat-notes.md` records the matching TiFlash-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
+- `inventory/first-expression-slice-tikv-compat-notes.md` records the first TiKV-side compatibility notes for the shared projection, `column`, `literal<int32>`, and `add<int32>` surface
 - earlier checkpoint notes remain in `inventory/` until a follow-on issue chooses to rename or retire them
 - issue #159 fixes milestone-1 drift-report sidecar policy: checked-in Markdown `drift-report` artifacts are required and machine-readable sidecars remain optional
 - issue #161 adds the first checked-in JSON drift-report sidecars for the first-expression and first-filter differential slices
@@ -72,6 +73,7 @@ Current checkpoint:
 - issue #208 adds the first checked-in float64 ordering differential case-results artifacts plus paired drift-report outputs
 - issue #204 adds the first checked-in temporal `date32` per-engine compatibility notes artifacts
 - issue #214 adds the first checked-in decimal `decimal128` and float64 ordering per-engine compatibility notes artifacts
+- issue #228 adds the first checked-in TiKV-side compatibility notes artifact for `first-expression-slice`
 
 Current inventory priority:
 
