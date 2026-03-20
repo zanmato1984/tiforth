@@ -13,5 +13,6 @@ pub mod first_float64_ordering_slice;
 pub mod first_float64_ordering_slice_tikv;
 pub mod first_float64_ordering_slice_tikv_pairwise;
 pub mod first_temporal_date32_slice;
+pub mod first_temporal_timestamp_tz_slice;
 pub mod first_temporal_date32_slice_tikv;
 pub mod first_temporal_date32_slice_tikv_pairwise;

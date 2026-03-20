@@ -28,6 +28,7 @@ Current checkpoint:
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable carrier for first-slice `case-results` artifacts plus first-slice constraints on the shared `drift-report` carrier
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md` defines the stable carrier for first-filter `case-results` artifacts plus first-filter constraints on the shared `drift-report` carrier
 - `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable carrier for first-temporal `date32` case-results artifacts plus first-temporal constraints on the shared `drift-report` carrier
+- `tests/differential/first-temporal-timestamp-tz-slice-artifacts.md` defines the stable carrier for first-temporal timezone-aware `timestamp_tz(us)` case-results artifacts plus first-temporal timestamp-timezone constraints on the shared `drift-report` carrier
 - `tests/differential/first-decimal128-slice-artifacts.md` defines the stable carrier for first-decimal `decimal128` case-results artifacts plus first-decimal constraints on the shared `drift-report` carrier
 - `tests/differential/first-float64-ordering-slice-artifacts.md` defines the stable carrier for first-float64 ordering case-results artifacts plus first-float64 constraints on the shared `drift-report` carrier
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
@@ -52,6 +53,10 @@ Current checkpoint:
 - `inventory/first-temporal-date32-slice-tikv-case-results.json` records the current TiKV-side single-engine case results for the same first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first temporal checkpoint
+- `inventory/first-temporal-timestamp-tz-slice-tidb-case-results.json` records the current TiDB-side case results for the first temporal timezone-aware `timestamp_tz(us)` harness checkpoint
+- `inventory/first-temporal-timestamp-tz-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first temporal timezone-aware checkpoint
+- `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first temporal timezone-aware checkpoint
+- `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first temporal timezone-aware checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.md` records the current paired TiDB-versus-TiKV classification summary for the same first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.json` records the paired machine-readable TiDB-versus-TiKV drift-report sidecar for that first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.md` records the current paired TiFlash-versus-TiKV classification summary for the same first temporal checkpoint
@@ -88,6 +93,7 @@ Current checkpoint:
 - issue #187 adds the first checked-in temporal `date32` differential case-results artifacts plus paired drift-report outputs
 - issue #206 adds the first checked-in decimal `decimal128` differential case-results artifacts plus paired drift-report outputs
 - issue #208 adds the first checked-in float64 ordering differential case-results artifacts plus paired drift-report outputs
+- issue #304 adds the first checked-in temporal timezone-aware `timestamp_tz(us)` differential case-results artifacts plus paired drift-report outputs
 - issue #292 adds the first checked-in TiKV single-engine float64 ordering case-results and compatibility notes artifacts
 - issue #204 adds the first checked-in temporal `date32` per-engine compatibility notes artifacts for TiDB and TiFlash
 - issue #266 adds the first checked-in TiKV single-engine temporal `date32` case-results and compatibility notes artifacts

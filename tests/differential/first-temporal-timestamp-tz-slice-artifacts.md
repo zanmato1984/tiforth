@@ -1,6 +1,6 @@
 # First Temporal `timestamp_tz(us)` Slice Artifact Carriers
 
-Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint
+Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint, issue #304 harness checkpoint
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #288 `kernel: execute first timestamp_tz(us) local conformance slice`
 - #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 - #298 `docs: define first-temporal-timestamp-tz differential artifact carriers`
+- #304 `harness: execute first timestamp_tz(us) differential artifacts`
 
 ## Purpose
 
@@ -35,15 +36,12 @@ four checked-in artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Planned artifact filenames for this slice:
+Current artifact filenames for this slice:
 
 - `inventory/first-temporal-timestamp-tz-slice-tidb-case-results.json`
 - `inventory/first-temporal-timestamp-tz-slice-tiflash-case-results.json`
 - `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tiflash-drift-report.json`
-
-Issue #298 is docs-first only and does not add or refresh those `inventory/`
-files.
 
 ## `case-results` Artifact Shape
 
@@ -115,15 +113,12 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-This checkpoint documents carriers only.
+Issue #304 adds executable fixture-runner wiring and checks in the first
+`first-temporal-timestamp-tz-slice` differential artifacts listed above.
 
-Follow-on harness work should add executable runner wiring for this slice and
-then refresh or check in the planned `inventory/` files using the same carrier
-shape defined here.
-
-Until that executable checkpoint lands, PRs that touch this note may declare:
-
-- `Inventory-Impact: none - timestamp-timezone artifact carriers documented but no executable artifact refresh performed`
+Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
+normalized fields, or drift conclusions change under
+`docs/process/inventory-refresh.md`.
 
 ## Boundary For Now
 
@@ -135,5 +130,4 @@ They do not yet define:
 - merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
-- executable timestamp-timezone adapter or differential harness wiring
 - TiKV single-engine and pairwise timestamp-timezone artifact expansion

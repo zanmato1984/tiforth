@@ -1,0 +1,312 @@
+{
+  "slice_id": "first-temporal-timestamp-tz-slice",
+  "engine": "tiflash",
+  "adapter": "tiflash-sql",
+  "cases": [
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            1000000
+          ],
+          [
+            2000000
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-equivalent-instant-normalization",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-equivalent-instants",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            1704067200000000
+          ],
+          [
+            1704067200000000
+          ],
+          [
+            1704067200000000
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-column-null-preserve",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-nullable",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            null
+          ],
+          [
+            2000000
+          ],
+          [
+            null
+          ]
+        ],
+        "row_count": 4
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-is-not-null-all-kept",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-basic",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            1000000
+          ],
+          [
+            2000000
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-is-not-null-all-dropped",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-all-null",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": true
+          }
+        ],
+        "rows": [],
+        "row_count": 0
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-is-not-null-mixed-keep-drop",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-nullable",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            2000000
+          ]
+        ],
+        "row_count": 2
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-order-asc-nulls-last",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-nullable",
+      "ordering_ref": "order-by-column-0-asc-nulls-last",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "ts",
+            "logical_type": "timestamp_tz(us)",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            0
+          ],
+          [
+            2000000
+          ],
+          [
+            null
+          ],
+          [
+            null
+          ]
+        ],
+        "row_count": 4
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "timestamp-tz-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-basic",
+      "filter_ref": "is-not-null-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'where clause'"
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-temporal-timestamp-without-timezone-error",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-naive-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_temporal_type",
+        "engine_code": "1105",
+        "engine_message": "unsupported temporal type: timestamp without timezone input is out of scope for first-temporal-timestamp-tz-slice"
+      }
+    },
+    {
+      "slice_id": "first-temporal-timestamp-tz-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-temporal-timestamp-unit-error",
+      "spec_refs": [
+        "docs/design/first-temporal-timestamp-tz-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-temporal-timestamp-tz-slice.md",
+        "tests/differential/first-temporal-timestamp-tz-slice.md"
+      ],
+      "input_ref": "first-temporal-timestamp-tz-ms-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_temporal_unit",
+        "engine_code": "1105",
+        "engine_message": "unsupported temporal unit: timestamp_tz(ms) input is out of scope for first-temporal-timestamp-tz-slice"
+      }
+    }
+  ]
+}
