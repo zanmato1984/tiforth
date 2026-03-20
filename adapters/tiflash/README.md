@@ -15,6 +15,7 @@ Current checkpoint:
 - `adapters/first-collation-string-slice.md` defines the shared request and response surface for the docs-first differential collation-sensitive string checkpoint
 - `adapters/first-struct-slice.md` defines the shared request and response surface for the docs-first differential nested struct passthrough checkpoint
 - `adapters/first-map-slice.md` defines the shared request and response surface for the docs-first differential nested map passthrough checkpoint
+- `adapters/first-union-slice.md` defines the shared request and response surface for the docs-first differential nested union passthrough checkpoint
 - `docs/design/adapter-milestone-breakdown.md` fixes the next TiFlash checkpoint as a single-engine adapter issue before pairwise drift aggregation lands
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiFlash session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
 - `crates/tiforth-adapter-tiflash` now encodes first-expression-slice, first-filter-is-not-null-slice, first-temporal-date32-slice, first-decimal128-slice, and first-float64-ordering-slice request catalogs with TiFlash-oriented SQL lowering and row / error normalization behind runner boundaries
@@ -28,5 +29,5 @@ Next checkpoint:
 
 ## TODOs
 
-- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, and `first-map-slice`)
+- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, and `first-union-slice`)
 - extend TiFlash compatibility notes beyond the current first-expression, first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering slice boundaries as new semantic families land
