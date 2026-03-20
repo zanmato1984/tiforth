@@ -2,16 +2,23 @@
 
 `tiforth` is a reboot, not a lift-and-shift.
 
-The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is donor material for concepts, extracted catalogs, and compatibility reference. This repository stays harness-first and docs-first. Issue #10 introduces only the first minimal Rust kernel slice: Arrow-bound expression evaluation plus projection on top of `broken-pipeline-rs`.
+The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is donor material for concepts, extracted catalogs, and compatibility reference. This repository stays harness-first and docs-first while growing through narrow executable slices and docs-first follow-on checkpoints.
 
 ## Current Shape
 
 - `docs/`: source-of-truth design notes, contracts, semantic specs, and accepted decisions
-- `inventory/`: future extracted catalogs, donor notes, and drift reports
+- `inventory/`: checked-in normalized case-results, compatibility notes, donor notes, and drift reports
 - `tests/`: harness skeletons, cases, and fixtures
 - `adapters/`: engine-facing adapter boundaries for TiDB, TiFlash, and TiKV
 - `crates/`: narrow Rust implementation slices that are justified by accepted docs and local tests
 - `scripts/`: local workflow helpers for repeatable repository maintenance tasks
+
+## Current Checkpoints
+
+- executable differential coverage exists for `first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, and `first-unsigned-arithmetic-slice`
+- checked-in `inventory/` evidence now includes normalized per-engine `case-results`, compatibility notes, and pairwise drift reports for the executable slices that have landed
+- TiKV executable coverage currently extends through the first expression, filter, temporal, decimal, and float64-ordering checkpoints, with pairwise drift artifacts recorded against TiDB and TiFlash where those slices are implemented
+- docs-first follow-on checkpoints already define the first JSON, collation-sensitive string, and nested struct/map/union slice boundaries before executable expansion claims those families
 
 ## Local Rust Setup
 
