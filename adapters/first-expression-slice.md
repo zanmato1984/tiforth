@@ -124,7 +124,7 @@ If one side returns `adapter_unavailable`, the later drift aggregation step may 
 
 Later issues may extend this boundary to cover:
 
-- TiKV pairwise drift aggregation and artifact policy beyond the first request/response checkpoint
+- executable TiKV pairwise drift-report generation beyond the first request/response checkpoint (policy fixed in `tests/differential/first-expression-slice-artifacts.md`)
 - broader error normalization
 - reusable session profiles or adapter capability advertisement
 - live TiDB and TiFlash runner orchestration beyond the current deterministic harness fixtures

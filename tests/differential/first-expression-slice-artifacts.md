@@ -1,6 +1,6 @@
 # First Expression Slice Artifact Carriers
 
-Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #235 TiKV single-engine case-results checkpoint
+Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #235 TiKV single-engine case-results checkpoint, issue #243 TiKV pairwise drift-policy checkpoint
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #159 `docs: define machine-readable sidecar policy for differential drift reports`
 - #161 `harness: add machine-readable drift-report sidecars for first differential slices`
 - #235 `inventory: add first-expression-slice TiKV case-results artifact checkpoint`
+- #243 `docs: define TiKV pairwise drift aggregation policy for first-expression-slice`
 
 ## Purpose
 
@@ -29,7 +30,9 @@ The first executable differential checkpoint produces four checked-in artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Issue #235 also adds one checked-in TiKV single-engine `case-results` artifact that reuses the same `case-results` carrier shape below, without adding a TiKV pairwise `drift-report` requirement in this checkpoint.
+Issue #235 also adds one checked-in TiKV single-engine `case-results` artifact that reuses the same `case-results` carrier shape below.
+
+Issue #243 defines the first TiKV pairwise drift policy for this slice without requiring the pairwise artifacts to land in the same checkpoint.
 
 These carriers should stay simple and JSON-serializable at the record level even when the drift report also renders a human-readable Markdown summary.
 
@@ -104,6 +107,36 @@ machine-readable `drift-report` sidecar that mirrors the shared carrier fields
 (`slice_id`, `engines[]`, `spec_refs[]`, and `cases[]`) used by the paired
 Markdown report.
 
+## TiKV Pairwise Policy For This Slice
+
+Issue #243 now fixes the first TiKV pairwise drift aggregation policy for
+`first-expression-slice`.
+
+When a follow-on issue executes that pairwise checkpoint, it should add one
+Markdown `drift-report` plus one JSON sidecar for each of these engine pairs:
+
+- `tidb-vs-tikv`
+- `tiflash-vs-tikv`
+
+The expected filenames are:
+
+- `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-expression-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.json`
+
+Each pairwise report should:
+
+- compare the same first-slice `case_id`, `input_ref`, and `projection_ref`
+  identities already fixed in `tests/differential/first-expression-slice.md`
+- use the same status vocabulary and `comparison_dimensions[]` identifiers
+  already fixed above for this slice
+- include `evidence_refs[]` entries that point to the paired per-engine
+  `case-results` records for the same `case_id`
+
+Pairwise TiKV execution may land one engine pair at a time in separate issues
+or PRs, so long as each PR keeps `Inventory-Impact: ...` explicit.
+
 ## Boundary For Now
 
 The first artifact carriers are intentionally narrow.
@@ -111,6 +144,6 @@ The first artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- merged summaries that combine more than one engine pair into one artifact
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
