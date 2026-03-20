@@ -95,13 +95,21 @@ Use `none` when inventory evidence is out of scope or when nearby slice / adapte
 
 See also: `docs/process/inventory-refresh.md`
 
-### 5. Keep PR scope tight
+### 5. Verify DCO sign-offs
+
+Before `git push`, before opening or updating a PR, and before merge, run:
+
+- `scripts/check-signoffs.sh origin/main..HEAD`
+
+That helper exits non-zero when any commit in the range is missing a `Signed-off-by:` trailer.
+
+### 6. Keep PR scope tight
 
 A PR should not silently combine unrelated issues.
 
 If two issues both need substantial changes, prefer two PRs.
 
-### 6. Use docs-first when the contract is not settled
+### 7. Use docs-first when the contract is not settled
 
 For design-heavy work, first land a docs/design PR that clarifies the contract or boundary.
 

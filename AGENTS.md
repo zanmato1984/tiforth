@@ -50,4 +50,4 @@ This file is a table of contents for future agents. The source of truth lives un
 - Every commit must include a DCO trailer: `Signed-off-by:`.
 - Set local sign-off defaults per worktree: `git config --local format.signoff true`, then verify `git config --local --get format.signoff` outputs `true`.
 - Use `git commit -s` for new commits. If a commit is missing sign-off, fix it with `git commit --amend -s --no-edit`.
-- Before `git push`, before opening/updating a PR, and before merge, run `git log --pretty=%B origin/main..HEAD | rg -n '^Signed-off-by:'`; the range is valid only if every commit in `origin/main..HEAD` has a `Signed-off-by:` line.
+- Before `git push`, before opening/updating a PR, and before merge, run `scripts/check-signoffs.sh origin/main..HEAD`; that helper validates that every commit in `origin/main..HEAD` has a `Signed-off-by:` trailer.
