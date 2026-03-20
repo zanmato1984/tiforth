@@ -83,6 +83,8 @@ Current checkpoint:
 - `inventory/first-float64-ordering-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first float64 ordering differential slice
 - `inventory/first-float64-ordering-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first float64 ordering differential slice
 - `inventory/first-float64-ordering-slice-tikv-compat-notes.md` records TiKV-side compatibility notes for the same first float64 ordering differential slice
+- `inventory/first-unsigned-arithmetic-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first unsigned arithmetic `uint64` differential slice
+- `inventory/first-unsigned-arithmetic-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first unsigned arithmetic differential slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
