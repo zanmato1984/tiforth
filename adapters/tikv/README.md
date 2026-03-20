@@ -16,9 +16,9 @@ Current checkpoint:
 
 Next checkpoint:
 
-- define TiKV pairwise drift aggregation policy for `first-expression-slice` now that single-engine TiKV `case-results` evidence is checked in
+- execute the first TiKV pairwise drift checkpoint for `first-expression-slice` using the accepted policy in `tests/differential/first-expression-slice-artifacts.md`
 
 ## TODOs
 
-- execute the first TiKV pairwise drift checkpoint after pairwise policy and comparison scope are accepted
+- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` under the accepted first-expression policy
 - extend the TiKV request and response surface beyond `first-expression-slice` after the first executable checkpoint and compatibility notes are reviewable

@@ -14,6 +14,7 @@ Related issues:
 - #220 `adapter: execute first-expression-slice through TiKV`
 - #228 `inventory: add first-expression-slice TiKV compatibility notes checkpoint`
 - #235 `inventory: add first-expression-slice TiKV case-results artifact checkpoint`
+- #243 `docs: define TiKV pairwise drift aggregation policy for first-expression-slice`
 
 ## Purpose
 
@@ -34,7 +35,7 @@ This boundary applies only to:
 
 It does not define:
 
-- pairwise TiKV-versus-TiDB or TiKV-versus-TiFlash drift-report policy
+- pairwise TiKV-versus-TiDB or TiKV-versus-TiFlash drift-report policy (see `tests/differential/first-expression-slice-artifacts.md`)
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - expanded function or operator families beyond the current first slice
@@ -116,7 +117,7 @@ For this first TiKV checkpoint, the normalized error vocabulary is unchanged:
 After this first request/response checkpoint is executable, follow-on issues may
 separately define:
 
-- TiKV pairwise drift aggregation rules
+- executable TiKV pairwise drift checkpoints under the policy in `tests/differential/first-expression-slice-artifacts.md`
 - broader expression families or error normalization
 
 Issue #228 now lands the first TiKV compatibility-note inventory checkpoint in
@@ -135,4 +136,4 @@ issue #228's first checked-in TiKV compatibility-notes artifact in
 Issue #235 now adds the first checked-in TiKV single-engine `case-results`
 artifact in `inventory/first-expression-slice-tikv-case-results.json`.
 
-Pairwise TiKV drift policy remains follow-on work.
+Issue #243 now fixes the docs-first TiKV pairwise drift policy in `tests/differential/first-expression-slice-artifacts.md`. Executable pairwise artifact refresh remains follow-on work.
