@@ -167,7 +167,7 @@ fn filter_pipe_reports_unsupported_predicate_type_error() {
 
     assert!(error
         .to_string()
-        .contains("unsupported data type: expected Int32, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column 0, got Utf8"));
+        .contains("unsupported data type: expected Int32, UInt64, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column 0, got Utf8"));
     assert!(sink.batches().is_empty());
 }
 

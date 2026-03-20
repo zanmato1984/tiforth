@@ -151,17 +151,17 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, issue #196 adds executable float64 predicate coverage, and issue #288 adds executable `timestamp_tz(us)` predicate coverage.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, issue #196 adds executable float64 predicate coverage, issue #288 adds executable `timestamp_tz(us)` predicate coverage, and issue #308 adds executable `uint64` predicate coverage.
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, `float64`, `json`, or `timestamp_tz(us)` in current shared checkpoints
+- requires one `column(index)` operand that resolves to logical type `int32`, `uint64`, `date32`, `decimal128`, `float64`, `json`, or `timestamp_tz(us)` in current shared checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
-- local executable kernel coverage for this predicate now includes `int32`, `date32`, `decimal128`, `float64`, and `timestamp_tz(us)` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, `crates/tiforth-kernel/tests/float64_slice.rs`, and `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
+- local executable kernel coverage for this predicate now includes `int32`, `uint64`, `date32`, `decimal128`, `float64`, and `timestamp_tz(us)` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, `crates/tiforth-kernel/tests/float64_slice.rs`, and `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
 
 ## First Struct Nested Follow-On Checkpoint
 
@@ -463,6 +463,11 @@ in:
 - `tests/differential/first-unsigned-arithmetic-slice.md`
 - `adapters/first-unsigned-arithmetic-slice.md`
 
+Issue #308 adds the first executable local conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
+
 For current shared contracts:
 
 - the first admitted unsigned arithmetic logical type beyond milestone 1 is
@@ -476,7 +481,9 @@ For current shared contracts:
   defaults do not wrap, saturate, widen, or coerce overflowed results
 - this checkpoint does not add unsigned cast/coercion edges, wider unsigned
   families, or unsigned arithmetic beyond `add<uint64>`
-- local executable kernel and adapter coverage for this unsigned checkpoint
+- local executable kernel coverage for this unsigned checkpoint now exists in
+  `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
+- adapter and differential harness coverage for this unsigned checkpoint
   remains follow-on scope
 
 ## Open Questions

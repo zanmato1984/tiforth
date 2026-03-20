@@ -1,6 +1,6 @@
 # First Unsigned Arithmetic Slice
 
-Status: issue #300 design checkpoint
+Status: issue #300 design checkpoint, issue #308 local executable kernel checkpoint
 
 Verified: 2026-03-20
 
@@ -10,6 +10,7 @@ Related issues:
 - #141 `spec: define signed/unsigned interaction checkpoint for initial coercion lattice`
 - #276 `spec: define overflow behavior checkpoint for follow-on operator families`
 - #300 `design: define first unsigned arithmetic semantic slice boundary`
+- #308 `milestone-1: implement first executable unsigned arithmetic slice in local kernel`
 
 ## Question
 
@@ -27,6 +28,7 @@ expansion or implicit signed/unsigned coercion?
 - `tests/differential/first-unsigned-arithmetic-slice.md`
 - `adapters/first-unsigned-arithmetic-slice.md`
 - issue #300
+- issue #308
 
 ## Design Summary
 
@@ -98,6 +100,11 @@ checkpoint:
   `tests/differential/first-unsigned-arithmetic-slice.md`
 - adapter boundary doc: `adapters/first-unsigned-arithmetic-slice.md`
 
+Issue #308 adds the first executable local shared-kernel coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
+
 Before kernel or adapter expansion claims broader unsigned support, follow-on
 issues should preserve these anchors or replace them explicitly.
 
@@ -108,7 +115,6 @@ issues should preserve these anchors or replace them explicitly.
 - unsigned cast, coercion, or rounding policy beyond this narrow checkpoint
 - mixed signed/unsigned success semantics
 - TiKV-specific adapter boundary and harness checkpoints
-- local executable kernel coverage for unsigned arithmetic
 - new runtime states or scheduler behavior
 
 ## Result
@@ -116,4 +122,6 @@ issues should preserve these anchors or replace them explicitly.
 The first unsigned arithmetic checkpoint is now explicit and narrow: `uint64`
 column passthrough, `literal<uint64>`, `add<uint64>` overflow-as-error, and
 `is_not_null` coverage anchors are fixed for docs-first conformance and
-differential work. Broader unsigned family semantics remain follow-on work.
+differential work, and local executable shared-kernel coverage now exists in
+`crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`. Broader unsigned
+family semantics plus adapter and differential execution remain follow-on work.
