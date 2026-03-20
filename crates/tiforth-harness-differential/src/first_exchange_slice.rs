@@ -207,7 +207,7 @@ pub fn render_exchange_parity_markdown(report: &ExchangeParityReport) -> String 
     rendered.push_str(
         "Status: issue #183 harness checkpoint, issue #221 artifact-carrier checkpoint\n\n",
     );
-    rendered.push_str("Verified: 2026-03-19\n\n");
+    rendered.push_str("Verified: 2026-03-20\n\n");
     rendered.push_str("## Spec Refs\n\n");
     for spec_ref in &report.spec_refs {
         rendered.push_str("- `");
@@ -735,6 +735,15 @@ mod tests {
 
     use super::*;
 
+    const DRIFT_REPORT_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../inventory/first-exchange-slice-baseline-vs-exchange-drift-report.md"
+    );
+    const DRIFT_REPORT_SIDECAR_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../inventory/first-exchange-slice-baseline-vs-exchange-drift-report.json"
+    );
+
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum FixtureMode {
         Baseline,
@@ -898,6 +907,34 @@ mod tests {
 
         assert_eq!(parsed, report);
         assert!(rendered.ends_with('\n'));
+    }
+
+    #[test]
+    fn checked_in_artifacts_match_fixture_harness_output() {
+        let report = execute_first_exchange_slice(
+            &FixtureTidbRunner {
+                mode: FixtureMode::Baseline,
+            },
+            &FixtureTiflashRunner {
+                mode: FixtureMode::Baseline,
+            },
+            &FixtureTidbRunner {
+                mode: FixtureMode::ExchangeMatch,
+            },
+            &FixtureTiflashRunner {
+                mode: FixtureMode::ExchangeMatch,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            render_exchange_parity_markdown(&report),
+            std::fs::read_to_string(DRIFT_REPORT_PATH).unwrap()
+        );
+        assert_eq!(
+            render_exchange_parity_artifact_json(&report).unwrap(),
+            std::fs::read_to_string(DRIFT_REPORT_SIDECAR_PATH).unwrap()
+        );
     }
 
     impl tidb_expression::TidbRunner for FixtureTidbRunner {

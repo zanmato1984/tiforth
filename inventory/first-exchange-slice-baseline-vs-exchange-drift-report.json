@@ -1,0 +1,428 @@
+{
+  "slice_id": "first-exchange-slice",
+  "spec_refs": [
+    "docs/design/first-in-contract-exchange-slice.md",
+    "tests/differential/first-expression-slice.md",
+    "tests/differential/first-filter-is-not-null-slice.md",
+    "tests/differential/first-exchange-slice.md",
+    "tests/differential/first-exchange-slice-artifacts.md"
+  ],
+  "cases": [
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "column-passthrough",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `column-passthrough` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "literal-int32-seven",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `literal-int32-seven` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "literal-int32-null",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `literal-int32-null` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-literal",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `add-int32-literal` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-null-propagation",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `add-int32-null-propagation` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-overflow-error",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `add-int32-overflow-error` on `tidb_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "column-passthrough",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `column-passthrough` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "literal-int32-seven",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `literal-int32-seven` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "literal-int32-null",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `literal-int32-null` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-literal",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `add-int32-literal` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-null-propagation",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `add-int32-null-propagation` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-overflow-error",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `add-int32-overflow-error` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "all-rows-kept",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `all-rows-kept` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "all-rows-dropped",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `all-rows-dropped` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "mixed-keep-drop",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `mixed-keep-drop` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "missing-column-error",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `missing-column-error` on `tidb_case_results`."
+    },
+    {
+      "subject": "tidb_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "unsupported-predicate-type-error",
+      "engine": "tidb",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "Baseline and exchange paths matched for `tidb` `unsupported-predicate-type-error` on `tidb_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "all-rows-kept",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `all-rows-kept` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "all-rows-dropped",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `all-rows-dropped` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "mixed-keep-drop",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `mixed-keep-drop` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "missing-column-error",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `missing-column-error` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tiflash_case_results",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "unsupported-predicate-type-error",
+      "engine": "tiflash",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "Baseline and exchange paths matched for `tiflash` `unsupported-predicate-type-error` on `tiflash_case_results`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-expression-slice",
+      "case_id": "column-passthrough",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `column-passthrough`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-expression-slice",
+      "case_id": "literal-int32-seven",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `literal-int32-seven`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-expression-slice",
+      "case_id": "literal-int32-null",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `literal-int32-null`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-literal",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `add-int32-literal`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-null-propagation",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `add-int32-null-propagation`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-expression-slice",
+      "case_id": "add-int32-overflow-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `unsupported` for `add-int32-overflow-error`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "all-rows-kept",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `all-rows-kept`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "all-rows-dropped",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `all-rows-dropped`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "mixed-keep-drop",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `mixed-keep-drop`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "missing-column-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `missing-column-error`."
+    },
+    {
+      "subject": "tidb_vs_tiflash_drift",
+      "slice_id": "first-filter-is-not-null-slice",
+      "case_id": "unsupported-predicate-type-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "drift_status"
+      ],
+      "summary": "Baseline and exchange paths kept drift status `match` for `unsupported-predicate-type-error`."
+    }
+  ]
+}
