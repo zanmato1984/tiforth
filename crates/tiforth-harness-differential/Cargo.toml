@@ -9,3 +9,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tiforth-adapter-tidb = { path = "../tiforth-adapter-tidb" }
 tiforth-adapter-tiflash = { path = "../tiforth-adapter-tiflash" }
+tiforth-adapter-tikv = { path = "../tiforth-adapter-tikv" }

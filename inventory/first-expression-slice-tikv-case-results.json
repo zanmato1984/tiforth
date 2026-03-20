@@ -1,0 +1,207 @@
+{
+  "slice_id": "first-expression-slice",
+  "engine": "tikv",
+  "adapter": "tikv-sql",
+  "cases": [
+    {
+      "slice_id": "first-expression-slice",
+      "engine": "tikv",
+      "adapter": "tikv-sql",
+      "case_id": "column-passthrough",
+      "spec_refs": [
+        "docs/spec/milestone-1-expression-projection.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/expression-projection-slice.md",
+        "tests/differential/first-expression-slice.md"
+      ],
+      "input_ref": "first-expression-slice-int32-basic",
+      "projection_ref": "column-a",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "a",
+            "logical_type": "int32",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            3
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-expression-slice",
+      "engine": "tikv",
+      "adapter": "tikv-sql",
+      "case_id": "literal-int32-seven",
+      "spec_refs": [
+        "docs/spec/milestone-1-expression-projection.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/expression-projection-slice.md",
+        "tests/differential/first-expression-slice.md"
+      ],
+      "input_ref": "first-expression-slice-int32-basic",
+      "projection_ref": "literal-int32-seven",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "lit",
+            "logical_type": "int32",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            7
+          ],
+          [
+            7
+          ],
+          [
+            7
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-expression-slice",
+      "engine": "tikv",
+      "adapter": "tikv-sql",
+      "case_id": "literal-int32-null",
+      "spec_refs": [
+        "docs/spec/milestone-1-expression-projection.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/expression-projection-slice.md",
+        "tests/differential/first-expression-slice.md"
+      ],
+      "input_ref": "first-expression-slice-int32-basic",
+      "projection_ref": "literal-int32-null",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "lit",
+            "logical_type": "int32",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            null
+          ],
+          [
+            null
+          ],
+          [
+            null
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-expression-slice",
+      "engine": "tikv",
+      "adapter": "tikv-sql",
+      "case_id": "add-int32-literal",
+      "spec_refs": [
+        "docs/spec/milestone-1-expression-projection.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/expression-projection-slice.md",
+        "tests/differential/first-expression-slice.md"
+      ],
+      "input_ref": "first-expression-slice-int32-basic",
+      "projection_ref": "add-a-plus-one",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "a_plus_one",
+            "logical_type": "int64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [
+            4
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-expression-slice",
+      "engine": "tikv",
+      "adapter": "tikv-sql",
+      "case_id": "add-int32-null-propagation",
+      "spec_refs": [
+        "docs/spec/milestone-1-expression-projection.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/expression-projection-slice.md",
+        "tests/differential/first-expression-slice.md"
+      ],
+      "input_ref": "first-expression-slice-int32-nullable",
+      "projection_ref": "add-a-plus-one",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "a_plus_one",
+            "logical_type": "int64",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            2
+          ],
+          [
+            null
+          ],
+          [
+            4
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-expression-slice",
+      "engine": "tikv",
+      "adapter": "tikv-sql",
+      "case_id": "add-int32-overflow-error",
+      "spec_refs": [
+        "docs/spec/milestone-1-expression-projection.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/expression-projection-slice.md",
+        "tests/differential/first-expression-slice.md"
+      ],
+      "input_ref": "first-expression-slice-int32-overflow",
+      "projection_ref": "add-a-plus-one",
+      "outcome": {
+        "kind": "error",
+        "error_class": "arithmetic_overflow",
+        "engine_code": "1690",
+        "engine_message": "Error 1690 (22003): value is out of range"
+      }
+    }
+  ]
+}

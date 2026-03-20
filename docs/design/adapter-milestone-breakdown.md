@@ -142,6 +142,7 @@ Only after the pairwise checkpoint exists should follow-on issues broaden one di
 - broader error normalization
 - a wider expression family
 - engine-specific compatibility notes derived from the now-executable slice
+- checked-in TiKV single-engine `case-results` evidence derived from deterministic adapter-side fixture execution (issue #235)
 
 Those should remain separate issues rather than being folded back into the first three checkpoints.
 
@@ -154,4 +155,4 @@ Those should remain separate issues rather than being folded back into the first
 
 ## Result
 
-The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 captures the first TiKV request/response boundary, issue #220 lands the first TiKV single-engine executable adapter checkpoint in `crates/tiforth-adapter-tikv`, and issue #228 lands the first TiKV compatibility-notes inventory checkpoint for `first-expression-slice`. Pairwise TiKV drift policy and checked-in TiKV single-engine case-results artifacts remain separate follow-on checkpoints unless another accepted design issue deliberately changes the slice or comparison surface.
+The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 captures the first TiKV request/response boundary, issue #220 lands the first TiKV single-engine executable adapter checkpoint in `crates/tiforth-adapter-tikv`, issue #228 lands the first TiKV compatibility-notes inventory checkpoint for `first-expression-slice`, and issue #235 lands the first checked-in TiKV single-engine `case-results` artifact for that slice. Pairwise TiKV drift policy remains a separate follow-on checkpoint unless another accepted design issue deliberately changes the slice or comparison surface.

@@ -1,6 +1,6 @@
 # First Expression Slice Artifact Carriers
 
-Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint
+Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #235 TiKV single-engine case-results checkpoint
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #133 `design: define reusable differential drift-report carrier guidance`
 - #159 `docs: define machine-readable sidecar policy for differential drift reports`
 - #161 `harness: add machine-readable drift-report sidecars for first differential slices`
+- #235 `inventory: add first-expression-slice TiKV case-results artifact checkpoint`
 
 ## Purpose
 
@@ -28,12 +29,15 @@ The first executable differential checkpoint produces four checked-in artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
+Issue #235 also adds one checked-in TiKV single-engine `case-results` artifact that reuses the same `case-results` carrier shape below, without adding a TiKV pairwise `drift-report` requirement in this checkpoint.
+
 These carriers should stay simple and JSON-serializable at the record level even when the drift report also renders a human-readable Markdown summary.
 
 Current checked-in examples:
 
 - `inventory/first-expression-slice-tidb-case-results.json`
 - `inventory/first-expression-slice-tiflash-case-results.json`
+- `inventory/first-expression-slice-tikv-case-results.json`
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json`
 
