@@ -11,6 +11,7 @@ Current checkpoint:
 - `tests/differential/first-float64-ordering-slice.md` defines the first differential docs checkpoint for narrow `float64` NaN/infinity and canonical-ordering semantics (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-json-slice.md` defines the first differential docs checkpoint for narrow JSON structural-comparison and explicit `json <-> string` cast semantics
 - `tests/differential/first-struct-slice.md` defines the first differential docs checkpoint for narrow nested `struct<a:int32, b:int32?>` passthrough semantics
+- `tests/differential/first-map-slice.md` defines the first differential docs checkpoint for narrow nested `map<int32, int32?>` passthrough semantics
 - `tests/differential/first-exchange-slice.md` defines the first exchange parity checkpoint over existing first-expression and first-filter case IDs
 - `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for that slice
@@ -26,6 +27,7 @@ Current checkpoint:
 - `adapters/first-float64-ordering-slice.md` defines the minimal request and response surface for the first differential float64 NaN/infinity ordering slice
 - `adapters/first-json-slice.md` defines the minimal request and response surface for the first differential JSON comparability/cast slice
 - `adapters/first-struct-slice.md` defines the minimal request and response surface for the first differential struct passthrough slice
+- `adapters/first-map-slice.md` defines the minimal request and response surface for the first differential map passthrough slice
 - `crates/tiforth-harness-differential` executes the first-expression, first-filter-is-not-null, first-temporal-date32, first-decimal128, and first-float64-ordering slices through the current TiDB and TiFlash adapter cores, validates checked-in paired artifacts under `inventory/`, and executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs` wires a live-runner path for `first-filter-is-not-null-slice` that can emit normalized artifacts using TiDB and TiFlash MySQL endpoints from environment configuration
 - `scripts/refresh-first-filter-live-artifacts.sh` provides the canonical local command for env-validated dry runs and checked-in first-filter artifact refresh

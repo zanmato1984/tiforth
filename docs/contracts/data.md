@@ -53,6 +53,7 @@ Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-r
 Detailed nested plus decimal and temporal metadata boundary rationale lives in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`.
 Detailed first nested-aware handoff slice rationale lives in `docs/design/first-nested-aware-handoff-slice.md`.
 Detailed first struct-aware handoff slice rationale lives in `docs/design/first-struct-aware-handoff-slice.md`.
+Detailed first map-aware handoff slice rationale lives in `docs/design/first-map-aware-handoff-slice.md`.
 Detailed first temporal semantic slice rationale lives in `docs/design/first-temporal-semantic-slice.md`.
 Detailed first decimal semantic slice rationale lives in `docs/design/first-decimal-semantic-slice.md`.
 
@@ -98,6 +99,7 @@ For the shared data contract, that means:
 - when adapters or sources encounter those out-of-scope families for a milestone-1 request, they should either normalize to the current supported logical slice before handoff or surface an explicit unsupported outcome under the current adapter contract
 - the first nested-aware shared handoff checkpoint beyond milestone 1 is defined in `docs/design/first-nested-aware-handoff-slice.md`: passthrough of `list<int32>` through `column(index)` with separate parent-domain and child-domain claim ownership units when lifetimes can diverge
 - the first struct-aware shared handoff checkpoint beyond milestone 1 is defined in `docs/design/first-struct-aware-handoff-slice.md`: passthrough of `struct<a:int32, b:int32?>` through `column(index)` with separate parent-domain and per-child-domain claim ownership units when lifetimes can diverge
+- the first map-aware shared handoff checkpoint beyond milestone 1 is defined in `docs/design/first-map-aware-handoff-slice.md`: passthrough of `map<int32, int32?>` through `column(index)` with separate parent-domain, entry-domain, key-domain, and value-domain claim ownership units when lifetimes can diverge
 
 This boundary keeps milestone-1 contracts aligned with the current `int32` semantic core without pretending broader family support already exists.
 
@@ -115,6 +117,23 @@ narrow:
   payload in separate ownership units
 - shared differential comparison for this slice uses canonical object carriers
   with stable field order plus explicit top-level and child-field nullability
+- nested predicates, nested compute families, and broader nested logical types
+  remain out of scope until follow-on issues
+
+## First Map Follow-On Checkpoint
+
+Issue #230 now fixes one post-milestone nested checkpoint in
+`docs/design/first-map-aware-handoff-slice.md`.
+
+For that first map slice, shared data-contract scope is intentionally
+narrow:
+
+- shared nested handoff admits `map<int32, int32?>` arrays only
+- this checkpoint is limited to passthrough `column(index)` over that map shape
+- claim tracking keeps parent map storage plus entry, key, and value payloads
+  in separate ownership units
+- shared differential comparison for this slice uses canonical map-entry array
+  carriers with explicit key/value nullability rules
 - nested predicates, nested compute families, and broader nested logical types
   remain out of scope until follow-on issues
 
@@ -218,7 +237,7 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Open Questions
 
-- TODO: extend nested-family shared slices beyond the first `list<int32>` and first `struct<a:int32, b:int32?>` passthrough checkpoints, including `map`, `union`, and nested compute semantics
+- TODO: extend nested-family shared slices beyond the first `list<int32>`, first `struct<a:int32, b:int32?>`, and first `map<int32, int32?>` passthrough checkpoints, including `union` and nested compute semantics
 - TODO: extend temporal support beyond the first `date32` checkpoint to unit/timezone-sensitive families
 - TODO: extend decimal support beyond the first `decimal128` checkpoint, including arithmetic, cast or rescale policy, and decimal-family expansion
 - TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
@@ -227,4 +246,4 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone-1 struct-aware handoff checkpoint for passthrough `struct<a:int32, b:int32?>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`, and the first decimal semantic checkpoint under `docs/design/first-decimal-semantic-slice.md`. Additional nested-family expansion, broader decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone-1 struct-aware handoff checkpoint for passthrough `struct<a:int32, b:int32?>` columns, the first post-milestone-1 map-aware handoff checkpoint for passthrough `map<int32, int32?>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`, and the first decimal semantic checkpoint under `docs/design/first-decimal-semantic-slice.md`. Additional nested-family expansion, broader decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
