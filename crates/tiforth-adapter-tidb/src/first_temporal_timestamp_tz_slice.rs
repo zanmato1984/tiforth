@@ -533,7 +533,6 @@ fn normalize_logical_type(engine_type: &str) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -542,7 +541,10 @@ mod tests {
     #[test]
     fn canonical_requests_cover_all_documented_cases() {
         let requests = TidbFirstTemporalTimestampTzSliceAdapter::canonical_requests();
-        let case_ids: Vec<&str> = requests.iter().map(|request| request.case_id.as_str()).collect();
+        let case_ids: Vec<&str> = requests
+            .iter()
+            .map(|request| request.case_id.as_str())
+            .collect();
 
         assert_eq!(requests.len(), 10);
         assert_eq!(
@@ -597,7 +599,11 @@ mod tests {
                 engine_type: "timestamp_tz(us)".to_string(),
                 nullable: false,
             }],
-            vec![vec![json!(0)], vec![json!(1_000_000)], vec![json!(2_000_000)]],
+            vec![
+                vec![json!(0)],
+                vec![json!(1_000_000)],
+                vec![json!(2_000_000)],
+            ],
         );
 
         let result = TidbFirstTemporalTimestampTzSliceAdapter::execute(&request, &runner).unwrap();
@@ -612,7 +618,11 @@ mod tests {
                     logical_type: "timestamp_tz(us)".to_string(),
                     nullable: false,
                 }],
-                rows: vec![vec![json!(0)], vec![json!(1_000_000)], vec![json!(2_000_000)]],
+                rows: vec![
+                    vec![json!(0)],
+                    vec![json!(1_000_000)],
+                    vec![json!(2_000_000)]
+                ],
                 row_count: 3,
             }
         );
@@ -630,8 +640,8 @@ mod tests {
             code: Some("1105".to_string()),
             message: "unsupported temporal type: timestamp without timezone input is out of scope for first-temporal-timestamp-tz-slice".to_string(),
         });
-        let type_result = TidbFirstTemporalTimestampTzSliceAdapter::execute(&type_request, &type_runner)
-            .unwrap();
+        let type_result =
+            TidbFirstTemporalTimestampTzSliceAdapter::execute(&type_request, &type_runner).unwrap();
         assert_eq!(
             type_result.outcome,
             CaseOutcome::Error {
@@ -649,8 +659,8 @@ mod tests {
             code: Some("1105".to_string()),
             message: "unsupported temporal unit: timestamp_tz(ms) input is out of scope for first-temporal-timestamp-tz-slice".to_string(),
         });
-        let unit_result = TidbFirstTemporalTimestampTzSliceAdapter::execute(&unit_request, &unit_runner)
-            .unwrap();
+        let unit_result =
+            TidbFirstTemporalTimestampTzSliceAdapter::execute(&unit_request, &unit_runner).unwrap();
         assert_eq!(
             unit_result.outcome,
             CaseOutcome::Error {

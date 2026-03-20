@@ -144,7 +144,10 @@ fn exchange_bounded_queue_can_block_then_resume() {
         }
     }
 
-    assert!(saw_finished, "exchange pipeline did not reach finished status");
+    assert!(
+        saw_finished,
+        "exchange pipeline did not reach finished status"
+    );
     let outputs = sink.batches();
     assert_eq!(outputs.len(), 2);
     assert_eq!(collect_int32(outputs[0].batch().column(0)), vec![Some(1)]);
@@ -262,8 +265,11 @@ fn run_pipeline(
     runtime_context: ProjectionRuntimeContext,
 ) -> broken_pipeline_schedule::Result<TaskStatus> {
     let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink;
-    let pipeline =
-        Pipeline::<ArrowTypes>::new("ExchangePipeline", vec![PipelineChannel::new(source, pipes)], sink_op);
+    let pipeline = Pipeline::<ArrowTypes>::new(
+        "ExchangePipeline",
+        vec![PipelineChannel::new(source, pipes)],
+        sink_op,
+    );
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::default();
