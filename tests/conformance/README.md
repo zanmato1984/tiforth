@@ -25,3 +25,5 @@ Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/
 Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint in `tests/conformance/first-float64-ordering-slice.md`. Issue #196 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/float64_slice.rs`.
 
 Issue #224 adds the first JSON conformance checkpoint in `tests/conformance/first-json-slice.md`.
+
+Issue #226 adds the first struct passthrough conformance checkpoint in `tests/conformance/first-struct-slice.md`.
