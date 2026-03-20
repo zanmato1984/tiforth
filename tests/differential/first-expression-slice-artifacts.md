@@ -1,6 +1,6 @@
 # First Expression Slice Artifact Carriers
 
-Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #235 TiKV single-engine case-results checkpoint, issue #243 TiKV pairwise drift-policy checkpoint
+Status: issue #68 design checkpoint, issue #113 harness checkpoint, issue #133 drift-report-carrier checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #235 TiKV single-engine case-results checkpoint, issue #243 TiKV pairwise drift-policy checkpoint, issue #245 TiKV pairwise drift-artifact checkpoint
 
 Related issues:
 
@@ -12,6 +12,7 @@ Related issues:
 - #161 `harness: add machine-readable drift-report sidecars for first differential slices`
 - #235 `inventory: add first-expression-slice TiKV case-results artifact checkpoint`
 - #243 `docs: define TiKV pairwise drift aggregation policy for first-expression-slice`
+- #245 `harness: add first-expression-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -23,7 +24,7 @@ The minimal adapter request and response boundary that feeds these artifacts is 
 
 ## Artifact Set
 
-The first executable differential checkpoint produces four checked-in artifacts:
+The first executable differential checkpoint originally produced four checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
@@ -32,7 +33,12 @@ The first executable differential checkpoint produces four checked-in artifacts:
 
 Issue #235 also adds one checked-in TiKV single-engine `case-results` artifact that reuses the same `case-results` carrier shape below.
 
-Issue #243 defines the first TiKV pairwise drift policy for this slice without requiring the pairwise artifacts to land in the same checkpoint.
+Issue #243 defines the first TiKV pairwise drift policy for this slice, and issue #245 executes that policy with four additional checked-in pairwise artifacts:
+
+1. one TiDB-versus-TiKV Markdown `drift-report`
+2. one TiDB-versus-TiKV JSON `drift-report` sidecar
+3. one TiFlash-versus-TiKV Markdown `drift-report`
+4. one TiFlash-versus-TiKV JSON `drift-report` sidecar
 
 These carriers should stay simple and JSON-serializable at the record level even when the drift report also renders a human-readable Markdown summary.
 
@@ -43,6 +49,10 @@ Current checked-in examples:
 - `inventory/first-expression-slice-tikv-case-results.json`
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-expression-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -107,18 +117,18 @@ machine-readable `drift-report` sidecar that mirrors the shared carrier fields
 (`slice_id`, `engines[]`, `spec_refs[]`, and `cases[]`) used by the paired
 Markdown report.
 
-## TiKV Pairwise Policy For This Slice
+## TiKV Pairwise Checkpoint For This Slice
 
-Issue #243 now fixes the first TiKV pairwise drift aggregation policy for
+Issue #243 fixes the first TiKV pairwise drift aggregation policy for
 `first-expression-slice`.
 
-When a follow-on issue executes that pairwise checkpoint, it should add one
-Markdown `drift-report` plus one JSON sidecar for each of these engine pairs:
+Issue #245 now lands one Markdown `drift-report` plus one JSON sidecar for each
+pair:
 
 - `tidb-vs-tikv`
 - `tiflash-vs-tikv`
 
-The expected filenames are:
+The landed filenames are:
 
 - `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md`
 - `inventory/first-expression-slice-tidb-vs-tikv-drift-report.json`
@@ -134,8 +144,8 @@ Each pairwise report should:
 - include `evidence_refs[]` entries that point to the paired per-engine
   `case-results` records for the same `case_id`
 
-Pairwise TiKV execution may land one engine pair at a time in separate issues
-or PRs, so long as each PR keeps `Inventory-Impact: ...` explicit.
+Future refreshes may still land one engine pair at a time in separate issues or
+PRs, so long as each PR keeps `Inventory-Impact: ...` explicit.
 
 ## Boundary For Now
 

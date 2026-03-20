@@ -12,6 +12,8 @@ Related issues:
 - #80 `design: define the next thin end-to-end slice after milestone-1 projection`
 - #218 `design: define first TiKV differential adapter request/response surface`
 - #220 `adapter: execute first-expression-slice through TiKV`
+- #243 `docs: define TiKV pairwise drift aggregation policy for first-expression-slice`
+- #245 `harness: add first-expression-slice TiKV pairwise drift artifacts`
 
 ## Question
 
@@ -144,6 +146,7 @@ Only after the pairwise checkpoint exists should follow-on issues broaden one di
 - engine-specific compatibility notes derived from the now-executable slice
 - checked-in TiKV single-engine `case-results` evidence derived from deterministic adapter-side fixture execution (issue #235)
 - docs-first TiKV pairwise drift-policy guidance for first-expression artifacts (issue #243)
+- executable TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` (issue #245)
 
 Those should remain separate issues rather than being folded back into the first three checkpoints.
 
@@ -156,4 +159,4 @@ Those should remain separate issues rather than being folded back into the first
 
 ## Result
 
-The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 captures the first TiKV request/response boundary, issue #220 lands the first TiKV single-engine executable adapter checkpoint in `crates/tiforth-adapter-tikv`, issue #228 lands the first TiKV compatibility-notes inventory checkpoint for `first-expression-slice`, issue #235 lands the first checked-in TiKV single-engine `case-results` artifact for that slice, and issue #243 fixes the docs-first TiKV pairwise drift-policy checkpoint in `tests/differential/first-expression-slice-artifacts.md`. Executable TiKV pairwise drift artifacts remain a separate follow-on checkpoint unless another accepted design issue deliberately changes the slice or comparison surface.
+The documented first executable adapter path now breaks down into one TiDB issue, one TiFlash issue, and one pairwise differential harness issue. Issue #218 captures the first TiKV request/response boundary, issue #220 lands the first TiKV single-engine executable adapter checkpoint in `crates/tiforth-adapter-tikv`, issue #228 lands the first TiKV compatibility-notes inventory checkpoint for `first-expression-slice`, issue #235 lands the first checked-in TiKV single-engine `case-results` artifact for that slice, issue #243 fixes the docs-first TiKV pairwise drift-policy checkpoint in `tests/differential/first-expression-slice-artifacts.md`, and issue #245 lands the first executable TiKV pairwise drift artifacts in `inventory/first-expression-slice-tidb-vs-tikv-drift-report.{md,json}` and `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.{md,json}`.

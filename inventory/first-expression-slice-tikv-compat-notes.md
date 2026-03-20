@@ -1,6 +1,6 @@
 # First Expression Slice TiKV Compatibility Notes
 
-Status: issue #228 inventory checkpoint, issue #235 case-results checkpoint
+Status: issue #228 inventory checkpoint, issue #235 case-results checkpoint, issue #245 pairwise drift-artifact checkpoint
 
 Verified: 2026-03-19
 
@@ -12,6 +12,7 @@ Related issues:
 - #220 `adapter: execute first-expression-slice through TiKV`
 - #228 `inventory: add first-expression-slice TiKV compatibility notes checkpoint`
 - #235 `inventory: add first-expression-slice TiKV case-results artifact checkpoint`
+- #245 `harness: add first-expression-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -31,7 +32,7 @@ tests as source evidence, not as shared design authority.
 ## TiKV Snapshot
 
 - tiforth repository base commit reviewed: `7b8369c8c782c0b14d5046fb1ad3c779c0cd6ba5`
-- artifact baseline: deterministic TiKV adapter-core checkpoint from issue #220 plus issue #235 checked-in single-engine case-results evidence
+- artifact baseline: deterministic TiKV adapter-core checkpoint from issue #220 plus issue #235 checked-in single-engine case-results evidence and issue #245 checked-in pairwise drift-report evidence
 - live TiKV runner artifacts are not yet checked in for this slice
 
 ## Shared Slice Anchors
@@ -58,7 +59,10 @@ defined in `tests/differential/first-expression-slice.md`.
 - `tests/differential/first-expression-slice-artifacts.md`
 - `crates/tiforth-adapter-tikv/src/first_expression_slice.rs`
 - `crates/tiforth-harness-differential/src/first_expression_slice_tikv.rs`
+- `crates/tiforth-harness-differential/src/first_expression_slice_tikv_pairwise.rs`
 - `inventory/first-expression-slice-tikv-case-results.json`
+- `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md`
 
 ## Compatibility Notes
 
@@ -151,7 +155,7 @@ defined in `tests/differential/first-expression-slice.md`.
 
 #### Evidence Gaps
 
-- this checkpoint still leaves TiKV pairwise drift aggregation as follow-on work
+- TiKV pairwise drift aggregation is now checked in through `inventory/first-expression-slice-tidb-vs-tikv-drift-report.{md,json}` and `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.{md,json}`; live-runner evidence remains follow-on work
 
 ## Boundary For This Artifact
 
@@ -159,5 +163,5 @@ defined in `tests/differential/first-expression-slice.md`.
   first-expression projection, `column`, `literal<int32>`, and `add<int32>`
   family
 - it does not redefine the shared adapter request or response contract
-- it does not add checked-in TiKV differential pairwise drift reports
+- checked-in TiKV differential pairwise drift reports now live in `inventory/first-expression-slice-tidb-vs-tikv-drift-report.{md,json}` and `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.{md,json}`
 - broader TiKV slice coverage remains follow-on work
