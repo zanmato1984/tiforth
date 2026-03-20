@@ -13,12 +13,14 @@ Current checkpoint:
 - `crates/tiforth-adapter-tikv` now encodes `first-expression-slice` request catalogs with TiKV-oriented SQL lowering and row / error normalization behind a runner boundary
 - `inventory/first-expression-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-expression-slice`
 - `inventory/first-expression-slice-tikv-case-results.json` now captures the first checked-in TiKV single-engine normalized `case-results` evidence for `first-expression-slice`
+- `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
+- `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
 
 Next checkpoint:
 
-- execute the first TiKV pairwise drift checkpoint for `first-expression-slice` using the accepted policy in `tests/differential/first-expression-slice-artifacts.md`
+- extend the TiKV request and response surface beyond `first-expression-slice` once the current pairwise artifact checkpoint is stable for refresh and review
 
 ## TODOs
 
-- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` under the accepted first-expression policy
+- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression case-results evidence changes
 - extend the TiKV request and response surface beyond `first-expression-slice` after the first executable checkpoint and compatibility notes are reviewable
