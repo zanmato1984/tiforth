@@ -7,6 +7,7 @@ Related issues:
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
+- #247 `design: define first TiKV differential filter adapter request/response surface`
 
 ## Purpose
 
@@ -35,7 +36,9 @@ This boundary applies only to the first differential filter slice:
 
 It does **not** yet define:
 
-- TiKV participation in this slice
+- TiKV participation in this shared TiDB-versus-TiFlash pairwise checkpoint;
+  TiKV-specific request and response boundary details are handled separately in
+  `adapters/first-filter-is-not-null-slice-tikv.md`
 - generalized predicate execution beyond `is_not_null(column(index))`
 - connection management, authentication, or environment provisioning
 - a generalized adapter API for later differential families
@@ -93,7 +96,9 @@ surface.
 
 ## Response Surface
 
-Each adapter invocation should return one normalized `case result` record whose fields match the minimum carrier now defined in `tests/differential/first-filter-is-not-null-slice-artifacts.md`.
+Each adapter invocation should return one normalized `case result` record whose
+fields match the minimum carrier now defined in
+`tests/differential/first-filter-is-not-null-slice-artifacts.md`.
 
 That record must include at least:
 
@@ -153,6 +158,8 @@ Later issues may extend this boundary to cover:
 - reusable session profiles or adapter capability advertisement
 - live TiDB and TiFlash runner orchestration beyond deterministic local
   adapter-core fixtures
+- TiKV single-engine executable checkpoint work on top of
+  `adapters/first-filter-is-not-null-slice-tikv.md`
 
 Until then, this note fixes only the minimum request-and-response contract for
 the first differential filter slice.
