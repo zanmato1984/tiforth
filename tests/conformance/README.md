@@ -18,7 +18,7 @@ Issue #139 adds the first post-gate filter conformance case checkpoint in `tests
 
 Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance/signed-unsigned-interaction-checkpoint.md`.
 
-Issue #300 adds the first unsigned arithmetic conformance checkpoint in `tests/conformance/first-unsigned-arithmetic-slice.md`. Issue #308 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`.
+Issue #300 adds the first unsigned arithmetic conformance checkpoint in `tests/conformance/first-unsigned-arithmetic-slice.md`. Issue #308 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`. Issue #310 adds the first executable TiDB/TiFlash differential harness and checked-in artifact coverage for the same slice.
 
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
 

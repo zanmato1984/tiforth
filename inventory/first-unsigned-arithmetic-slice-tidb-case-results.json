@@ -1,0 +1,273 @@
+{
+  "slice_id": "first-unsigned-arithmetic-slice",
+  "engine": "tidb",
+  "adapter": "tidb-sql",
+  "cases": [
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "u",
+            "logical_type": "uint64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "0"
+          ],
+          [
+            "7"
+          ],
+          [
+            "42"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-literal-projection",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "literal-uint64-7",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "seven",
+            "logical_type": "uint64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "7"
+          ],
+          [
+            "7"
+          ],
+          [
+            "7"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-add-basic",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-add-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-uint64-column-0-column-1",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "sum",
+            "logical_type": "uint64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "3"
+          ],
+          [
+            "7"
+          ],
+          [
+            "30"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-add-null-propagation",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-add-nullable",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-uint64-column-0-column-1",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "sum",
+            "logical_type": "uint64",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            null
+          ],
+          [
+            null
+          ],
+          [
+            "7"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-add-overflow-error",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-add-overflow",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-uint64-column-0-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsigned_overflow",
+        "engine_code": "1690",
+        "engine_message": "BIGINT UNSIGNED value is out of range in '(input_rows.lhs + input_rows.rhs)'"
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-is-not-null-mixed-keep-drop",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-nullable",
+      "comparison_mode": "row-order-preserved",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "u",
+            "logical_type": "uint64",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            "5"
+          ],
+          [
+            "9"
+          ]
+        ],
+        "row_count": 2
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "uint64-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint64-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-2",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_2' in 'field list'"
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "mixed-signed-unsigned-arithmetic-error",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-mixed-int64-uint64",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-uint64-column-0-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "mixed_signed_unsigned",
+        "engine_code": "1105",
+        "engine_message": "mixed signed and unsigned arithmetic is unsupported for first-unsigned-arithmetic-slice; got Int64"
+      }
+    },
+    {
+      "slice_id": "first-unsigned-arithmetic-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "unsupported-unsigned-family-error",
+      "spec_refs": [
+        "docs/design/first-unsigned-arithmetic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-unsigned-arithmetic-slice.md",
+        "tests/differential/first-unsigned-arithmetic-slice.md"
+      ],
+      "input_ref": "first-uint32-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_unsigned_family",
+        "engine_code": "1105",
+        "engine_message": "unsupported unsigned type: uint32 input is out of scope for first-unsigned-arithmetic-slice"
+      }
+    }
+  ]
+}

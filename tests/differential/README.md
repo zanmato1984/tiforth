@@ -19,7 +19,7 @@ Current checkpoint:
 - `tests/differential/first-exchange-slice.md` defines the first exchange parity checkpoint over existing first-expression and first-filter case IDs
 - `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for that slice
-- `tests/differential/first-unsigned-arithmetic-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential unsigned arithmetic slice
+- `tests/differential/first-unsigned-arithmetic-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential unsigned arithmetic slice
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential filter slice
 - `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential temporal `date32` slice
 - `tests/differential/first-temporal-timestamp-tz-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential temporal timezone-aware `timestamp_tz(us)` slice
@@ -39,7 +39,7 @@ Current checkpoint:
 - `adapters/first-struct-slice.md` defines the minimal request and response surface for the first differential struct passthrough slice
 - `adapters/first-map-slice.md` defines the minimal request and response surface for the first differential map passthrough slice
 - `adapters/first-union-slice.md` defines the minimal request and response surface for the first differential union passthrough slice
-- `crates/tiforth-harness-differential` executes first-expression, first-filter-is-not-null, first-temporal-date32, first-temporal-timestamp-tz, and first-decimal128 slices through TiDB, TiFlash, and TiKV checkpoints (including TiKV pairwise drift outputs), executes first-float64-ordering through TiDB and TiFlash paired checkpoints plus TiKV single-engine and pairwise checkpoints, validates checked-in paired and single-engine artifacts under `inventory/`, and executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
+- `crates/tiforth-harness-differential` executes first-expression, first-unsigned-arithmetic, first-filter-is-not-null, first-temporal-date32, first-temporal-timestamp-tz, and first-decimal128 slices through TiDB/TiFlash checkpoints, carries the documented TiKV single-engine and pairwise checkpoints for the supported slices that already have them, validates checked-in paired and single-engine artifacts under `inventory/`, and executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs` wires a live-runner path for `first-filter-is-not-null-slice` that can emit normalized artifacts using TiDB and TiFlash MySQL endpoints from environment configuration
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-filter drift reports
 - `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-decimal drift reports

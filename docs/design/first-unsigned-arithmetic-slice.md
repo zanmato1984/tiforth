@@ -1,6 +1,6 @@
 # First Unsigned Arithmetic Slice
 
-Status: issue #300 design checkpoint, issue #308 local executable kernel checkpoint
+Status: issue #300 design checkpoint, issue #308 local executable kernel checkpoint, issue #310 differential harness checkpoint
 
 Verified: 2026-03-20
 
@@ -11,6 +11,7 @@ Related issues:
 - #276 `spec: define overflow behavior checkpoint for follow-on operator families`
 - #300 `design: define first unsigned arithmetic semantic slice boundary`
 - #308 `milestone-1: implement first executable unsigned arithmetic slice in local kernel`
+- #310 `milestone-1: execute first unsigned arithmetic differential slice`
 
 ## Question
 
@@ -105,6 +106,17 @@ checkpoint in:
 
 - `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
 
+Issue #310 adds the first executable TiDB/TiFlash differential checkpoint for
+the same slice in:
+
+- `crates/tiforth-adapter-tidb/src/first_unsigned_arithmetic_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/first_unsigned_arithmetic_slice.rs`
+- `crates/tiforth-harness-differential/src/first_unsigned_arithmetic_slice.rs`
+- `inventory/first-unsigned-arithmetic-slice-tidb-case-results.json`
+- `inventory/first-unsigned-arithmetic-slice-tiflash-case-results.json`
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.md`
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.json`
+
 Before kernel or adapter expansion claims broader unsigned support, follow-on
 issues should preserve these anchors or replace them explicitly.
 
@@ -122,6 +134,9 @@ issues should preserve these anchors or replace them explicitly.
 The first unsigned arithmetic checkpoint is now explicit and narrow: `uint64`
 column passthrough, `literal<uint64>`, `add<uint64>` overflow-as-error, and
 `is_not_null` coverage anchors are fixed for docs-first conformance and
-differential work, and local executable shared-kernel coverage now exists in
-`crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`. Broader unsigned
-family semantics plus adapter and differential execution remain follow-on work.
+differential work; local executable shared-kernel coverage now exists in
+`crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`; and executable
+TiDB/TiFlash adapter, harness, and checked-in differential evidence now exist
+under `crates/tiforth-adapter-tidb`, `crates/tiforth-adapter-tiflash`,
+`crates/tiforth-harness-differential`, and `inventory/`. Broader unsigned
+family semantics plus TiKV follow-on work remain out of scope.

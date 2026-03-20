@@ -1,6 +1,6 @@
 # First Unsigned Arithmetic Slice Cases
 
-Status: issue #300 docs checkpoint, issue #308 local executable kernel checkpoint
+Status: issue #300 docs checkpoint, issue #308 local executable kernel checkpoint, issue #310 differential harness checkpoint
 
 Spec source: `docs/design/first-unsigned-arithmetic-slice.md`
 
@@ -41,4 +41,11 @@ checkpoint in:
 
 - `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
 
-Differential harness execution remains follow-on scope.
+Issue #310 adds the first executable TiDB/TiFlash differential harness
+coverage and checked-in artifact set for the same checkpoint in:
+
+- `crates/tiforth-harness-differential/src/first_unsigned_arithmetic_slice.rs`
+- `inventory/first-unsigned-arithmetic-slice-tidb-case-results.json`
+- `inventory/first-unsigned-arithmetic-slice-tiflash-case-results.json`
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.md`
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.json`
