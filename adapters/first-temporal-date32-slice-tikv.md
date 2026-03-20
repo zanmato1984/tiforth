@@ -1,6 +1,6 @@
 # First TiKV Temporal `date32` Adapter Boundary
 
-Status: issue #264 design checkpoint
+Status: issue #264 design checkpoint, issue #266 executable checkpoint
 
 Verified: 2026-03-20
 
@@ -9,14 +9,15 @@ Related issues:
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
+- #266 `adapter: execute first-temporal-date32-slice through TiKV`
 
 ## Purpose
 
 This note defines the first TiKV-specific adapter boundary for the existing
 `first-temporal-date32-slice` semantic checkpoint.
 
-The goal is to make TiKV request and response expectations explicit for future
-harness and adapter work without changing shared slice semantics or widening
+The goal is to make TiKV request and response expectations explicit for harness
+and follow-on adapter work without changing shared slice semantics or widening
 temporal families.
 
 ## Scope
@@ -30,8 +31,8 @@ This boundary applies only to:
 
 It does not define:
 
-- executable TiKV temporal adapter behavior in crates
-- TiKV temporal `case-results` or pairwise drift-report artifacts
+- pairwise TiKV-versus-TiDB or TiKV-versus-TiFlash temporal drift-report
+  policy for this slice, which remains follow-on scope
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - temporal semantics beyond the existing first `date32` checkpoint
@@ -72,8 +73,8 @@ credentials, or expected rows.
 
 ## Response Surface
 
-Each TiKV adapter invocation should return one normalized `case result` record
-with at least:
+Each TiKV adapter invocation returns one normalized `case result` record with at
+least:
 
 - `slice_id`
 - `engine = tikv`
@@ -85,19 +86,19 @@ with at least:
   `filter_ref`)
 - `outcome.kind = rows` or `error`
 
-When `outcome.kind = rows`, the record should include:
+When `outcome.kind = rows`, the record includes:
 
 - `schema[]` with `name`, `logical_type`, and `nullable`
 - `rows[]` in normalized JSON scalar form plus `null`
 - `row_count`
 
-When `outcome.kind = error`, the record should include:
+When `outcome.kind = error`, the record includes:
 
 - `error_class`
 - optional `engine_code`
 - optional `engine_message`
 
-For this first TiKV temporal boundary, the normalized error vocabulary is
+For this first TiKV temporal checkpoint, the normalized error vocabulary is
 unchanged:
 
 - `missing_column`
@@ -107,23 +108,25 @@ unchanged:
 
 ## First Checkpoint Expectations
 
-- this issue is docs-first only; executable TiKV temporal behavior remains
-  follow-on scope
-- until executable support lands, documented cases may legitimately normalize to
-  `adapter_unavailable` instead of being omitted
+- issue #266 adds deterministic TiKV adapter-core coverage for every
+  documented first-temporal `case_id`
+- issue #266 adds a deterministic TiKV single-engine harness carrier at
+  `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv.rs`
+- issue #266 lands first TiKV temporal compatibility notes and normalized
+  `case-results` inventory artifacts
 - normalized field meanings stay aligned with
   `tests/differential/first-temporal-date32-slice-artifacts.md`
 
 ## Follow-On Boundary
 
-After this docs-first checkpoint, follow-on issues may separately define:
+After this first request/response plus single-engine executable checkpoint,
+follow-on issues may separately define:
 
-- executable TiKV single-engine temporal adapter coverage
-- checked-in TiKV temporal compatibility-notes and `case-results` artifacts
 - TiKV pairwise drift-report policy and checked-in artifacts for this slice
+- live TiKV runner wiring and refresh workflow for this slice
 
 ## Result
 
-TiKV now has a concrete docs-first request and response boundary for
-`first-temporal-date32-slice` while preserving the current executable temporal
-differential checkpoint as TiDB-versus-TiFlash.
+TiKV now has a concrete docs-first request and response boundary plus an
+executable single-engine first-temporal checkpoint while preserving the shared
+first differential temporal checkpoint as TiDB-versus-TiFlash.
