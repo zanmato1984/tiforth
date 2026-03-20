@@ -1,6 +1,6 @@
 # First Temporal Timestamp-Timezone Semantic Slice
 
-Status: issue #280 design checkpoint
+Status: issue #280 design checkpoint, issue #288 local executable kernel checkpoint
 
 Verified: 2026-03-20
 
@@ -10,6 +10,7 @@ Related issues:
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #178 `milestone-1: implement first executable temporal date32 slice in local kernel`
 - #280 `design: define first timezone-aware timestamp semantic slice checkpoint`
+- #288 `milestone-1: implement first executable temporal timestamp_tz(us) slice in local kernel`
 
 ## Question
 
@@ -30,7 +31,7 @@ widening the current runtime-state model?
 
 ## Design Summary
 
-The first timezone-aware timestamp checkpoint is a narrow docs-first slice:
+The first timezone-aware timestamp checkpoint is a narrow slice that starts docs-first and now includes local executable kernel conformance:
 
 - admitted temporal logical family: `timestamp_tz(us)` only
 - admitted expression family for this slice: passthrough `column(index)` over
@@ -98,6 +99,10 @@ checkpoint:
   `tests/differential/first-temporal-timestamp-tz-slice.md`
 - adapter boundary doc: `adapters/first-temporal-timestamp-tz-slice.md`
 
+Issue #288 adds first executable local conformance coverage for `column(index)` passthrough and `is_not_null(column(index))` in:
+
+- `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
+
 Before kernel or adapter expansion claims broader timezone-aware timestamp
 support, follow-on issues should preserve these anchors or replace them
 explicitly.
@@ -113,6 +118,4 @@ explicitly.
 ## Result
 
 The first timezone-aware timestamp checkpoint is now explicit and narrow:
-`timestamp_tz(us)` column passthrough, `is_not_null` predicate coverage, and
-one ascending-ordering boundary with normalized UTC epoch-microsecond
-comparison. Broader timestamp family behavior remains follow-on work.
+`timestamp_tz(us)` column passthrough, `is_not_null` predicate coverage, and one ascending-ordering boundary with normalized UTC epoch-microsecond comparison. Local executable shared-kernel conformance for passthrough and predicate cases now exists through `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`; broader timestamp family behavior remains follow-on work.

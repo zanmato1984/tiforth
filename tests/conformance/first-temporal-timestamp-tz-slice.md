@@ -1,6 +1,6 @@
 # First Temporal `timestamp_tz(us)` Slice Cases
 
-Status: issue #280 docs checkpoint
+Status: issue #280 docs checkpoint, issue #288 local executable kernel checkpoint
 
 Spec source: `docs/design/first-temporal-timestamp-tz-slice.md`
 
@@ -40,5 +40,6 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. Local executable kernel conformance for
-`timestamp_tz(us)` remains follow-on scope.
+Local executable kernel conformance for `timestamp_tz(us)` now exists in `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`.
+
+Adapter execution wiring and cross-engine differential artifacts for this checkpoint remain follow-on scope.

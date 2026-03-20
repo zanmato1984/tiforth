@@ -24,7 +24,10 @@ fn date32_column_passthrough_preserves_day_values_and_non_nullable_field() {
     assert_eq!(output.schema().field(0).name(), "d_copy");
     assert_eq!(output.schema().field(0).data_type(), &DataType::Date32);
     assert!(!output.schema().field(0).is_nullable());
-    assert_eq!(collect_date32(output.column(0)), vec![Some(0), Some(1), Some(2)]);
+    assert_eq!(
+        collect_date32(output.column(0)),
+        vec![Some(0), Some(1), Some(2)]
+    );
 }
 
 #[test]
@@ -63,7 +66,10 @@ fn date32_predicate_keeps_all_rows_when_no_nulls() {
     .expect("date32 filter should succeed");
 
     assert_eq!(output.num_rows(), input.num_rows());
-    assert_eq!(collect_date32(output.column(0)), vec![Some(0), Some(1), Some(2)]);
+    assert_eq!(
+        collect_date32(output.column(0)),
+        vec![Some(0), Some(1), Some(2)]
+    );
 }
 
 #[test]
@@ -156,7 +162,10 @@ fn unsupported_temporal_family_reports_execution_errors_in_projection_and_predic
     )
     .expect_err("timestamp projection should fail in first temporal slice");
     assert!(projection_error.to_string().contains(
-        "unsupported temporal expression input at column 0, got Timestamp(Second, None); first temporal slice supports Date32 only"
+        "unsupported temporal expression input at column 0, got Timestamp(Second, None)"
+    ));
+    assert!(projection_error.to_string().contains(
+        "first temporal slices support Date32 and timezone-aware Timestamp(Microsecond, <tz>) only"
     ));
 
     let predicate_error = filter_batch(
@@ -166,8 +175,11 @@ fn unsupported_temporal_family_reports_execution_errors_in_projection_and_predic
         "Filter",
     )
     .expect_err("timestamp predicate input should fail in first temporal slice");
+    assert!(predicate_error
+        .to_string()
+        .contains("unsupported temporal predicate input at column 0, got Timestamp(Second, None)"));
     assert!(predicate_error.to_string().contains(
-        "unsupported temporal predicate input at column 0, got Timestamp(Second, None); first temporal slice supports Date32 only"
+        "first temporal slices support Date32 and timezone-aware Timestamp(Microsecond, <tz>) only"
     ));
 }
 

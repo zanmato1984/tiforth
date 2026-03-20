@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use arrow_array::builder::BooleanBuilder;
 use arrow_array::{Array, ArrayRef, BooleanArray, RecordBatch};
-use arrow_schema::DataType;
+use arrow_schema::{DataType, TimeUnit};
 use arrow_select::filter::filter_record_batch;
 
 use broken_pipeline::traits::arrow::Batch;
@@ -119,6 +119,7 @@ fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(
         DataType::Decimal128(precision, scale) => {
             validate_decimal128_metadata(index, *precision, *scale, "predicate")
         }
+        DataType::Timestamp(_, _) => validate_timestamp_tz_us(index, data_type, "predicate"),
         DataType::Decimal256(_, _) => Err(TiforthError::UnsupportedDataType {
             detail: format!(
                 "unsupported decimal predicate input at column {index}, got {data_type:?}; first decimal slice supports Decimal128 only"
@@ -132,16 +133,32 @@ fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(
         DataType::Date64
         | DataType::Time32(_)
         | DataType::Time64(_)
-        | DataType::Timestamp(_, _)
         | DataType::Duration(_)
         | DataType::Interval(_) => Err(TiforthError::UnsupportedDataType {
             detail: format!(
-                "unsupported temporal predicate input at column {index}, got {data_type:?}; first temporal slice supports Date32 only"
+                "unsupported temporal predicate input at column {index}, got {data_type:?}; first temporal slices support Date32 and timezone-aware Timestamp(Microsecond, <tz>) only"
             ),
         }),
         _ => Err(TiforthError::UnsupportedDataType {
             detail: format!(
-                "expected Int32, Date32, Decimal128, or Float64 predicate input at column {index}, got {data_type:?}"
+                "expected Int32, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column {index}, got {data_type:?}"
+            ),
+        }),
+    }
+}
+
+fn validate_timestamp_tz_us(
+    index: usize,
+    data_type: &DataType,
+    surface: &str,
+) -> Result<(), TiforthError> {
+    match data_type {
+        DataType::Timestamp(TimeUnit::Microsecond, Some(timezone)) if !timezone.is_empty() => {
+            Ok(())
+        }
+        _ => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported temporal {surface} input at column {index}, got {data_type:?}; first temporal slices support Date32 and timezone-aware Timestamp(Microsecond, <tz>) only"
             ),
         }),
     }
