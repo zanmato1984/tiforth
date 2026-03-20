@@ -21,6 +21,7 @@ Running multiple issue-scoped tasks in one directory causes avoidable problems:
 - one issue or PR branch per local worktree
 - do not run two active issue tasks in the same directory
 - before starting an agent on an issue, create or switch to that issue's dedicated worktree
+- when no open issue exists, create a bootstrap issue for the next concrete repository-backed task before branch/worktree creation
 - stacked PRs may still use separate worktrees even when one branch builds on another
 
 ## Recommended Shape
@@ -33,6 +34,8 @@ Examples:
 - branch `issue-3-broken-pipeline-checkpoint`
 
 ## Minimum Workflow
+
+When the open-issue queue is empty, first open a bootstrap issue for the next concrete repository-backed task, then follow the same workflow below.
 
 1. Start from the intended base branch.
 2. Create a dedicated branch for the issue.
