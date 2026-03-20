@@ -57,6 +57,7 @@ Detailed first map-aware handoff slice rationale lives in `docs/design/first-map
 Detailed first union-aware handoff slice rationale lives in `docs/design/first-union-aware-handoff-slice.md`.
 Detailed first temporal semantic slice rationale lives in `docs/design/first-temporal-semantic-slice.md`.
 Detailed first decimal semantic slice rationale lives in `docs/design/first-decimal-semantic-slice.md`.
+Detailed adapter-visible batch-envelope claim-carrier rationale lives in `docs/design/adapter-visible-batch-envelope-claim-carrier.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
 
@@ -238,6 +239,16 @@ For the current Rust kernel slice, local runtime state carries the semantic batc
 
 This settles the local Rust-side carrier for milestone 1 without freezing a later adapter or FFI layout.
 
+## First Adapter-Visible Claim-Carrier Follow-On
+
+Issue #274 now fixes one post-milestone ownership-observability checkpoint in
+`docs/design/adapter-visible-batch-envelope-claim-carrier.md`.
+
+For that first claim-carrier checkpoint, full batch-envelope `batch_id`,
+`origin`, and `claims[]` detail remains optional sidecar evidence until a slice
+explicitly requires it, and first-slice adapter `case result` fields remain
+unchanged.
+
 ## `shrink` And `release` For Live Batch Claims
 
 - `shrink` applies only while `tiforth` still owns the bytes locally or after those bytes have been detached from every live batch and retained state
@@ -260,9 +271,8 @@ This settles the local Rust-side carrier for milestone 1 without freezing a late
 - TODO: extend temporal support beyond the first `date32` checkpoint to unit/timezone-sensitive families
 - TODO: extend decimal support beyond the first `decimal128` checkpoint, including arithmetic, cast or rescale policy, and decimal-family expansion
 - TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
-- TODO: decide what later adapter-visible or serialized carrier should expose full `batch_id`, `origin`, and `claims[]` detail beyond the current local `GovernedBatch` state and `LocalExecutionSnapshot` event records
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone-1 struct-aware handoff checkpoint for passthrough `struct<a:int32, b:int32?>` columns, the first post-milestone-1 map-aware handoff checkpoint for passthrough `map<int32, int32?>` columns, the first post-milestone-1 union-aware handoff checkpoint for passthrough `dense_union<i:int32, n:int32?>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`, and the first decimal semantic checkpoint under `docs/design/first-decimal-semantic-slice.md`. Additional nested-family expansion, broader decimal and temporal shared slices, richer adapter-visible claim serialization, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone-1 struct-aware handoff checkpoint for passthrough `struct<a:int32, b:int32?>` columns, the first post-milestone-1 map-aware handoff checkpoint for passthrough `map<int32, int32?>` columns, the first post-milestone-1 union-aware handoff checkpoint for passthrough `dense_union<i:int32, n:int32?>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`, and the first decimal semantic checkpoint under `docs/design/first-decimal-semantic-slice.md`. Additional nested-family expansion, broader decimal and temporal shared slices, broader adapter-visible claim-carrier coverage beyond the first sidecar checkpoint, and imported-buffer work remain open.

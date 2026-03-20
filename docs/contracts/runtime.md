@@ -220,12 +220,14 @@ This fixture remains the canonical milestone-1 serialized event carrier. It does
 
 Detailed guidance lives in `docs/design/adapter-visible-runtime-event-carrier.md`.
 Shared callback or streaming event surfaces are gated by `docs/design/runtime-event-streaming-adoption-gate.md`.
+Detailed batch-envelope claim-carrier guidance lives in `docs/design/adapter-visible-batch-envelope-claim-carrier.md`.
 
 For milestone 1:
 
 - `LocalExecutionSnapshot` remains an internal Rust-side carrier and should not be exposed directly through adapter-visible boundaries
 - adapter-visible integrations that need to expose local runtime, admission, or ownership events should translate those observations into `LocalExecutionFixture`-shaped records with primitive payload fields
 - first-slice adapter `case result` fields stay unchanged; event fixtures remain optional sidecar evidence rather than required request or response payload
+- full batch-envelope `batch_id`, `origin`, and `claims[]` detail remains a separate optional claim-carrier sidecar boundary unless a slice explicitly marks it required
 - callback-oriented event streaming is not part of the milestone-1 shared adapter or runtime boundary
 
 ## Minimal Adapter-Visible Error Taxonomy
