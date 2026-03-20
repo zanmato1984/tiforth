@@ -85,6 +85,9 @@ After the current milestone-1 slices, layer 3 should grow only when:
 
 ## TODOs
 
-- Extend harness result and drift-report formats beyond the current first
-  differential slices (`first-expression-slice` and
-  `first-filter-is-not-null-slice`).
+- Decide when to require one shared machine-readable `drift-report` schema
+  across slices instead of the current milestone-1 optional-sidecar policy from
+  `tests/differential/drift-report-carrier.md`.
+- Decide whether later checkpoints should support merged summaries across
+  multiple engine pairs in one artifact or continue one pairwise report per
+  artifact.
