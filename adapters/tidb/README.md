@@ -9,6 +9,7 @@ Current checkpoint:
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for the first TiDB-versus-TiFlash differential slice
 - `adapters/first-filter-is-not-null-slice.md` defines the shared request and response surface for the docs-first differential filter checkpoint
 - `adapters/first-temporal-date32-slice.md` defines the shared request and response surface for the docs-first differential temporal `date32` checkpoint
+- `adapters/first-temporal-timestamp-tz-slice.md` defines the shared request and response surface for the docs-first differential temporal timezone-aware `timestamp_tz(us)` checkpoint
 - `adapters/first-decimal128-slice.md` defines the shared request and response surface for the docs-first differential decimal `decimal128` checkpoint
 - `adapters/first-float64-ordering-slice.md` defines the shared request and response surface for the docs-first differential float64 NaN/infinity ordering checkpoint
 - `adapters/first-json-slice.md` defines the shared request and response surface for the docs-first differential JSON comparability/cast checkpoint
@@ -29,5 +30,5 @@ Next checkpoint:
 
 ## TODOs
 
-- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, and `first-union-slice`)
+- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, and `first-union-slice`)
 - extend TiDB compatibility notes beyond the current first-expression, first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering slice boundaries as new semantic families land

@@ -20,6 +20,8 @@ Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance
 
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
 
+Issue #280 adds the first timezone-aware timestamp `timestamp_tz(us)` conformance checkpoint in `tests/conformance/first-temporal-timestamp-tz-slice.md`.
+
 Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/conformance/first-decimal128-slice.md`, and local executable coverage for that checkpoint now exists in `crates/tiforth-kernel/tests/decimal128_slice.rs`.
 
 Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint in `tests/conformance/first-float64-ordering-slice.md`. Issue #196 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/float64_slice.rs`.

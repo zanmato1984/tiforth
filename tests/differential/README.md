@@ -7,6 +7,7 @@ Current checkpoint:
 - `tests/differential/first-expression-slice.md` defines the first differential target: TiDB versus TiFlash on the milestone-1 expression-projection semantic core
 - `tests/differential/first-filter-is-not-null-slice.md` defines the first differential docs checkpoint for the post-gate `is_not_null(column(index))` filter semantic slice
 - `tests/differential/first-temporal-date32-slice.md` defines the first differential docs checkpoint for the narrow temporal `date32` semantic slice (`column(index)` passthrough plus `is_not_null(column(index))`)
+- `tests/differential/first-temporal-timestamp-tz-slice.md` defines the first differential docs checkpoint for the narrow timezone-aware temporal `timestamp_tz(us)` slice (`column(index)` passthrough, `is_not_null(column(index))`, and canonical UTC ordering probes)
 - `tests/differential/first-decimal128-slice.md` defines the first differential docs checkpoint for the narrow decimal `decimal128` semantic slice (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-float64-ordering-slice.md` defines the first differential docs checkpoint for narrow `float64` NaN/infinity and canonical-ordering semantics (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-json-slice.md` defines the first differential docs checkpoint for narrow JSON structural-comparison and unsupported explicit-cast boundary probes
@@ -26,6 +27,7 @@ Current checkpoint:
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `adapters/first-filter-is-not-null-slice.md` defines the minimal request and response surface for the first differential filter slice
 - `adapters/first-temporal-date32-slice.md` defines the minimal request and response surface for the first differential temporal `date32` slice
+- `adapters/first-temporal-timestamp-tz-slice.md` defines the minimal request and response surface for the first differential temporal timezone-aware `timestamp_tz(us)` slice
 - `adapters/first-decimal128-slice.md` defines the minimal request and response surface for the first differential decimal `decimal128` slice
 - `adapters/first-float64-ordering-slice.md` defines the minimal request and response surface for the first differential float64 NaN/infinity ordering slice
 - `adapters/first-json-slice.md` defines the minimal request and response surface for the first differential JSON comparability/cast slice

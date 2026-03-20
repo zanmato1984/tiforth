@@ -155,7 +155,7 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, `float64`, or `json` in current shared checkpoints
+- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, `float64`, `json`, or `timestamp_tz(us)` in current shared checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
@@ -268,10 +268,39 @@ For current shared contracts:
 - the first admitted temporal logical type beyond milestone 1 is `date32`
 - the first temporal checkpoint reuses existing expression and predicate
   families: passthrough `column(index)` plus `is_not_null(column(index))`
-- this checkpoint does not define temporal arithmetic, ordering, casts,
-  extraction, truncation, or timezone-aware timestamp semantics
+- this checkpoint does not define temporal arithmetic, casts, extraction, or
+  truncation semantics
 - broader temporal families remain out of scope until follow-on issues define
   their semantics and coverage
+
+## First Timestamp-Timezone Temporal Checkpoint
+
+Issue #280 adds a docs-first timezone-aware timestamp checkpoint in
+`docs/design/first-temporal-timestamp-tz-slice.md`.
+
+Issue #280 also adds the first docs-first timestamp-timezone coverage anchors in:
+
+- `tests/conformance/first-temporal-timestamp-tz-slice.md`
+- `tests/differential/first-temporal-timestamp-tz-slice.md`
+- `adapters/first-temporal-timestamp-tz-slice.md`
+
+For current shared contracts:
+
+- the first admitted timezone-aware timestamp logical type beyond `date32` is
+  `timestamp_tz(us)`
+- this checkpoint reuses existing expression and predicate families:
+  passthrough `column(index)` plus `is_not_null(column(index))`
+- this checkpoint adds one docs-first ordering probe boundary over
+  `timestamp_tz(us)` under stable `ordering_ref`
+- shared differential comparison for this checkpoint normalizes non-null
+  timestamp values to UTC epoch-microsecond integers
+- `timestamp` without timezone and non-`us` timestamp units are execution
+  errors in this checkpoint
+- temporal arithmetic, casts, extraction, truncation, and broader
+  timestamp-timezone policy remain out of scope until follow-on issues define
+  semantics and coverage
+- local executable kernel and adapter coverage for this checkpoint remains
+  follow-on scope
 
 ## First Decimal Follow-On Checkpoint
 
@@ -408,7 +437,7 @@ For current shared contracts:
 - TODO: extend collation semantics beyond the first string checkpoint,
   including locale-specific collation families, binary-type collation
   interactions, and executable adapter plus kernel coverage
-- TODO: extend temporal semantics beyond the first `date32` checkpoint, including timezone-aware timestamp normalization and ordering rules
+- TODO: extend temporal semantics beyond the first `date32` and `timestamp_tz(us)` checkpoints, including arithmetic, cast, extract, truncation, broader unit coverage, and timezone-name canonicalization rules
 - TODO: extend decimal semantics beyond the first `decimal128` checkpoint, including arithmetic, cast/coercion, precision/scale propagation, and rounding behavior
 - TODO: extend JSON semantics beyond the first checkpoint, including path extraction, containment, ordering, implicit casts, and executable adapter/kernel coverage
 ## Boundary For Now
