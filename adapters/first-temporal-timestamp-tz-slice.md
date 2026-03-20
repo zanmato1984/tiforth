@@ -1,6 +1,6 @@
 # First Differential Temporal `timestamp_tz(us)` Adapter Boundary
 
-Status: issue #280 design checkpoint
+Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #178 `milestone-1: implement first executable temporal date32 slice in local kernel`
 - #280 `design: define first timezone-aware timestamp semantic slice checkpoint`
+- #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 
 ## Purpose
 
@@ -38,7 +39,8 @@ This boundary applies only to the first timestamp-timezone differential slice:
 
 It does **not** yet define:
 
-- TiKV participation in this slice
+- TiKV-specific single-engine and pairwise checkpoint details, which are
+  handled separately in `adapters/first-temporal-timestamp-tz-slice-tikv.md`
 - temporal arithmetic, casts, extraction, truncation, or interval behavior
 - timezone-name canonicalization or timezone-database negotiation
 - connection management, authentication, or environment provisioning
@@ -169,6 +171,11 @@ Later issues may extend this boundary to cover:
 - checked-in artifact carriers and live-runner wiring for this slice
 - broader temporal error normalization beyond this checkpoint
 - additional temporal families and timestamp unit coverage
+- TiKV live-runner and pairwise refresh workflow details beyond the docs-first
+  TiKV boundary
+
+Issue #290 now defines the TiKV-specific request and response boundary for this
+same slice in `adapters/first-temporal-timestamp-tz-slice-tikv.md`.
 
 Until then, this note fixes only the minimum request-and-response contract for
 first-slice timezone-aware timestamp differential comparison.

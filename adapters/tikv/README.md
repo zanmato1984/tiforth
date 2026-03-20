@@ -14,6 +14,7 @@ Current checkpoint:
 - `adapters/first-temporal-date32-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-temporal-date32-slice`
 - `adapters/first-decimal128-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-decimal128-slice`
 - `adapters/first-float64-ordering-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-float64-ordering-slice`
+- `adapters/first-temporal-timestamp-tz-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-temporal-timestamp-tz-slice`
 - `docs/design/adapter-milestone-breakdown.md` records why TiKV follows the initial TiDB/TiFlash pairwise checkpoint sequence
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local
 - `crates/tiforth-adapter-tikv` now encodes `first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, and `first-decimal128-slice` request catalogs with TiKV-oriented SQL lowering and row/error normalization behind runner boundaries
@@ -43,8 +44,8 @@ Next checkpoint:
 
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal, or first-decimal case-results evidence changes
 - define live TiKV temporal and decimal runner wiring plus refresh workflow when shared environments are available
-- add deterministic TiKV single-engine and pairwise float64 ordering adapter/harness execution plus checked-in artifacts on top of `adapters/first-float64-ordering-slice-tikv.md`
+- add deterministic TiKV single-engine and pairwise float64 ordering plus timestamp-timezone adapter/harness execution and checked-in artifacts on top of `adapters/first-float64-ordering-slice-tikv.md` and `adapters/first-temporal-timestamp-tz-slice-tikv.md`
 
 ## TODOs
 
-- extend TiKV executable slice coverage beyond the current first-expression, first-filter, first-temporal-date32, and first-decimal128 executable checkpoints, starting with the docs-first `first-float64-ordering-slice` boundary
+- extend TiKV executable slice coverage beyond the current first-expression, first-filter, first-temporal-date32, and first-decimal128 executable checkpoints, starting with the docs-first `first-float64-ordering-slice` and `first-temporal-timestamp-tz-slice` boundaries
