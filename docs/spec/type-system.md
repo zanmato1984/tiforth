@@ -383,17 +383,34 @@ For current shared contracts:
 - local executable kernel and adapter coverage for this collation checkpoint
   remains follow-on scope
 
+## First Overflow Follow-On Checkpoint
+
+Issue #276 adds a docs-first overflow checkpoint for operator families beyond
+the current executable `add<int32>` path.
+
+For current shared contracts:
+
+- `add<int32>` keeps its existing executable overflow-as-error behavior from
+  milestone 1
+- for follow-on numeric operator families, overflow or underflow is an
+  execution error unless that family spec explicitly defines a different rule
+- shared defaults do not silently wrap, saturate, widen, or coerce overflowed
+  results
+- any future family that needs non-error overflow behavior must document that
+  behavior in its own spec checkpoint before executable coverage lands
+- overflow remains an operator compute failure and does not change runtime
+  ownership or admission error taxonomy
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
-- TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
+- TODO: define family-specific overflow semantics for decimal, temporal, and unsigned arithmetic checkpoints when those families become executable
 - TODO: extend collation semantics beyond the first string checkpoint,
   including locale-specific collation families, binary-type collation
   interactions, and executable adapter plus kernel coverage
 - TODO: extend temporal semantics beyond the first `date32` checkpoint, including timezone-aware timestamp normalization and ordering rules
 - TODO: extend decimal semantics beyond the first `decimal128` checkpoint, including arithmetic, cast/coercion, precision/scale propagation, and rounding behavior
 - TODO: extend JSON semantics beyond the first checkpoint, including path extraction, containment, ordering, implicit casts, and executable adapter/kernel coverage
-
 ## Boundary For Now
 
 This file should guide future specs and harness cases. It should not yet force low-level representation choices such as dictionary layout that belong in the data contract.
