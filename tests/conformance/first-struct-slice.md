@@ -1,6 +1,6 @@
 # First Struct Slice Cases
 
-Status: issue #226 docs checkpoint
+Status: issue #226 docs checkpoint, issue #329 local executable kernel checkpoint
 
 Spec source: `docs/design/first-struct-aware-handoff-slice.md`
 
@@ -27,5 +27,7 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. Local executable kernel conformance for
-`struct` remains follow-on scope.
+Issue #329 adds the first executable local kernel conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/struct_slice.rs`
