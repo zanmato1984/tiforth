@@ -1,11 +1,12 @@
 # First Differential JSON Slice
 
-Status: issue #224 design checkpoint
+Status: issue #224 design checkpoint, issue #272 artifact-carrier checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #224 `design: define first JSON semantic slice boundary`
+- #272 `docs: define first-json-slice differential artifact carriers`
 
 ## Question
 
@@ -196,7 +197,8 @@ in `adapters/first-json-slice.md`.
 Later issues may extend this slice to cover:
 
 - executable adapter and harness wiring for this slice
-- checked-in artifact carriers and inventory refresh for this slice
+- checked-in inventory refresh against the carrier contract in
+  `tests/differential/first-json-slice-artifacts.md`
 - successful JSON cast semantics and parse-error normalization
 - JSON comparison and operator families beyond this unsupported-ordering
   boundary
