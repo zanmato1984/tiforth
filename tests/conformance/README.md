@@ -18,6 +18,8 @@ Issue #139 adds the first post-gate filter conformance case checkpoint in `tests
 
 Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance/signed-unsigned-interaction-checkpoint.md`.
 
+Issue #300 adds the first unsigned arithmetic conformance checkpoint in `tests/conformance/first-unsigned-arithmetic-slice.md`.
+
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
 
 Issue #280 adds the first timezone-aware timestamp `timestamp_tz(us)` conformance checkpoint in `tests/conformance/first-temporal-timestamp-tz-slice.md`. Issue #288 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`.

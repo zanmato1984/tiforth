@@ -5,6 +5,7 @@ This directory is for tests that compare behavior across TiDB, TiFlash, and TiKV
 Current checkpoint:
 
 - `tests/differential/first-expression-slice.md` defines the first differential target: TiDB versus TiFlash on the milestone-1 expression-projection semantic core
+- `tests/differential/first-unsigned-arithmetic-slice.md` defines the first differential docs checkpoint for narrow `uint64` unsigned arithmetic semantics (`column(index)`, `literal<uint64>`, `add<uint64>`, and `is_not_null(column(index))`)
 - `tests/differential/first-filter-is-not-null-slice.md` defines the first differential docs checkpoint for the post-gate `is_not_null(column(index))` filter semantic slice
 - `tests/differential/first-temporal-date32-slice.md` defines the first differential docs checkpoint for the narrow temporal `date32` semantic slice (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-temporal-timestamp-tz-slice.md` defines the first differential docs checkpoint for the narrow timezone-aware temporal `timestamp_tz(us)` slice (`column(index)` passthrough, `is_not_null(column(index))`, and canonical UTC ordering probes)
@@ -26,6 +27,7 @@ Current checkpoint:
 - `tests/differential/first-json-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential JSON slice
 - `tests/differential/first-exchange-slice-artifacts.md` defines the stable baseline-versus-exchange `drift-report` carriers for the first differential exchange parity slice
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
+- `adapters/first-unsigned-arithmetic-slice.md` defines the minimal request and response surface for the first differential unsigned arithmetic slice
 - `adapters/first-filter-is-not-null-slice.md` defines the minimal request and response surface for the first differential filter slice
 - `adapters/first-temporal-date32-slice.md` defines the minimal request and response surface for the first differential temporal `date32` slice
 - `adapters/first-temporal-timestamp-tz-slice.md` defines the minimal request and response surface for the first differential temporal timezone-aware `timestamp_tz(us)` slice
