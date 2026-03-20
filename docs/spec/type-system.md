@@ -151,7 +151,7 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, and issue #196 adds executable float64 predicate coverage; local executable kernel coverage now includes both through `crates/tiforth-kernel/tests/decimal128_slice.rs` and `crates/tiforth-kernel/tests/float64_slice.rs`.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, issue #196 adds executable float64 predicate coverage, and issue #288 adds executable `timestamp_tz(us)` predicate coverage.
 
 ### `is_not_null(column(index))`
 
@@ -161,7 +161,7 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
-- local executable kernel coverage for this predicate now includes `int32`, `date32`, `decimal128`, and `float64` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, and `crates/tiforth-kernel/tests/float64_slice.rs`
+- local executable kernel coverage for this predicate now includes `int32`, `date32`, `decimal128`, `float64`, and `timestamp_tz(us)` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, `crates/tiforth-kernel/tests/float64_slice.rs`, and `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
 
 ## First Struct Nested Follow-On Checkpoint
 
@@ -284,6 +284,10 @@ Issue #280 also adds the first docs-first timestamp-timezone coverage anchors in
 - `tests/differential/first-temporal-timestamp-tz-slice.md`
 - `adapters/first-temporal-timestamp-tz-slice.md`
 
+Issue #288 adds the first executable local conformance coverage for this checkpoint in:
+
+- `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
+
 For current shared contracts:
 
 - the first admitted timezone-aware timestamp logical type beyond `date32` is
@@ -299,8 +303,10 @@ For current shared contracts:
 - temporal arithmetic, casts, extraction, truncation, and broader
   timestamp-timezone policy remain out of scope until follow-on issues define
   semantics and coverage
-- local executable kernel and adapter coverage for this checkpoint remains
-  follow-on scope
+- local executable kernel coverage for this checkpoint now exists in
+  `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
+- adapter and differential-harness executable coverage for this checkpoint
+  remains follow-on scope
 
 ## First Decimal Follow-On Checkpoint
 

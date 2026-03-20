@@ -1,4 +1,4 @@
-use arrow_schema::{DataType, Field, Schema};
+use arrow_schema::{DataType, Field, Schema, TimeUnit};
 
 use crate::error::TiforthError;
 
@@ -85,17 +85,34 @@ fn validate_column_input_type(index: usize, data_type: &DataType) -> Result<(), 
                 "unsupported floating expression input at column {index}, got {data_type:?}; first float slice supports Float64 only"
             ),
         }),
+        DataType::Timestamp(_, _) => validate_timestamp_tz_us(index, data_type, "expression"),
         DataType::Date64
         | DataType::Time32(_)
         | DataType::Time64(_)
-        | DataType::Timestamp(_, _)
         | DataType::Duration(_)
         | DataType::Interval(_) => Err(TiforthError::UnsupportedDataType {
             detail: format!(
-                "unsupported temporal expression input at column {index}, got {data_type:?}; first temporal slice supports Date32 only"
+                "unsupported temporal expression input at column {index}, got {data_type:?}; first temporal slices support Date32 and timezone-aware Timestamp(Microsecond, <tz>) only"
             ),
         }),
         _ => Ok(()),
+    }
+}
+
+fn validate_timestamp_tz_us(
+    index: usize,
+    data_type: &DataType,
+    surface: &str,
+) -> Result<(), TiforthError> {
+    match data_type {
+        DataType::Timestamp(TimeUnit::Microsecond, Some(timezone)) if !timezone.is_empty() => {
+            Ok(())
+        }
+        _ => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported temporal {surface} input at column {index}, got {data_type:?}; first temporal slices support Date32 and timezone-aware Timestamp(Microsecond, <tz>) only"
+            ),
+        }),
     }
 }
 
