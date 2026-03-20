@@ -9,7 +9,7 @@ Current checkpoint:
 - `tests/differential/first-temporal-date32-slice.md` defines the first differential docs checkpoint for the narrow temporal `date32` semantic slice (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-decimal128-slice.md` defines the first differential docs checkpoint for the narrow decimal `decimal128` semantic slice (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-float64-ordering-slice.md` defines the first differential docs checkpoint for narrow `float64` NaN/infinity and canonical-ordering semantics (`column(index)` passthrough plus `is_not_null(column(index))`)
-- `tests/differential/first-json-slice.md` defines the first differential docs checkpoint for narrow JSON structural-comparison and explicit `json <-> string` cast semantics
+- `tests/differential/first-json-slice.md` defines the first differential docs checkpoint for narrow JSON structural-comparison and unsupported explicit-cast boundary probes
 - `tests/differential/first-collation-string-slice.md` defines the first differential docs checkpoint for narrow collation-sensitive `utf8` comparison and ordering semantics under shared `binary` and `unicode_ci` collation identifiers
 - `tests/differential/first-struct-slice.md` defines the first differential docs checkpoint for narrow nested `struct<a:int32, b:int32?>` passthrough semantics
 - `tests/differential/first-map-slice.md` defines the first differential docs checkpoint for narrow nested `map<int32, int32?>` passthrough semantics
@@ -21,6 +21,7 @@ Current checkpoint:
 - `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential temporal `date32` slice
 - `tests/differential/first-decimal128-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential decimal `decimal128` slice
 - `tests/differential/first-float64-ordering-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential float64 ordering slice
+- `tests/differential/first-json-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential JSON slice
 - `tests/differential/first-exchange-slice-artifacts.md` defines the stable baseline-versus-exchange `drift-report` carriers for the first differential exchange parity slice
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `adapters/first-filter-is-not-null-slice.md` defines the minimal request and response surface for the first differential filter slice
