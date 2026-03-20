@@ -1,6 +1,6 @@
 # First Temporal Date32 Slice TiKV Compatibility Notes
 
-Status: issue #266 adapter and inventory checkpoint
+Status: issue #266 adapter and inventory checkpoint, issue #270 pairwise inventory checkpoint
 
 Verified: 2026-03-20
 
@@ -12,6 +12,7 @@ Related issues:
 - #187 `harness: execute first-temporal-date32 differential artifacts for TiDB and TiFlash`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
 - #266 `adapter: execute first-temporal-date32-slice through TiKV`
+- #270 `harness: add first-temporal-date32-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -30,10 +31,9 @@ source evidence, not as shared design authority.
 
 ## TiKV Snapshot
 
-- tiforth repository base commit reviewed: `d8a74fe620a47c9deb7ad78b49f17e29c85cf6a1`
-- artifact baseline: deterministic TiKV adapter-core single-engine checkpoint
-  from issue #266
-- no temporal TiKV pairwise drift artifacts are checked in yet for this slice
+- tiforth repository base commit reviewed: `acd06f95645dbdbd0cd59e48d3f55390d0364f21`
+- artifact baseline: deterministic TiKV adapter-core single-engine plus pairwise checkpoint from issues #266 and #270
+- paired temporal TiKV drift artifacts now cover `tidb-vs-tikv` and `tiflash-vs-tikv`
 - no temporal live-runner refresh artifacts are checked in yet for this slice
 
 ## Shared Slice Anchors
@@ -62,7 +62,10 @@ defined in `tests/differential/first-temporal-date32-slice.md`.
 - `tests/differential/first-temporal-date32-slice-artifacts.md`
 - `crates/tiforth-adapter-tikv/src/first_temporal_date32_slice.rs`
 - `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv.rs`
+- `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_pairwise.rs`
 - `inventory/first-temporal-date32-slice-tikv-case-results.json`
+- `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.md`
 
 ## Compatibility Notes
 
@@ -141,6 +144,6 @@ defined in `tests/differential/first-temporal-date32-slice.md`.
   temporal `date32` slice
 - it does not redefine the shared adapter request or response contract
 - it does not add live-runner or production environment captures
-- temporal TiKV pairwise drift artifacts remain follow-on scope
+- checked-in evidence for this checkpoint includes the TiKV single-engine `case-results` artifact plus paired TiDB-vs-TiKV and TiFlash-vs-TiKV `drift-report` artifacts
 - broader temporal families, timezone-sensitive behavior, and temporal
   arithmetic remain follow-on work

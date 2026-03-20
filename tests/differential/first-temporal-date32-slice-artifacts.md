@@ -1,6 +1,6 @@
 # First Temporal `date32` Slice Artifact Carriers
 
-Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #266 TiKV single-engine checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #266 TiKV single-engine checkpoint, issue #270 TiKV pairwise drift-artifact checkpoint
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #187 `harness: execute first-temporal-date32 differential artifacts for TiDB and TiFlash`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
 - #266 `adapter: execute first-temporal-date32-slice through TiKV`
+- #270 `harness: add first-temporal-date32-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -27,8 +28,8 @@ defined in `adapters/first-temporal-date32-slice.md` plus
 
 ## Artifact Set
 
-The first executable temporal differential checkpoint produced four checked-in
-artifacts:
+The first executable temporal differential checkpoint originally produced four
+checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
@@ -38,6 +39,13 @@ artifacts:
 Issue #266 also adds one checked-in TiKV single-engine `case-results` artifact
 that reuses the same `case-results` carrier shape below.
 
+Issue #270 adds four checked-in TiKV pairwise temporal drift artifacts:
+
+1. one TiDB-versus-TiKV Markdown `drift-report`
+2. one TiDB-versus-TiKV JSON `drift-report` sidecar
+3. one TiFlash-versus-TiKV Markdown `drift-report`
+4. one TiFlash-versus-TiKV JSON `drift-report` sidecar
+
 Current artifact filenames for this slice:
 
 - `inventory/first-temporal-date32-slice-tidb-case-results.json`
@@ -45,6 +53,10 @@ Current artifact filenames for this slice:
 - `inventory/first-temporal-date32-slice-tikv-case-results.json`
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -112,6 +124,30 @@ The machine-readable sidecar should mirror the shared carrier fields
 (`slice_id`, `engines[]`, `spec_refs[]`, and `cases[]`) used by the paired
 Markdown report.
 
+## TiKV Pairwise Checkpoint For This Slice
+
+Issue #270 lands one Markdown `drift-report` plus one JSON sidecar for each
+pair:
+
+- `tidb-vs-tikv`
+- `tiflash-vs-tikv`
+
+The landed filenames are:
+
+- `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.json`
+
+Each pairwise report should:
+
+- compare the same first-temporal `case_id`, `input_ref`, and operation-ref
+  identities already fixed in `tests/differential/first-temporal-date32-slice.md`
+- use the same status vocabulary and `comparison_dimensions[]` identifiers
+  already fixed above for this slice
+- include `evidence_refs[]` entries that point to the paired per-engine
+  `case-results` records for the same `case_id`
+
 ## Inventory Refresh Boundary
 
 Issue #187 adds executable fixture-runner wiring and checks in the first
@@ -119,6 +155,9 @@ Issue #187 adds executable fixture-runner wiring and checks in the first
 
 Issue #266 adds the first checked-in TiKV single-engine `case-results` artifact
 for this same slice.
+
+Issue #270 adds the first checked-in TiKV pairwise temporal `drift-report`
+artifacts for this same slice.
 
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 normalized fields, or drift conclusions change under
@@ -131,8 +170,7 @@ The first temporal artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
-- TiKV pairwise temporal drift-report carriers
+- merged summaries that combine more than one engine pair into one artifact
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - timezone-aware timestamp or non-`date32` temporal-family artifacts

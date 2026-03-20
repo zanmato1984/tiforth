@@ -15,6 +15,7 @@ Current checkpoint:
 - `crates/tiforth-adapter-tikv` now encodes `first-expression-slice`, `first-filter-is-not-null-slice`, and `first-temporal-date32-slice` request catalogs with TiKV-oriented SQL lowering and row/error normalization behind runner boundaries
 - `crates/tiforth-harness-differential/src/first_filter_is_not_null_slice_tikv.rs` now provides deterministic TiKV single-engine harness execution for the documented first-filter case set
 - `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv.rs` now provides deterministic TiKV single-engine harness execution for the documented first-temporal `date32` case set
+- `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_pairwise.rs` now provides deterministic TiKV pairwise drift rendering for the documented first-temporal `date32` case set
 - `inventory/first-expression-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-expression-slice`
 - `inventory/first-expression-slice-tikv-case-results.json` now captures the first checked-in TiKV single-engine normalized `case-results` evidence for `first-expression-slice`
 - `inventory/first-filter-is-not-null-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-filter-is-not-null-slice`
@@ -25,11 +26,13 @@ Current checkpoint:
 - `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-filter-is-not-null-slice`
 - `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-filter-is-not-null-slice`
+- `inventory/first-temporal-date32-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-temporal-date32-slice`
+- `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-temporal-date32-slice`
 
 Next checkpoint:
 
-- define and execute TiKV pairwise temporal drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` on top of the new TiKV temporal single-engine checkpoint
-- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression or first-filter case-results evidence changes
+- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, or first-temporal case-results evidence changes
+- define live TiKV temporal runner wiring and refresh workflow for first-temporal artifacts when shared environments are available
 
 ## TODOs
 
