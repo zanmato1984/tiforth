@@ -492,6 +492,7 @@ dependencies = [
  "serde_json",
  "tiforth-adapter-tidb",
  "tiforth-adapter-tiflash",
+ "tiforth-adapter-tikv",
 ]
 
 [[package]]

@@ -37,6 +37,7 @@ It also keeps the reboot honest:
 - the first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`
 - the first executable differential checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired artifacts under `inventory/`
 - the first executable TiKV single-engine adapter checkpoint for `first-expression-slice` now exists through `crates/tiforth-adapter-tikv`, with request/response scope fixed in `adapters/first-expression-slice-tikv.md`
+- the first checked-in TiKV single-engine normalized `case-results` artifact for `first-expression-slice` now exists at `inventory/first-expression-slice-tikv-case-results.json`
 - the first machine-readable drift-report sidecars now exist for both milestone-1 differential slices under `inventory/` alongside their required Markdown drift reports
 - the first checked-in per-engine compatibility notes now cover first-expression for TiDB, TiFlash, and TiKV, plus first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering slices for TiDB and TiFlash under `inventory/`
 - the first post-gate shared-kernel expansion candidate is now fixed in `docs/design/first-post-gate-kernel-boundary.md`

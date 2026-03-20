@@ -1,6 +1,6 @@
 # First Expression Slice TiKV Compatibility Notes
 
-Status: issue #228 inventory checkpoint
+Status: issue #228 inventory checkpoint, issue #235 case-results checkpoint
 
 Verified: 2026-03-19
 
@@ -11,6 +11,7 @@ Related issues:
 - #218 `design: define first TiKV differential adapter request/response surface`
 - #220 `adapter: execute first-expression-slice through TiKV`
 - #228 `inventory: add first-expression-slice TiKV compatibility notes checkpoint`
+- #235 `inventory: add first-expression-slice TiKV case-results artifact checkpoint`
 
 ## Purpose
 
@@ -29,8 +30,8 @@ tests as source evidence, not as shared design authority.
 
 ## TiKV Snapshot
 
-- tiforth repository base commit reviewed: `af4aa56a808a1f8bf68c2a7308856b31a05851dc`
-- artifact baseline: deterministic TiKV adapter-core checkpoint from issue #220
+- tiforth repository base commit reviewed: `7b8369c8c782c0b14d5046fb1ad3c779c0cd6ba5`
+- artifact baseline: deterministic TiKV adapter-core checkpoint from issue #220 plus issue #235 checked-in single-engine case-results evidence
 - live TiKV runner artifacts are not yet checked in for this slice
 
 ## Shared Slice Anchors
@@ -56,6 +57,8 @@ defined in `tests/differential/first-expression-slice.md`.
 - `tests/differential/first-expression-slice.md`
 - `tests/differential/first-expression-slice-artifacts.md`
 - `crates/tiforth-adapter-tikv/src/first_expression_slice.rs`
+- `crates/tiforth-harness-differential/src/first_expression_slice_tikv.rs`
+- `inventory/first-expression-slice-tikv-case-results.json`
 
 ## Compatibility Notes
 
@@ -80,8 +83,7 @@ defined in `tests/differential/first-expression-slice.md`.
 
 #### Evidence Gaps
 
-- this note is based on deterministic adapter-core evidence; no checked-in live
-  TiKV case-results artifact exists yet for this slice
+- this note is based on deterministic adapter-core evidence and the checked-in normalized TiKV single-engine `case-results` artifact for this slice
 
 ### `column(index)` / Passthrough Projection
 
@@ -149,8 +151,7 @@ defined in `tests/differential/first-expression-slice.md`.
 
 #### Evidence Gaps
 
-- this checkpoint does not yet include checked-in TiKV single-engine
-  `case-results` artifacts or TiKV pairwise drift aggregation
+- this checkpoint still leaves TiKV pairwise drift aggregation as follow-on work
 
 ## Boundary For This Artifact
 
