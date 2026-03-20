@@ -12,6 +12,7 @@ Current checkpoint:
 - `adapters/first-temporal-timestamp-tz-slice.md` defines the shared request and response surface for the docs-first differential temporal timezone-aware `timestamp_tz(us)` checkpoint
 - `adapters/first-decimal128-slice.md` defines the shared request and response surface for the docs-first differential decimal `decimal128` checkpoint
 - `adapters/first-float64-ordering-slice.md` defines the shared request and response surface for the docs-first differential float64 NaN/infinity ordering checkpoint
+- `adapters/first-unsigned-arithmetic-slice.md` defines the shared request and response surface for the docs-first differential unsigned `uint64` arithmetic checkpoint
 - `adapters/first-json-slice.md` defines the shared request and response surface for the docs-first differential JSON comparability/cast checkpoint
 - `adapters/first-collation-string-slice.md` defines the shared request and response surface for the docs-first differential collation-sensitive string checkpoint
 - `adapters/first-struct-slice.md` defines the shared request and response surface for the docs-first differential nested struct passthrough checkpoint
@@ -19,8 +20,8 @@ Current checkpoint:
 - `adapters/first-union-slice.md` defines the shared request and response surface for the docs-first differential nested union passthrough checkpoint
 - `docs/design/adapter-milestone-breakdown.md` fixes the next TiFlash checkpoint as a single-engine adapter issue before pairwise drift aggregation lands
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiFlash session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
-- `crates/tiforth-adapter-tiflash` now encodes first-expression-slice, first-filter-is-not-null-slice, first-temporal-date32-slice, first-temporal-timestamp-tz-slice, first-decimal128-slice, and first-float64-ordering-slice request catalogs with TiFlash-oriented SQL lowering and row / error normalization behind runner boundaries
-- `crates/tiforth-harness-differential` now exercises that TiFlash adapter core alongside the TiDB adapter core and validates checked-in pairwise first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal, and first-float64-ordering artifacts under `inventory/`
+- `crates/tiforth-adapter-tiflash` now encodes first-expression-slice, first-filter-is-not-null-slice, first-temporal-date32-slice, first-temporal-timestamp-tz-slice, first-decimal128-slice, first-float64-ordering-slice, and first-unsigned-arithmetic-slice request catalogs with TiFlash-oriented SQL lowering and row / error normalization behind runner boundaries
+- `crates/tiforth-harness-differential` now exercises that TiFlash adapter core alongside the TiDB adapter core and validates checked-in pairwise first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal, first-float64-ordering, and first-unsigned-arithmetic artifacts under `inventory/`
 - `inventory/first-expression-slice-tiflash-compat-notes.md`, `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md`, `inventory/first-temporal-date32-slice-tiflash-compat-notes.md`, `inventory/first-temporal-timestamp-tz-slice-tiflash-compat-notes.md`, `inventory/first-decimal128-slice-tiflash-compat-notes.md`, and `inventory/first-float64-ordering-slice-tiflash-compat-notes.md` now capture TiFlash-side compatibility notes for the first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal, and first-float64 executable differential slices
 - `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs` now provides an env-configured live TiFlash runner implementation for `first-filter-is-not-null-slice`
 
@@ -30,5 +31,5 @@ Next checkpoint:
 
 ## TODOs
 
-- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, and `first-union-slice`)
+- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-unsigned-arithmetic-slice`, `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, and `first-union-slice`)
 - extend TiFlash compatibility notes beyond the current first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, and first-float64-ordering slice boundaries as new semantic families land
