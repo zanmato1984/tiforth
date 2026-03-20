@@ -1,11 +1,12 @@
 # First Differential Temporal `date32` Adapter Boundary
 
-Status: issue #176 design checkpoint
+Status: issue #176 design checkpoint, issue #264 TiKV boundary checkpoint
 
 Related issues:
 
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
+- #264 `design: define first TiKV temporal date32 adapter request/response surface`
 
 ## Purpose
 
@@ -32,7 +33,8 @@ This boundary applies only to the first temporal differential slice:
 
 It does **not** yet define:
 
-- TiKV participation in this slice
+- TiKV executable participation in this slice; the TiKV docs-first
+  request/response boundary is in `adapters/first-temporal-date32-slice-tikv.md`
 - timezone-aware timestamp normalization or ordering policy
 - temporal arithmetic, cast, extract, or truncation semantics
 - connection management, authentication, or environment provisioning
@@ -157,6 +159,8 @@ Later issues may extend this boundary to cover:
 - broader temporal error normalization
 - reusable session profiles or adapter capability advertisement
 - checked-in artifact carriers and live runner wiring for this slice
+- TiKV executable adapter coverage and pairwise artifacts on top of
+  `adapters/first-temporal-date32-slice-tikv.md`
 
 Until then, this note fixes only the minimum request-and-response contract for
 first-slice temporal `date32` differential comparison.

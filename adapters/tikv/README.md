@@ -9,6 +9,7 @@ Current checkpoint:
 - the first shared adapter boundary in `adapters/first-expression-slice.md` remains intentionally limited to TiDB and TiFlash
 - `adapters/first-expression-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-expression-slice`
 - `adapters/first-filter-is-not-null-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-filter-is-not-null-slice`
+- `adapters/first-temporal-date32-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-temporal-date32-slice`
 - `docs/design/adapter-milestone-breakdown.md` records why TiKV follows the initial TiDB/TiFlash pairwise checkpoint sequence
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local
 - `crates/tiforth-adapter-tikv` now encodes `first-expression-slice` and `first-filter-is-not-null-slice` request catalogs with TiKV-oriented SQL lowering and row/error normalization behind runner boundaries
@@ -24,8 +25,9 @@ Current checkpoint:
 
 Next checkpoint:
 
+- execute the first TiKV single-engine temporal `date32` adapter checkpoint and land matching compatibility-notes plus `case-results` artifacts for `first-temporal-date32-slice`
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression or first-filter case-results evidence changes
 
 ## TODOs
 
-- extend the TiKV request and response surface beyond `first-expression-slice` and `first-filter-is-not-null-slice` after current checkpoints are reviewable
+- extend the TiKV request and response surface beyond the current first-expression and first-filter executable slices and the current docs-first temporal `first-temporal-date32-slice` boundary
