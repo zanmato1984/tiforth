@@ -1,6 +1,6 @@
 # First Float64 Ordering Slice Artifact Carriers
 
-Status: issue #208 artifact-carrier and harness checkpoint, issue #292 TiKV single-engine artifact expansion checkpoint
+Status: issue #208 artifact-carrier and harness checkpoint, issue #292 TiKV single-engine artifact expansion checkpoint, issue #294 TiKV pairwise artifact expansion checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #208 `harness: execute first-float64-ordering-slice differential artifacts for TiDB and TiFlash`
 - #286 `design: define TiKV adapter boundary for first-float64-ordering-slice`
 - #292 `harness: execute first-float64-ordering-slice TiKV single-engine artifacts`
+- #294 `harness: execute first-float64-ordering-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -24,13 +25,17 @@ defined in `adapters/first-float64-ordering-slice.md`.
 
 ## Artifact Set
 
-The current executable float64 checkpoint produces five checked-in artifacts:
+The current executable float64 checkpoint produces nine checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
 3. one normalized TiKV `case-results` artifact
 4. one aggregated TiDB-versus-TiFlash `drift-report`
 5. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+6. one aggregated TiDB-versus-TiKV `drift-report`
+7. one machine-readable TiDB-versus-TiKV `drift-report` sidecar
+8. one aggregated TiFlash-versus-TiKV `drift-report`
+9. one machine-readable TiFlash-versus-TiKV `drift-report` sidecar
 
 Current artifact filenames for this slice:
 
@@ -39,6 +44,10 @@ Current artifact filenames for this slice:
 - `inventory/first-float64-ordering-slice-tikv-case-results.json`
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-float64-ordering-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-float64-ordering-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-float64-ordering-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-float64-ordering-slice-tiflash-vs-tikv-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -131,6 +140,9 @@ Issue #208 adds executable fixture-runner wiring and checks in the first
 Issue #292 extends the same artifact carrier with one checked-in TiKV
 single-engine `case-results` artifact.
 
+Issue #294 extends the same carrier with checked-in TiKV pairwise drift-report
+Markdown and JSON sidecars for `tidb-vs-tikv` and `tiflash-vs-tikv`.
+
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 comparison modes, normalized fields, or drift conclusions change under
 `docs/process/inventory-refresh.md`.
@@ -142,9 +154,8 @@ The first float64 artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- merged multi-engine summaries beyond per-pair TiDB/TiFlash/TiKV reports
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - float arithmetic, cast, or coercion differential evidence
 - SQL ordering policy beyond this slice's canonical comparison-mode convention
-- TiKV pairwise float64 drift-report artifacts

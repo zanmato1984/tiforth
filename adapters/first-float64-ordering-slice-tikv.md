@@ -1,6 +1,6 @@
 # First TiKV Float64 Ordering Adapter Boundary
 
-Status: issue #286 design checkpoint, issue #292 executable single-engine checkpoint
+Status: issue #286 design checkpoint, issue #292 executable single-engine checkpoint, issue #294 executable pairwise checkpoint
 
 Verified: 2026-03-20
 
@@ -11,6 +11,7 @@ Related issues:
 - #208 `harness: execute first-float64-ordering-slice differential artifacts for TiDB and TiFlash`
 - #286 `design: define TiKV adapter boundary for first-float64-ordering-slice`
 - #292 `harness: execute first-float64-ordering-slice TiKV single-engine artifacts`
+- #294 `harness: execute first-float64-ordering-slice TiKV pairwise drift artifacts`
 
 ## Purpose
 
@@ -32,7 +33,6 @@ This boundary applies only to:
 
 It does not define:
 
-- TiKV pairwise drift artifacts for this slice
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - float arithmetic, cast, coercion, or SQL `ORDER BY` semantics
@@ -125,19 +125,18 @@ unchanged:
   `tests/differential/first-float64-ordering-slice-artifacts.md`
 - issue #292 adds executable TiKV float64 adapter, harness, and inventory
   single-engine checkpoints for this slice
+- issue #294 adds executable TiKV pairwise drift rendering and checked-in
+  `tidb-vs-tikv` and `tiflash-vs-tikv` float64 drift artifacts
 
 ## Follow-On Boundary
 
-After the issue #292 executable single-engine checkpoint, follow-on issues may
+After the issue #294 executable pairwise checkpoint, follow-on issues may
 separately define:
 
-- deterministic TiKV pairwise drift rendering for `tidb-vs-tikv` and
-  `tiflash-vs-tikv`
 - live TiKV float64 runner wiring and environment-backed refresh workflow
 
 ## Result
 
 TiKV now has a concrete docs-first request and response boundary for
-`first-float64-ordering-slice` plus executable single-engine adapter and
-inventory coverage. Pairwise TiKV float64 drift artifacts remain follow-on
-scope.
+`first-float64-ordering-slice` plus executable single-engine and pairwise
+float64 inventory coverage.
