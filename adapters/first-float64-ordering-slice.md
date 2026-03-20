@@ -1,12 +1,13 @@
 # First Differential Float64 NaN/Infinity Ordering Adapter Boundary
 
-Status: issue #194 design checkpoint, issue #286 TiKV boundary checkpoint
+Status: issue #194 design checkpoint, issue #286 TiKV boundary checkpoint, issue #292 TiKV single-engine checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #194 `design: define first float64 NaN, infinity, and ordering checkpoint`
 - #286 `design: define TiKV adapter boundary for first-float64-ordering-slice`
+- #292 `harness: execute first-float64-ordering-slice TiKV single-engine artifacts`
 
 ## Purpose
 
@@ -169,11 +170,13 @@ Later issues may extend this boundary to cover:
 - broader floating error normalization
 - reusable session profiles or adapter capability advertisement
 - checked-in artifact carriers and live runner wiring for this slice
-- TiKV live-runner and pairwise refresh workflow details beyond the docs-first
-  TiKV boundary
+- TiKV live-runner and pairwise refresh workflow details beyond the current
+  TiKV executable single-engine checkpoint
 
-Issue #286 now defines the TiKV-specific request and response boundary for this
-same slice in `adapters/first-float64-ordering-slice-tikv.md`.
+Issue #286 defines the TiKV-specific request and response boundary for this
+same slice in `adapters/first-float64-ordering-slice-tikv.md`. Issue #292
+adds the first executable TiKV single-engine checkpoint on top of that
+boundary.
 
 Until then, this note fixes only the minimum request-and-response contract for
 first-slice float64 NaN/infinity and ordering comparison.

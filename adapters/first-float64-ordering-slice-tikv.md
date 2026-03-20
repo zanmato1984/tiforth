@@ -1,6 +1,6 @@
 # First TiKV Float64 Ordering Adapter Boundary
 
-Status: issue #286 design checkpoint
+Status: issue #286 design checkpoint, issue #292 executable single-engine checkpoint
 
 Verified: 2026-03-20
 
@@ -10,6 +10,7 @@ Related issues:
 - #194 `design: define first float64 NaN, infinity, and ordering checkpoint`
 - #208 `harness: execute first-float64-ordering-slice differential artifacts for TiDB and TiFlash`
 - #286 `design: define TiKV adapter boundary for first-float64-ordering-slice`
+- #292 `harness: execute first-float64-ordering-slice TiKV single-engine artifacts`
 
 ## Purpose
 
@@ -31,8 +32,7 @@ This boundary applies only to:
 
 It does not define:
 
-- TiKV single-engine execution coverage or pairwise drift artifacts for this
-  slice
+- TiKV pairwise drift artifacts for this slice
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - float arithmetic, cast, coercion, or SQL `ORDER BY` semantics
@@ -121,17 +121,16 @@ unchanged:
 
 - issue #286 defines docs-first TiKV request and response ownership for every
   documented first-float64 `case_id`
-- until a follow-on executable issue lands, TiKV may return
-  `adapter_unavailable` for documented cases
 - normalized field meanings stay aligned with
   `tests/differential/first-float64-ordering-slice-artifacts.md`
+- issue #292 adds executable TiKV float64 adapter, harness, and inventory
+  single-engine checkpoints for this slice
 
 ## Follow-On Boundary
 
-After this docs-first request/response checkpoint, follow-on issues may
+After the issue #292 executable single-engine checkpoint, follow-on issues may
 separately define:
 
-- deterministic TiKV single-engine float64 adapter and harness execution
 - deterministic TiKV pairwise drift rendering for `tidb-vs-tikv` and
   `tiflash-vs-tikv`
 - live TiKV float64 runner wiring and environment-backed refresh workflow
@@ -139,6 +138,6 @@ separately define:
 ## Result
 
 TiKV now has a concrete docs-first request and response boundary for
-`first-float64-ordering-slice` while the shared differential executable
-checkpoint remains TiDB-versus-TiFlash until follow-on TiKV execution issues
-land.
+`first-float64-ordering-slice` plus executable single-engine adapter and
+inventory coverage. Pairwise TiKV float64 drift artifacts remain follow-on
+scope.
