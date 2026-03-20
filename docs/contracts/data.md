@@ -50,6 +50,7 @@ Detailed batch handoff and ownership rationale lives in `docs/design/arrow-batch
 Detailed dictionary-encoding rationale lives in `docs/design/dictionary-encoding-boundary.md`.
 Detailed first dictionary-aware handoff slice rationale lives in `docs/design/first-dictionary-aware-handoff-slice.md`.
 Detailed spill and retry runtime mapping rationale lives in `docs/design/spill-retry-runtime-mapping.md`.
+Detailed first off-heap state ownership boundary rationale lives in `docs/design/first-off-heap-state-ownership-boundary.md`.
 Detailed nested plus decimal and temporal metadata boundary rationale lives in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`.
 Detailed first nested-aware handoff slice rationale lives in `docs/design/first-nested-aware-handoff-slice.md`.
 Detailed first struct-aware handoff slice rationale lives in `docs/design/first-struct-aware-handoff-slice.md`.
@@ -285,14 +286,28 @@ unchanged.
 - rehydrating spilled state is a fresh reserve-before-allocate path and may attach new claims only for newly resident governed bytes
 - a stage must not keep claim bytes attached to an outgoing batch for buffers that were fully spilled and are no longer reachable from that batch
 
+## First Off-Heap State Ownership Follow-On Checkpoint
+
+Issue #282 now fixes one post-milestone ownership checkpoint in
+`docs/design/first-off-heap-state-ownership-boundary.md`.
+
+For that first off-heap checkpoint, shared data-contract scope is intentionally
+narrow:
+
+- off-heap resident state means governed admitted bytes that are not currently reachable from live emitted Arrow batch payloads
+- off-heap resident state remains governed through live consumer ownership and still follows reserve-before-allocate admission before resident growth
+- resident off-heap state that is not batch-reachable must not be attached to outgoing batch `claims[]`; it remains local governed state until release, spill, or later batch materialization
+- when a stage emits batch payloads materialized from off-heap resident state, outgoing `claims[]` must cover only resident governed bytes that remain reachable from the emitted batch after handoff
+- non-resident spilled bytes remain outside live-batch claim scope and re-enter only through fresh reserve-before-allocate rehydration paths
+
 ## Open Questions
 
 - TODO: extend nested-family shared slices beyond the first `list<int32>`, first `struct<a:int32, b:int32?>`, first `map<int32, int32?>`, and first `dense_union<i:int32, n:int32?>` passthrough checkpoints, including nested compute semantics
 - TODO: extend temporal support beyond the first `date32` and `timestamp_tz(us)` checkpoints to broader unit and timezone-sensitive families
 - TODO: extend decimal support beyond the first `decimal128` checkpoint, including arithmetic, cast or rescale policy, and decimal-family expansion
-- TODO: decide how later off-heap state, if any, should be represented beyond the milestone-1 spilled-bytes-outside-live-envelope boundary
+- TODO: extend off-heap ownership beyond the first checkpoint in `docs/design/first-off-heap-state-ownership-boundary.md`, including adapter-visible carrier policy when a later slice requires it
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 
 ## Initial Boundary
 
-For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone-1 struct-aware handoff checkpoint for passthrough `struct<a:int32, b:int32?>` columns, the first post-milestone-1 map-aware handoff checkpoint for passthrough `map<int32, int32?>` columns, the first post-milestone-1 union-aware handoff checkpoint for passthrough `dense_union<i:int32, n:int32?>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`, the first timestamp-timezone temporal checkpoint under `docs/design/first-temporal-timestamp-tz-slice.md`, and the first decimal semantic checkpoint under `docs/design/first-decimal-semantic-slice.md`. Additional nested-family expansion, broader decimal and temporal shared slices, broader adapter-visible claim-carrier coverage beyond the first sidecar checkpoint, and imported-buffer work remain open.
+For milestone 1, this document now fixes the semantic batch envelope, ownership-transfer rules, current local Rust-side carrier, and the normalization-first dictionary boundary for the executable projection slice; it also names the first post-milestone-1 dictionary-aware handoff checkpoint for passthrough `dictionary<int32, int32>` columns, the first post-milestone-1 nested-aware handoff checkpoint for passthrough `list<int32>` columns, the first post-milestone-1 struct-aware handoff checkpoint for passthrough `struct<a:int32, b:int32?>` columns, the first post-milestone-1 map-aware handoff checkpoint for passthrough `map<int32, int32?>` columns, the first post-milestone-1 union-aware handoff checkpoint for passthrough `dense_union<i:int32, n:int32?>` columns, the first post-milestone in-contract exchange ownership checkpoint under `docs/design/first-in-contract-exchange-slice.md`, the first temporal semantic checkpoint under `docs/design/first-temporal-semantic-slice.md`, the first timestamp-timezone temporal checkpoint under `docs/design/first-temporal-timestamp-tz-slice.md`, and the first decimal semantic checkpoint under `docs/design/first-decimal-semantic-slice.md`, plus the first off-heap state ownership checkpoint under `docs/design/first-off-heap-state-ownership-boundary.md`. Additional nested-family expansion, broader decimal and temporal shared slices, broader off-heap ownership expansion beyond the first checkpoint, broader adapter-visible claim-carrier coverage beyond the first sidecar checkpoint, and imported-buffer work remain open.
