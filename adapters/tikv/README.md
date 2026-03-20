@@ -8,6 +8,7 @@ Current checkpoint:
 
 - the first shared adapter boundary in `adapters/first-expression-slice.md` remains intentionally limited to TiDB and TiFlash
 - `adapters/first-expression-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-expression-slice`
+- `adapters/first-filter-is-not-null-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-filter-is-not-null-slice`
 - `docs/design/adapter-milestone-breakdown.md` records why TiKV follows the initial TiDB/TiFlash pairwise checkpoint sequence
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local
 - `crates/tiforth-adapter-tikv` now encodes `first-expression-slice` request catalogs with TiKV-oriented SQL lowering and row / error normalization behind a runner boundary
@@ -18,9 +19,10 @@ Current checkpoint:
 
 Next checkpoint:
 
-- extend the TiKV request and response surface beyond `first-expression-slice` once the current pairwise artifact checkpoint is stable for refresh and review
+- execute `first-filter-is-not-null-slice` through TiKV on top of `adapters/first-filter-is-not-null-slice-tikv.md`, then land first-filter TiKV compatibility notes and normalized `case-results` evidence
 
 ## TODOs
 
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression case-results evidence changes
-- extend the TiKV request and response surface beyond `first-expression-slice` after the first executable checkpoint and compatibility notes are reviewable
+- execute `first-filter-is-not-null-slice` through TiKV and land first-filter TiKV compatibility notes plus normalized `case-results` evidence
+- extend the TiKV request and response surface beyond `first-expression-slice` and `first-filter-is-not-null-slice` after current checkpoints are reviewable
