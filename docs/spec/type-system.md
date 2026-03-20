@@ -323,14 +323,37 @@ For current shared contracts:
 - local executable kernel and adapter coverage for this JSON checkpoint remains
   follow-on scope
 
+## First Collation-Sensitive String Checkpoint
+
+Issue #233 adds a docs-first collation checkpoint in
+`docs/design/first-collation-string-slice.md`.
+
+Issue #233 also adds the first docs-first collation coverage anchors in:
+
+- `tests/conformance/first-collation-string-slice.md`
+- `tests/differential/first-collation-string-slice.md`
+- `adapters/first-collation-string-slice.md`
+
+For current shared contracts:
+
+- the first admitted collation-sensitive string logical type beyond milestone 1
+  is `utf8`
+- the first shared collation identifiers are `binary` and `unicode_ci`
+- this checkpoint admits passthrough `column(index)`,
+  `is_not_null(column(index))`, and docs-first collation-tagged comparison and
+  ordering probes under explicit `collation_ref`
+- this checkpoint does not add implicit collation derivation, collation
+  coercion, or shared runtime collation negotiation state
+- local executable kernel and adapter coverage for this collation checkpoint
+  remains follow-on scope
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
 - TODO: define overflow behavior for operator families beyond the current milestone-1 `add<int32>` boundary
-- TODO: define the first executable collation-sensitive string or
-  binary slice, including shared collation identifiers (if needed),
-  ordering and comparison semantics, and conformance plus differential
-  coverage
+- TODO: extend collation semantics beyond the first string checkpoint,
+  including locale-specific collation families, binary-type collation
+  interactions, and executable adapter plus kernel coverage
 - TODO: extend temporal semantics beyond the first `date32` checkpoint, including timezone-aware timestamp normalization and ordering rules
 - TODO: extend decimal semantics beyond the first `decimal128` checkpoint, including arithmetic, cast/coercion, precision/scale propagation, and rounding behavior
 - TODO: extend JSON semantics beyond the first checkpoint, including path extraction, containment, ordering, implicit casts, and executable adapter/kernel coverage

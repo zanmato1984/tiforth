@@ -10,6 +10,7 @@ Current checkpoint:
 - `tests/differential/first-decimal128-slice.md` defines the first differential docs checkpoint for the narrow decimal `decimal128` semantic slice (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-float64-ordering-slice.md` defines the first differential docs checkpoint for narrow `float64` NaN/infinity and canonical-ordering semantics (`column(index)` passthrough plus `is_not_null(column(index))`)
 - `tests/differential/first-json-slice.md` defines the first differential docs checkpoint for narrow JSON structural-comparison and explicit `json <-> string` cast semantics
+- `tests/differential/first-collation-string-slice.md` defines the first differential docs checkpoint for narrow collation-sensitive `utf8` comparison and ordering semantics under shared `binary` and `unicode_ci` collation identifiers
 - `tests/differential/first-struct-slice.md` defines the first differential docs checkpoint for narrow nested `struct<a:int32, b:int32?>` passthrough semantics
 - `tests/differential/first-map-slice.md` defines the first differential docs checkpoint for narrow nested `map<int32, int32?>` passthrough semantics
 - `tests/differential/first-exchange-slice.md` defines the first exchange parity checkpoint over existing first-expression and first-filter case IDs
@@ -26,6 +27,7 @@ Current checkpoint:
 - `adapters/first-decimal128-slice.md` defines the minimal request and response surface for the first differential decimal `decimal128` slice
 - `adapters/first-float64-ordering-slice.md` defines the minimal request and response surface for the first differential float64 NaN/infinity ordering slice
 - `adapters/first-json-slice.md` defines the minimal request and response surface for the first differential JSON comparability/cast slice
+- `adapters/first-collation-string-slice.md` defines the minimal request and response surface for the first differential collation-sensitive string slice
 - `adapters/first-struct-slice.md` defines the minimal request and response surface for the first differential struct passthrough slice
 - `adapters/first-map-slice.md` defines the minimal request and response surface for the first differential map passthrough slice
 - `crates/tiforth-harness-differential` executes the first-expression, first-filter-is-not-null, first-temporal-date32, first-decimal128, and first-float64-ordering slices through the current TiDB and TiFlash adapter cores, validates checked-in paired artifacts under `inventory/`, and executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
