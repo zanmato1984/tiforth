@@ -180,7 +180,10 @@ pub enum AdapterRequestValidationError {
 }
 
 pub trait TiflashRunner {
-    fn run(&self, plan: &TiflashExecutionPlan) -> Result<EngineExecutionResult, EngineExecutionError>;
+    fn run(
+        &self,
+        plan: &TiflashExecutionPlan,
+    ) -> Result<EngineExecutionResult, EngineExecutionError>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -533,7 +536,6 @@ fn normalize_logical_type(engine_type: &str) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -542,7 +544,10 @@ mod tests {
     #[test]
     fn canonical_requests_cover_all_documented_cases() {
         let requests = TiflashFirstTemporalTimestampTzSliceAdapter::canonical_requests();
-        let case_ids: Vec<&str> = requests.iter().map(|request| request.case_id.as_str()).collect();
+        let case_ids: Vec<&str> = requests
+            .iter()
+            .map(|request| request.case_id.as_str())
+            .collect();
 
         assert_eq!(requests.len(), 10);
         assert_eq!(
@@ -597,10 +602,15 @@ mod tests {
                 engine_type: "timestamp_tz(us)".to_string(),
                 nullable: false,
             }],
-            vec![vec![json!(0)], vec![json!(1_000_000)], vec![json!(2_000_000)]],
+            vec![
+                vec![json!(0)],
+                vec![json!(1_000_000)],
+                vec![json!(2_000_000)],
+            ],
         );
 
-        let result = TiflashFirstTemporalTimestampTzSliceAdapter::execute(&request, &runner).unwrap();
+        let result =
+            TiflashFirstTemporalTimestampTzSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(result.engine, TIFLASH_ENGINE);
         assert_eq!(result.adapter, TIFLASH_ADAPTER);
@@ -612,7 +622,11 @@ mod tests {
                     logical_type: "timestamp_tz(us)".to_string(),
                     nullable: false,
                 }],
-                rows: vec![vec![json!(0)], vec![json!(1_000_000)], vec![json!(2_000_000)]],
+                rows: vec![
+                    vec![json!(0)],
+                    vec![json!(1_000_000)],
+                    vec![json!(2_000_000)]
+                ],
                 row_count: 3,
             }
         );
@@ -630,8 +644,9 @@ mod tests {
             code: Some("1105".to_string()),
             message: "unsupported temporal type: timestamp without timezone input is out of scope for first-temporal-timestamp-tz-slice".to_string(),
         });
-        let type_result = TiflashFirstTemporalTimestampTzSliceAdapter::execute(&type_request, &type_runner)
-            .unwrap();
+        let type_result =
+            TiflashFirstTemporalTimestampTzSliceAdapter::execute(&type_request, &type_runner)
+                .unwrap();
         assert_eq!(
             type_result.outcome,
             CaseOutcome::Error {
@@ -649,8 +664,9 @@ mod tests {
             code: Some("1105".to_string()),
             message: "unsupported temporal unit: timestamp_tz(ms) input is out of scope for first-temporal-timestamp-tz-slice".to_string(),
         });
-        let unit_result = TiflashFirstTemporalTimestampTzSliceAdapter::execute(&unit_request, &unit_runner)
-            .unwrap();
+        let unit_result =
+            TiflashFirstTemporalTimestampTzSliceAdapter::execute(&unit_request, &unit_runner)
+                .unwrap();
         assert_eq!(
             unit_result.outcome,
             CaseOutcome::Error {
@@ -670,7 +686,8 @@ mod tests {
         request.ordering_ref = None;
         request.projection_ref = Some("column-0".to_string());
 
-        let error = TiflashFirstTemporalTimestampTzSliceAdapter::lower_request(&request).unwrap_err();
+        let error =
+            TiflashFirstTemporalTimestampTzSliceAdapter::lower_request(&request).unwrap_err();
 
         assert_eq!(
             error,

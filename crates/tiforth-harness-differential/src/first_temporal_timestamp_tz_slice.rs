@@ -184,11 +184,12 @@ where
         let tidb_request = tidb::AdapterRequest::from(request);
         let tiflash_request = tiflash::AdapterRequest::from(request);
 
-        let tidb_result = tidb::TidbFirstTemporalTimestampTzSliceAdapter::execute(&tidb_request, tidb_runner)
-            .map_err(|error| HarnessError::TidbAdapterValidation {
-                case_id: request.case_id.clone(),
-                error: format!("{error:?}"),
-            })?;
+        let tidb_result =
+            tidb::TidbFirstTemporalTimestampTzSliceAdapter::execute(&tidb_request, tidb_runner)
+                .map_err(|error| HarnessError::TidbAdapterValidation {
+                    case_id: request.case_id.clone(),
+                    error: format!("{error:?}"),
+                })?;
         let tiflash_result = tiflash::TiflashFirstTemporalTimestampTzSliceAdapter::execute(
             &tiflash_request,
             tiflash_runner,
@@ -872,7 +873,6 @@ fn convert_tiflash_error_class(error_class: tiflash::ErrorClass) -> ErrorClass {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -899,7 +899,10 @@ mod tests {
     #[test]
     fn canonical_requests_match_across_adapter_cores() {
         let requests = canonical_requests().unwrap();
-        let case_ids: Vec<&str> = requests.iter().map(|request| request.case_id.as_str()).collect();
+        let case_ids: Vec<&str> = requests
+            .iter()
+            .map(|request| request.case_id.as_str())
+            .collect();
 
         assert_eq!(
             case_ids,
@@ -960,7 +963,11 @@ mod tests {
                     logical_type: "timestamp_tz(us)".to_string(),
                     nullable: false,
                 }],
-                rows: vec![vec![json!(0)], vec![json!(1_000_000)], vec![json!(2_000_000)]],
+                rows: vec![
+                    vec![json!(0)],
+                    vec![json!(1_000_000)],
+                    vec![json!(2_000_000)],
+                ],
                 row_count: 3,
             },
         };

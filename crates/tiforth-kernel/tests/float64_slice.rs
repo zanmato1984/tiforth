@@ -72,7 +72,13 @@ fn float64_special_value_passthrough_preserves_infinities_nan_and_signed_zero() 
 #[test]
 fn float64_nullable_passthrough_preserves_null_positions() {
     let input = make_single_float64_batch(
-        vec![None, Some(f64::NEG_INFINITY), None, Some(f64::NAN), Some(1.0)],
+        vec![
+            None,
+            Some(f64::NEG_INFINITY),
+            None,
+            Some(f64::NAN),
+            Some(1.0),
+        ],
         true,
     );
     let admission = RecordingAdmissionController::unbounded();
@@ -138,7 +144,13 @@ fn float64_predicate_keeps_all_rows_for_non_null_special_values() {
 #[test]
 fn float64_predicate_mixed_keep_drop_preserves_row_order_and_full_row_values() {
     let input = make_float64_and_int32_batch(
-        vec![None, Some(f64::NEG_INFINITY), None, Some(f64::NAN), Some(1.0)],
+        vec![
+            None,
+            Some(f64::NEG_INFINITY),
+            None,
+            Some(f64::NAN),
+            Some(1.0),
+        ],
         true,
         vec![Some(10), Some(20), Some(30), Some(40), Some(50)],
         false,
@@ -163,7 +175,10 @@ fn float64_predicate_mixed_keep_drop_preserves_row_order_and_full_row_values() {
             Some("1".to_string()),
         ]
     );
-    assert_eq!(collect_int32(output.column(1)), vec![Some(20), Some(40), Some(50)]);
+    assert_eq!(
+        collect_int32(output.column(1)),
+        vec![Some(20), Some(40), Some(50)]
+    );
 }
 
 #[test]

@@ -179,11 +179,12 @@ where
         let tidb_request = tidb::AdapterRequest::from(request);
         let tiflash_request = tiflash::AdapterRequest::from(request);
 
-        let tidb_result = tidb::TidbFirstTemporalDate32SliceAdapter::execute(&tidb_request, tidb_runner)
-            .map_err(|error| HarnessError::TidbAdapterValidation {
-                case_id: request.case_id.clone(),
-                error: format!("{error:?}"),
-            })?;
+        let tidb_result =
+            tidb::TidbFirstTemporalDate32SliceAdapter::execute(&tidb_request, tidb_runner)
+                .map_err(|error| HarnessError::TidbAdapterValidation {
+                    case_id: request.case_id.clone(),
+                    error: format!("{error:?}"),
+                })?;
         let tiflash_result = tiflash::TiflashFirstTemporalDate32SliceAdapter::execute(
             &tiflash_request,
             tiflash_runner,
@@ -900,8 +901,8 @@ mod tests {
 
     #[test]
     fn checked_in_artifacts_match_the_fixture_harness_output() {
-        let bundle = execute_first_temporal_date32_slice(&FixtureTidbRunner, &FixtureTiflashRunner)
-            .unwrap();
+        let bundle =
+            execute_first_temporal_date32_slice(&FixtureTidbRunner, &FixtureTiflashRunner).unwrap();
 
         assert_eq!(
             render_case_results_artifact_json(&bundle.tidb_case_results).unwrap(),

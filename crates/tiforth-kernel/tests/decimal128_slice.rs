@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use arrow_array::{
-    new_empty_array, Array, ArrayRef, Decimal128Array, Int32Array, RecordBatch,
-};
+use arrow_array::{new_empty_array, Array, ArrayRef, Decimal128Array, Int32Array, RecordBatch};
 use arrow_schema::{DataType, Field, Schema};
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
@@ -11,12 +9,7 @@ use tiforth_kernel::projection::{project_batch, ProjectionExpr};
 
 #[test]
 fn decimal128_column_passthrough_preserves_values_and_metadata() {
-    let input = make_single_decimal128_batch(
-        vec![Some(101), Some(202), Some(303)],
-        false,
-        10,
-        2,
-    );
+    let input = make_single_decimal128_batch(vec![Some(101), Some(202), Some(303)], false, 10, 2);
     let admission = RecordingAdmissionController::unbounded();
 
     let output = project_batch(
@@ -42,12 +35,7 @@ fn decimal128_column_passthrough_preserves_values_and_metadata() {
 
 #[test]
 fn decimal128_nullable_passthrough_preserves_null_positions() {
-    let input = make_single_decimal128_batch(
-        vec![Some(101), None, Some(303), None],
-        true,
-        10,
-        2,
-    );
+    let input = make_single_decimal128_batch(vec![Some(101), None, Some(303), None], true, 10, 2);
     let admission = RecordingAdmissionController::unbounded();
 
     let output = project_batch(
@@ -72,12 +60,7 @@ fn decimal128_nullable_passthrough_preserves_null_positions() {
 
 #[test]
 fn decimal128_predicate_keeps_all_rows_when_no_nulls() {
-    let input = make_single_decimal128_batch(
-        vec![Some(101), Some(202), Some(303)],
-        false,
-        10,
-        2,
-    );
+    let input = make_single_decimal128_batch(vec![Some(101), Some(202), Some(303)], false, 10, 2);
     let admission = RecordingAdmissionController::unbounded();
 
     let output = filter_batch(
@@ -134,18 +117,16 @@ fn decimal128_predicate_mixed_keep_drop_preserves_row_order_and_full_row_values(
 
     assert_eq!(output.schema().fields(), input.schema().fields());
     assert_eq!(output.num_rows(), 2);
-    assert_eq!(collect_decimal128(output.column(0)), vec![Some(101), Some(303)]);
+    assert_eq!(
+        collect_decimal128(output.column(0)),
+        vec![Some(101), Some(303)]
+    );
     assert_eq!(collect_int32(output.column(1)), vec![Some(10), Some(30)]);
 }
 
 #[test]
 fn decimal128_projection_reports_missing_column_error() {
-    let input = make_single_decimal128_batch(
-        vec![Some(101), Some(202), Some(303)],
-        false,
-        10,
-        2,
-    );
+    let input = make_single_decimal128_batch(vec![Some(101), Some(202), Some(303)], false, 10, 2);
     let admission = RecordingAdmissionController::unbounded();
 
     let error = project_batch(
@@ -163,12 +144,7 @@ fn decimal128_projection_reports_missing_column_error() {
 
 #[test]
 fn decimal128_predicate_reports_missing_column_error() {
-    let input = make_single_decimal128_batch(
-        vec![Some(101), Some(202), Some(303)],
-        false,
-        10,
-        2,
-    );
+    let input = make_single_decimal128_batch(vec![Some(101), Some(202), Some(303)], false, 10, 2);
     let admission = RecordingAdmissionController::unbounded();
 
     let error = filter_batch(
@@ -273,7 +249,11 @@ fn make_decimal128_and_int32_batch(
     int_nullable: bool,
 ) -> RecordBatch {
     let schema = Arc::new(Schema::new(vec![
-        Field::new("d", DataType::Decimal128(precision, scale), decimal_nullable),
+        Field::new(
+            "d",
+            DataType::Decimal128(precision, scale),
+            decimal_nullable,
+        ),
         Field::new("x", DataType::Int32, int_nullable),
     ]));
     let decimals = Decimal128Array::from(decimal_values)
@@ -286,17 +266,24 @@ fn make_decimal128_and_int32_batch(
 
 fn make_empty_decimal256_batch() -> RecordBatch {
     let data_type = DataType::Decimal256(40, 4);
-    let schema = Arc::new(Schema::new(vec![Field::new("d256", data_type.clone(), false)]));
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "d256",
+        data_type.clone(),
+        false,
+    )]));
     let values = new_empty_array(&data_type);
     RecordBatch::try_new(schema, vec![values]).expect("decimal256 batch should build")
 }
 
 fn make_empty_invalid_decimal128_batch() -> RecordBatch {
     let data_type = DataType::Decimal128(10, 12);
-    let schema = Arc::new(Schema::new(vec![Field::new("d_bad", data_type.clone(), true)]));
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "d_bad",
+        data_type.clone(),
+        true,
+    )]));
     let values = new_empty_array(&data_type);
-    RecordBatch::try_new(schema, vec![values])
-        .expect("invalid decimal metadata batch should build")
+    RecordBatch::try_new(schema, vec![values]).expect("invalid decimal metadata batch should build")
 }
 
 fn collect_decimal128(array: &ArrayRef) -> Vec<Option<i128>> {

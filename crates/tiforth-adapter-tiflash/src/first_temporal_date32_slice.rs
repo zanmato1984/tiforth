@@ -157,7 +157,10 @@ pub enum AdapterRequestValidationError {
 }
 
 pub trait TiflashRunner {
-    fn run(&self, plan: &TiflashExecutionPlan) -> Result<EngineExecutionResult, EngineExecutionError>;
+    fn run(
+        &self,
+        plan: &TiflashExecutionPlan,
+    ) -> Result<EngineExecutionResult, EngineExecutionError>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
