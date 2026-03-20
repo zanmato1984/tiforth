@@ -62,6 +62,7 @@ Current checkpoint:
 - `inventory/first-decimal128-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first decimal checkpoint
 - `inventory/first-float64-ordering-slice-tidb-case-results.json` records the current TiDB-side case results for the first float64 ordering harness checkpoint
 - `inventory/first-float64-ordering-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first float64 ordering checkpoint
+- `inventory/first-float64-ordering-slice-tikv-case-results.json` records the current TiKV-side single-engine case results for the same first float64 ordering checkpoint
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first float64 ordering checkpoint
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first float64 ordering checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first-filter predicate slice
@@ -73,6 +74,7 @@ Current checkpoint:
 - `inventory/first-decimal128-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first decimal differential slice
 - `inventory/first-float64-ordering-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first float64 ordering differential slice
 - `inventory/first-float64-ordering-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first float64 ordering differential slice
+- `inventory/first-float64-ordering-slice-tikv-compat-notes.md` records TiKV-side compatibility notes for the same first float64 ordering differential slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
@@ -86,6 +88,7 @@ Current checkpoint:
 - issue #187 adds the first checked-in temporal `date32` differential case-results artifacts plus paired drift-report outputs
 - issue #206 adds the first checked-in decimal `decimal128` differential case-results artifacts plus paired drift-report outputs
 - issue #208 adds the first checked-in float64 ordering differential case-results artifacts plus paired drift-report outputs
+- issue #292 adds the first checked-in TiKV single-engine float64 ordering case-results and compatibility notes artifacts
 - issue #204 adds the first checked-in temporal `date32` per-engine compatibility notes artifacts for TiDB and TiFlash
 - issue #266 adds the first checked-in TiKV single-engine temporal `date32` case-results and compatibility notes artifacts
 - issue #270 adds the first checked-in TiKV pairwise `drift-report` artifacts for `first-temporal-date32-slice` (`tidb-vs-tikv` and `tiflash-vs-tikv`)

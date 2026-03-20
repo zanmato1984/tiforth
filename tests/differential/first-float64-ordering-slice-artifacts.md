@@ -1,11 +1,13 @@
 # First Float64 Ordering Slice Artifact Carriers
 
-Status: issue #208 artifact-carrier and harness checkpoint
+Status: issue #208 artifact-carrier and harness checkpoint, issue #292 TiKV single-engine artifact expansion checkpoint
 
 Related issues:
 
 - #194 `design: define first float64 NaN, infinity, and ordering checkpoint`
 - #208 `harness: execute first-float64-ordering-slice differential artifacts for TiDB and TiFlash`
+- #286 `design: define TiKV adapter boundary for first-float64-ordering-slice`
+- #292 `harness: execute first-float64-ordering-slice TiKV single-engine artifacts`
 
 ## Purpose
 
@@ -22,18 +24,19 @@ defined in `adapters/first-float64-ordering-slice.md`.
 
 ## Artifact Set
 
-The first executable float64 differential checkpoint produces four checked-in
-artifacts:
+The current executable float64 checkpoint produces five checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
-3. one aggregated TiDB-versus-TiFlash `drift-report`
-4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+3. one normalized TiKV `case-results` artifact
+4. one aggregated TiDB-versus-TiFlash `drift-report`
+5. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
 Current artifact filenames for this slice:
 
 - `inventory/first-float64-ordering-slice-tidb-case-results.json`
 - `inventory/first-float64-ordering-slice-tiflash-case-results.json`
+- `inventory/first-float64-ordering-slice-tikv-case-results.json`
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.json`
 
@@ -125,6 +128,9 @@ slice; it is not shared SQL `ORDER BY` policy.
 Issue #208 adds executable fixture-runner wiring and checks in the first
 `first-float64-ordering-slice` artifacts listed above.
 
+Issue #292 extends the same artifact carrier with one checked-in TiKV
+single-engine `case-results` artifact.
+
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 comparison modes, normalized fields, or drift conclusions change under
 `docs/process/inventory-refresh.md`.
@@ -141,3 +147,4 @@ They do not yet define:
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - float arithmetic, cast, or coercion differential evidence
 - SQL ordering policy beyond this slice's canonical comparison-mode convention
+- TiKV pairwise float64 drift-report artifacts

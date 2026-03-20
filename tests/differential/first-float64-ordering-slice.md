@@ -1,6 +1,6 @@
 # First Differential Float64 NaN/Infinity Ordering Slice
 
-Status: issue #194 design checkpoint, issue #208 harness checkpoint, issue #286 TiKV boundary checkpoint
+Status: issue #194 design checkpoint, issue #208 harness checkpoint, issue #286 TiKV boundary checkpoint, issue #292 TiKV single-engine checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #194 `design: define first float64 NaN, infinity, and ordering checkpoint`
 - #208 `harness: execute first-float64-ordering-slice differential artifacts for TiDB and TiFlash`
 - #286 `design: define TiKV adapter boundary for first-float64-ordering-slice`
+- #292 `harness: execute first-float64-ordering-slice TiKV single-engine artifacts`
 
 ## Question
 
@@ -24,6 +25,7 @@ Which cross-engine comparison should `tiforth` define first for a narrow
 - issue #194
 - issue #208
 - issue #286
+- issue #292
 
 ## First Slice Decision
 
@@ -211,6 +213,10 @@ Issue #208 now adds executable adapter/harness wiring plus checked-in float64 `c
 Issue #286 adds the docs-first TiKV request and response boundary in
 `adapters/first-float64-ordering-slice-tikv.md`.
 
+Issue #292 adds executable TiKV single-engine adapter/harness wiring plus
+checked-in TiKV float64 `case-results` and compatibility-notes artifacts
+under `inventory/`.
+
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
@@ -218,8 +224,9 @@ Later issues may extend this slice to cover:
 - live differential runner coverage against real TiDB and TiFlash environments
 - float arithmetic and coercion semantics
 - SQL ordering and null-ordering policy checkpoints
-- TiKV executable single-engine and pairwise coverage beyond the docs-first
-  boundary in `adapters/first-float64-ordering-slice-tikv.md`
+- TiKV pairwise drift coverage and refresh workflow beyond the current
+  executable single-engine checkpoint in
+  `adapters/first-float64-ordering-slice-tikv.md`
 
 Until then, this checkpoint fixes only the first float64 differential
 semantics, case IDs, adapter-boundary shape, comparison-mode behavior, and
