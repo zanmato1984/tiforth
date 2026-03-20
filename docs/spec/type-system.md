@@ -296,6 +296,14 @@ Issue #304 adds the first executable TiDB-versus-TiFlash differential harness co
 
 with checked-in paired artifacts under `inventory/first-temporal-timestamp-tz-slice-*`.
 
+Issue #306 adds the first executable TiKV single-engine and pairwise differential harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tikv`
+- `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv.rs`
+- `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_pairwise.rs`
+
+with checked-in TiKV single-engine and pairwise artifacts under `inventory/first-temporal-timestamp-tz-slice-*`.
+
 For current shared contracts:
 
 - the first admitted timezone-aware timestamp logical type beyond `date32` is
@@ -313,7 +321,7 @@ For current shared contracts:
   semantics and coverage
 - local executable kernel coverage for this checkpoint now exists in
   `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
-- adapter and differential-harness executable coverage for this checkpoint now exists in `crates/tiforth-adapter-tidb`, `crates/tiforth-adapter-tiflash`, and `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice.rs`, with checked-in paired artifacts under `inventory/first-temporal-timestamp-tz-slice-*`
+- adapter and differential-harness executable coverage for this checkpoint now exists in `crates/tiforth-adapter-tidb`, `crates/tiforth-adapter-tiflash`, `crates/tiforth-adapter-tikv`, `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice.rs`, `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv.rs`, and `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_pairwise.rs`, with checked-in paired and single-engine artifacts under `inventory/first-temporal-timestamp-tz-slice-*`
 
 ## First Decimal Follow-On Checkpoint
 

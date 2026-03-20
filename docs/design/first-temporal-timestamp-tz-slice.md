@@ -1,6 +1,6 @@
 # First Temporal Timestamp-Timezone Semantic Slice
 
-Status: issue #280 design checkpoint, issue #288 local executable kernel checkpoint, issue #304 differential harness checkpoint
+Status: issue #280 design checkpoint, issue #288 local executable kernel checkpoint, issue #304 differential harness checkpoint, issue #306 TiKV differential harness checkpoint
 
 Verified: 2026-03-20
 
@@ -11,7 +11,9 @@ Related issues:
 - #178 `milestone-1: implement first executable temporal date32 slice in local kernel`
 - #280 `design: define first timezone-aware timestamp semantic slice checkpoint`
 - #288 `milestone-1: implement first executable temporal timestamp_tz(us) slice in local kernel`
+- #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 - #304 `harness: execute first timestamp_tz(us) differential artifacts`
+- #306 `checkpoint: implement TiKV first-temporal-timestamp-tz executable differential slice`
 
 ## Question
 
@@ -28,11 +30,13 @@ widening the current runtime-state model?
 - `tests/conformance/first-temporal-timestamp-tz-slice.md`
 - `tests/differential/first-temporal-timestamp-tz-slice.md`
 - `adapters/first-temporal-timestamp-tz-slice.md`
+- `adapters/first-temporal-timestamp-tz-slice-tikv.md`
 - issue #280
+- issue #306
 
 ## Design Summary
 
-The first timezone-aware timestamp checkpoint is a narrow slice that starts docs-first and now includes local executable kernel conformance:
+The first timezone-aware timestamp checkpoint is a narrow slice that starts docs-first and now includes local executable kernel, TiDB-vs-TiFlash differential, and TiKV single-engine plus pairwise executable coverage:
 
 - admitted temporal logical family: `timestamp_tz(us)` only
 - admitted expression family for this slice: passthrough `column(index)` over
@@ -118,5 +122,4 @@ explicitly.
 
 ## Result
 
-The first timezone-aware timestamp checkpoint is now explicit and narrow:
-`timestamp_tz(us)` column passthrough, `is_not_null` predicate coverage, and one ascending-ordering boundary with normalized UTC epoch-microsecond comparison. Local executable shared-kernel conformance for passthrough and predicate cases now exists through `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`. The first executable TiDB-versus-TiFlash differential harness checkpoint now also exists through `crates/tiforth-adapter-tidb`, `crates/tiforth-adapter-tiflash`, and `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice.rs` with checked-in paired artifacts under `inventory/`. Broader timestamp family behavior remains follow-on work.
+The first timezone-aware timestamp checkpoint is now explicit and narrow: `timestamp_tz(us)` column passthrough, `is_not_null` predicate coverage, and one ascending-ordering boundary with normalized UTC epoch-microsecond comparison. Local executable shared-kernel conformance for passthrough and predicate cases now exists through `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`. Executable differential harness coverage now exists through `crates/tiforth-adapter-tidb`, `crates/tiforth-adapter-tiflash`, `crates/tiforth-adapter-tikv`, `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice.rs`, `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv.rs`, and `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_pairwise.rs` with checked-in paired and single-engine artifacts under `inventory/`. Broader timestamp family behavior remains follow-on work.
