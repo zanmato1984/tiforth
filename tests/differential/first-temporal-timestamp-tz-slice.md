@@ -1,6 +1,6 @@
 # First Differential Temporal `timestamp_tz(us)` Slice
 
-Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint
+Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint, issue #304 harness checkpoint
 
 Related issues:
 
@@ -9,6 +9,8 @@ Related issues:
 - #178 `milestone-1: implement first executable temporal date32 slice in local kernel`
 - #280 `design: define first timezone-aware timestamp semantic slice checkpoint`
 - #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
+- #298 `docs: define first-temporal-timestamp-tz differential artifact carriers`
+- #304 `harness: execute first timestamp_tz(us) differential artifacts`
 
 ## Question
 
@@ -23,8 +25,11 @@ without claiming broad temporal-family behavior?
 - `tests/conformance/first-temporal-timestamp-tz-slice.md`
 - `tests/differential/README.md`
 - `adapters/first-temporal-timestamp-tz-slice-tikv.md`
+- `tests/differential/first-temporal-timestamp-tz-slice-artifacts.md`
 - issue #280
 - issue #290
+- issue #298
+- issue #304
 
 ## First Slice Decision
 
@@ -215,7 +220,6 @@ The TiKV request and response boundary for this same slice is defined in
 
 Later issues may extend this slice to cover:
 
-- executable adapter and harness wiring for this slice
 - checked-in inventory artifact carriers and refresh workflow for this slice
 - additional timestamp units, timestamp-without-timezone semantics, and
   timezone-name canonicalization
