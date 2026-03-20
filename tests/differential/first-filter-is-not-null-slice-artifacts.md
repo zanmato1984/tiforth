@@ -1,6 +1,6 @@
 # First Filter Slice Artifact Carriers
 
-Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #249 TiKV single-engine case-results checkpoint
+Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #249 TiKV single-engine and pairwise checkpoint
 
 Related issues:
 
@@ -36,7 +36,14 @@ artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Issue #249 also adds one checked-in TiKV single-engine `case-results` artifact that reuses the same `case-results` carrier shape below.
+Issue #249 also adds one checked-in TiKV single-engine `case-results` artifact
+that reuses the same `case-results` carrier shape below, plus four checked-in
+TiKV pairwise drift artifacts:
+
+1. one TiDB-versus-TiKV `drift-report`
+2. one machine-readable TiDB-versus-TiKV `drift-report` sidecar
+3. one TiFlash-versus-TiKV `drift-report`
+4. one machine-readable TiFlash-versus-TiKV `drift-report` sidecar
 
 These carriers should stay simple and JSON-serializable at the record level
 even when the drift report also renders a human-readable Markdown summary.
@@ -48,6 +55,10 @@ Current checked-in examples:
 - `inventory/first-filter-is-not-null-slice-tikv-case-results.json`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.json`
 
 ## `case-results` Artifact Shape
 
@@ -168,6 +179,6 @@ The first filter artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- merged multi-engine summaries beyond the current TiDB/TiFlash and TiKV pairwise checkpoints
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers

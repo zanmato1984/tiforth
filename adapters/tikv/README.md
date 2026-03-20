@@ -19,13 +19,15 @@ Current checkpoint:
 - `inventory/first-filter-is-not-null-slice-tikv-case-results.json` now captures the first checked-in TiKV single-engine normalized `case-results` evidence for `first-filter-is-not-null-slice`
 - `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
 - `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-filter-is-not-null-slice`
+- `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-filter-is-not-null-slice`
 
 Next checkpoint:
 
-- define and execute first-filter TiKV pairwise drift policy and artifacts (`tidb-vs-tikv` and `tiflash-vs-tikv`) on top of current single-engine first-filter TiKV case-results evidence
+- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression or first-filter case-results evidence changes
 
 ## TODOs
 
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression case-results evidence changes
-- define and execute first-filter TiKV pairwise drift artifacts after the single-engine first-filter checkpoint
+- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-filter case-results evidence changes
 - extend the TiKV request and response surface beyond `first-expression-slice` and `first-filter-is-not-null-slice` after current checkpoints are reviewable
