@@ -93,8 +93,8 @@ handoff checkpoint:
 
 ## Out Of Scope For This Checkpoint
 
-- nested families beyond this struct checkpoint (`map`, `union`, and nested
-  combinations beyond current list and struct passthrough checkpoints)
+- nested families beyond this struct checkpoint (`union` and nested
+  combinations beyond current list, struct, and map passthrough checkpoints)
 - nested compute semantics beyond passthrough `column(index)`
 - filter predicate, cast, or ordering expansion over nested struct values
 - dictionary-encoded nested payload boundaries
