@@ -47,3 +47,7 @@ This file is a table of contents for future agents. The source of truth lives un
 - For the ordinary clean setup case, prefer `scripts/start-issue-worktree.sh <issue-number>` before starting issue work.
 - After an issue PR merges, remove its dedicated local worktree and merged local branch, then leave the primary `main` worktree checked out, up to date, and clean before ending the session. If unrelated local changes block that cleanup, preserve them in their own branch or worktree or report the blocker instead of discarding them.
 - Every PR must link its primary issue. Use `Closes #...` when merge should close the issue; use `Refs #...` when the PR is partial or stacked. See `docs/process/issues-and-prs.md`.
+- Every commit must include a DCO trailer: `Signed-off-by:`.
+- Set local sign-off defaults per worktree: `git config --local format.signoff true`, then verify `git config --local --get format.signoff` outputs `true`.
+- Use `git commit -s` for new commits. If a commit is missing sign-off, fix it with `git commit --amend -s --no-edit`.
+- Before `git push`, before opening/updating a PR, and before merge, run `git log --pretty=%B origin/main..HEAD | rg -n '^Signed-off-by:'`; the range is valid only if every commit in `origin/main..HEAD` has a `Signed-off-by:` line.
