@@ -19,6 +19,7 @@ Current checkpoint:
 - `tests/differential/first-exchange-slice.md` defines the first exchange parity checkpoint over existing first-expression and first-filter case IDs
 - `tests/differential/drift-report-carrier.md` defines the reusable minimum carrier for differential `drift-report` artifacts across slices
 - `tests/differential/first-expression-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for that slice
+- `tests/differential/first-unsigned-arithmetic-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential unsigned arithmetic slice
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential filter slice
 - `tests/differential/first-temporal-date32-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential temporal `date32` slice
 - `tests/differential/first-temporal-timestamp-tz-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential temporal timezone-aware `timestamp_tz(us)` slice
