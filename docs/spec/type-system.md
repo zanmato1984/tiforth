@@ -183,9 +183,33 @@ For current shared contracts:
 - this checkpoint does not define nested predicate behavior
   (`is_not_null(column(index))` over `struct`), nested casts, or nested
   ordering semantics
-- nested compute families and broader nested logical types (`map`, `union`,
-  nested combinations) remain out of scope until follow-on issues
+- nested compute families and broader nested logical types (`union`, nested
+  combinations) remain out of scope until follow-on issues
 - local executable kernel coverage for this struct checkpoint remains
+  follow-on scope
+
+## First Map Nested Follow-On Checkpoint
+
+Issue #230 adds a docs-first nested map checkpoint in
+`docs/design/first-map-aware-handoff-slice.md`.
+
+Issue #230 also adds the first docs-first map coverage anchors in:
+
+- `tests/conformance/first-map-slice.md`
+- `tests/differential/first-map-slice.md`
+- `adapters/first-map-slice.md`
+
+For current shared contracts:
+
+- the first admitted map nested logical type beyond milestone 1 is
+  `map<int32, int32?>`
+- this map checkpoint reuses existing expression family scope through
+  passthrough `column(index)`
+- this checkpoint does not define nested predicate behavior
+  (`is_not_null(column(index))` over `map`), nested casts, or nested ordering semantics
+- broader nested logical types (`union`, nested combinations) remain out of
+  scope until follow-on issues
+- local executable kernel coverage for this map checkpoint remains
   follow-on scope
 
 ## First Temporal Follow-On Checkpoint

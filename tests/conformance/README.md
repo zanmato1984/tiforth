@@ -27,3 +27,5 @@ Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint i
 Issue #224 adds the first JSON conformance checkpoint in `tests/conformance/first-json-slice.md`.
 
 Issue #226 adds the first struct passthrough conformance checkpoint in `tests/conformance/first-struct-slice.md`.
+
+Issue #230 adds the first map passthrough conformance checkpoint in `tests/conformance/first-map-slice.md`.
