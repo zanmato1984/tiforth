@@ -88,9 +88,4 @@ After the current milestone-1 slices, layer 3 should grow only when:
 - machine-readable JSON `drift-report` sidecars are required for differential slices that check in `drift-report` evidence
 - the shared engine-pair carrier boundary lives in `tests/differential/drift-report-carrier.md`
 - the accepted policy record is `docs/decisions/0002-drift-report-sidecar-policy.md`
-
-## TODOs
-
-- Decide whether later checkpoints should support merged summaries across
-  multiple engine pairs in one artifact or continue one pairwise report per
-  artifact.
+- differential evidence remains one engine pair (or one explicitly documented parity subject) per checked-in drift-report artifact; merged multi-pair summaries remain out of scope until a follow-on decision says otherwise
