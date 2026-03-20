@@ -1,19 +1,20 @@
 # First Differential Temporal `date32` Adapter Boundary
 
-Status: issue #176 design checkpoint, issue #264 TiKV boundary checkpoint
+Status: issue #176 design checkpoint, issue #264 TiKV boundary checkpoint, issue #266 TiKV single-engine checkpoint
 
 Related issues:
 
 - #174 `design: define first temporal semantic slice boundary`
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
+- #266 `adapter: execute first-temporal-date32-slice through TiKV`
 
 ## Purpose
 
 This note defines the minimal shared boundary between the first differential
 temporal `date32` slice and the engine-specific adapters that execute it.
 
-The goal is to give future harness work one explicit contract between:
+The goal is to give harness work one explicit contract between:
 
 - the shared differential temporal slice in
   `tests/differential/first-temporal-date32-slice.md`
@@ -33,8 +34,9 @@ This boundary applies only to the first temporal differential slice:
 
 It does **not** yet define:
 
-- TiKV executable participation in this slice; the TiKV docs-first
-  request/response boundary is in `adapters/first-temporal-date32-slice-tikv.md`
+- TiKV participation in this shared TiDB-versus-TiFlash pairwise checkpoint;
+  TiKV single-engine checkpoint details are handled separately in
+  `adapters/first-temporal-date32-slice-tikv.md`
 - timezone-aware timestamp normalization or ordering policy
 - temporal arithmetic, cast, extract, or truncation semantics
 - connection management, authentication, or environment provisioning
@@ -159,7 +161,8 @@ Later issues may extend this boundary to cover:
 - broader temporal error normalization
 - reusable session profiles or adapter capability advertisement
 - checked-in artifact carriers and live runner wiring for this slice
-- TiKV executable adapter coverage and pairwise artifacts on top of
+- TiKV pairwise drift-policy and artifact checkpoints for this slice on top of
+  the single-engine TiKV checkpoint in
   `adapters/first-temporal-date32-slice-tikv.md`
 
 Until then, this note fixes only the minimum request-and-response contract for

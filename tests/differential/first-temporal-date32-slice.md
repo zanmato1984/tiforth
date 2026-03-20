@@ -1,6 +1,6 @@
 # First Differential Temporal `date32` Slice
 
-Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #264 TiKV boundary checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #264 TiKV boundary checkpoint, issue #266 TiKV single-engine checkpoint
 
 Related issues:
 
@@ -9,6 +9,7 @@ Related issues:
 - #185 `docs: define first temporal date32 differential artifact carriers`
 - #187 `harness: execute first-temporal-date32 differential artifacts for TiDB and TiFlash`
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
+- #266 `adapter: execute first-temporal-date32-slice through TiKV`
 
 ## Question
 
@@ -24,6 +25,7 @@ Which cross-engine comparison should `tiforth` define first for the narrow
 - `adapters/first-temporal-date32-slice-tikv.md`
 - issue #176
 - issue #264
+- issue #266
 
 ## First Slice Decision
 
@@ -112,8 +114,7 @@ Use these stable `case_id` assignments for this first temporal slice:
 The adapter-facing request and response boundary for TiDB and TiFlash
 identifiers is defined in `adapters/first-temporal-date32-slice.md`.
 
-The TiKV docs-first request and response boundary for this same slice is defined
-in `adapters/first-temporal-date32-slice-tikv.md`.
+The TiKV request and response boundary plus single-engine checkpoint for this same slice are defined in `adapters/first-temporal-date32-slice-tikv.md`.
 
 ### 2e. Shared Spec References
 
@@ -171,8 +172,7 @@ This keeps adapters thin while letting the first temporal differential slice
 target real engine behavior.
 
 The minimal shared adapter request and response boundary for this slice lives
-in `adapters/first-temporal-date32-slice.md`, and the TiKV docs-first boundary
-for the same slice lives in `adapters/first-temporal-date32-slice-tikv.md`.
+in `adapters/first-temporal-date32-slice.md`, and the TiKV single-engine checkpoint for the same slice is anchored in `adapters/first-temporal-date32-slice-tikv.md`.
 
 ## Follow-On Boundary
 
@@ -182,8 +182,7 @@ Later issues may extend this slice to cover:
   contract in `tests/differential/first-temporal-date32-slice-artifacts.md`
 - broader temporal logical families and timezone-sensitive behavior
 - temporal arithmetic, cast, extract, or truncation semantics
-- executable TiKV temporal adapter coverage and TiKV pairwise artifacts on top
-  of `adapters/first-temporal-date32-slice-tikv.md`
+- TiKV pairwise drift policy and artifacts on top of the TiKV single-engine checkpoint in `adapters/first-temporal-date32-slice-tikv.md`
 
 Until then, this checkpoint fixes only the first temporal differential
 semantics, request IDs, adapter-boundary shape, and normalized comparison

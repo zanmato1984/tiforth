@@ -1,6 +1,6 @@
 # First Temporal `date32` Slice Artifact Carriers
 
-Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #266 TiKV single-engine checkpoint
 
 Related issues:
 
@@ -8,6 +8,8 @@ Related issues:
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #185 `docs: define first temporal date32 differential artifact carriers`
 - #187 `harness: execute first-temporal-date32 differential artifacts for TiDB and TiFlash`
+- #264 `design: define first TiKV temporal date32 adapter request/response surface`
+- #266 `adapter: execute first-temporal-date32-slice through TiKV`
 
 ## Purpose
 
@@ -20,11 +22,12 @@ checked-in `inventory/` files remain reviewable evidence instead of schema
 authority.
 
 The minimal adapter request and response boundary that feeds these artifacts is
-defined in `adapters/first-temporal-date32-slice.md`.
+defined in `adapters/first-temporal-date32-slice.md` plus
+`adapters/first-temporal-date32-slice-tikv.md`.
 
 ## Artifact Set
 
-The first executable temporal differential checkpoint produces four checked-in
+The first executable temporal differential checkpoint produced four checked-in
 artifacts:
 
 1. one normalized TiDB `case-results` artifact
@@ -32,10 +35,14 @@ artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
+Issue #266 also adds one checked-in TiKV single-engine `case-results` artifact
+that reuses the same `case-results` carrier shape below.
+
 Current artifact filenames for this slice:
 
 - `inventory/first-temporal-date32-slice-tidb-case-results.json`
 - `inventory/first-temporal-date32-slice-tiflash-case-results.json`
+- `inventory/first-temporal-date32-slice-tikv-case-results.json`
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.json`
 
@@ -108,7 +115,10 @@ Markdown report.
 ## Inventory Refresh Boundary
 
 Issue #187 adds executable fixture-runner wiring and checks in the first
-`first-temporal-date32-slice` artifacts listed above.
+`first-temporal-date32-slice` differential artifacts listed above.
+
+Issue #266 adds the first checked-in TiKV single-engine `case-results` artifact
+for this same slice.
 
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 normalized fields, or drift conclusions change under
@@ -122,6 +132,7 @@ They do not yet define:
 
 - performance result formats
 - merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- TiKV pairwise temporal drift-report carriers
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - timezone-aware timestamp or non-`date32` temporal-family artifacts
