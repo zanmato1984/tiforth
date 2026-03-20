@@ -12,6 +12,8 @@ Related issues:
 - #174 `design: define first temporal semantic slice boundary`
 - #189 `design: define first decimal semantic slice boundary`
 - #226 `design: define first struct nested handoff slice checkpoint`
+- #230 `docs: define first map nested handoff slice checkpoint`
+- #241 `docs: define first union nested handoff slice checkpoint`
 
 ## Question
 
@@ -28,10 +30,15 @@ milestone 1 across the shared data and type-system contracts?
 - `adapters/first-expression-slice.md`
 - `docs/design/first-temporal-semantic-slice.md`
 - `docs/design/first-decimal-semantic-slice.md`
+- `docs/design/first-struct-aware-handoff-slice.md`
+- `docs/design/first-map-aware-handoff-slice.md`
+- `docs/design/first-union-aware-handoff-slice.md`
 - issue #127
 - issue #174
 - issue #189
 - issue #226
+- issue #230
+- issue #241
 
 ## Design Summary
 
@@ -96,6 +103,12 @@ Post-milestone follow-on checkpoints are now explicit:
 - `docs/design/first-struct-aware-handoff-slice.md` fixes the first struct
   nested checkpoint as narrow `struct<a:int32, b:int32?>` passthrough through
   `column(index)` with parent-domain and per-child-domain claim ownership
+- `docs/design/first-map-aware-handoff-slice.md` fixes the first map nested
+  checkpoint as narrow `map<int32, int32?>` passthrough through `column(index)`
+  with parent, entry, key, and value domain claim ownership
+- `docs/design/first-union-aware-handoff-slice.md` fixes the first union nested
+  checkpoint as narrow `dense_union<i:int32, n:int32?>` passthrough through
+  `column(index)` with type-id, dense-offset, and per-child claim ownership
 
 Later issues may extend this checkpoint to define:
 
@@ -111,4 +124,5 @@ Later issues may extend this checkpoint to define:
 Milestone 1 explicitly treats nested, decimal, and temporal families as out of
 scope for shared execution and differential evidence, with explicit unsupported
 outcomes instead of implicit coercion. First post-milestone temporal and
-decimal checkpoints are now fixed in dedicated follow-on design docs.
+decimal checkpoints plus first nested struct, map, and union checkpoints are
+now fixed in dedicated follow-on design docs.

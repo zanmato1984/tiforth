@@ -183,8 +183,11 @@ For current shared contracts:
 - this checkpoint does not define nested predicate behavior
   (`is_not_null(column(index))` over `struct`), nested casts, or nested
   ordering semantics
-- nested compute families and broader nested logical types (`union`, nested
-  combinations) remain out of scope until follow-on issues
+- this checkpoint does not define `map` or `union` behavior; those remain
+  separate checkpoints
+- nested compute families and broader nested logical types (nested
+  combinations beyond current list, struct, map, and union checkpoints)
+  remain out of scope until follow-on issues
 - local executable kernel coverage for this struct checkpoint remains
   follow-on scope
 
@@ -206,10 +209,43 @@ For current shared contracts:
 - this map checkpoint reuses existing expression family scope through
   passthrough `column(index)`
 - this checkpoint does not define nested predicate behavior
-  (`is_not_null(column(index))` over `map`), nested casts, or nested ordering semantics
-- broader nested logical types (`union`, nested combinations) remain out of
-  scope until follow-on issues
+  (`is_not_null(column(index))` over `map`), nested casts, or nested ordering
+  semantics
+- this map checkpoint does not define `union` behavior; see
+  `docs/design/first-union-aware-handoff-slice.md`
+- broader nested logical types (nested combinations beyond current list,
+  struct, map, and union checkpoints) remain out of scope until follow-on
+  issues
 - local executable kernel coverage for this map checkpoint remains
+  follow-on scope
+
+## First Union Nested Follow-On Checkpoint
+
+Issue #241 adds a docs-first nested union checkpoint in
+`docs/design/first-union-aware-handoff-slice.md`.
+
+Issue #241 also adds the first docs-first union coverage anchors in:
+
+- `tests/conformance/first-union-slice.md`
+- `tests/differential/first-union-slice.md`
+- `adapters/first-union-slice.md`
+
+For current shared contracts:
+
+- the first admitted union nested logical type beyond milestone 1 is
+  `dense_union<i:int32, n:int32?>`
+- this union checkpoint reuses existing expression family scope through
+  passthrough `column(index)`
+- this checkpoint preserves per-row variant tags and per-variant value
+  nullability through canonical differential carriers with stable `tag` and
+  `value` keys
+- this checkpoint does not define nested predicate behavior
+  (`is_not_null(column(index))` over `union`), nested casts, or nested
+  ordering semantics
+- broader nested logical types (nested combinations and wider union-mode
+  expansion beyond current list, struct, map, and dense-union checkpoints)
+  remain out of scope until follow-on issues
+- local executable kernel coverage for this union checkpoint remains
   follow-on scope
 
 ## First Temporal Follow-On Checkpoint
