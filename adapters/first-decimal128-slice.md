@@ -1,12 +1,13 @@
 # First Differential Decimal `decimal128` Adapter Boundary
 
-Status: issue #189 design checkpoint, issue #206 executable adapter checkpoint
+Status: issue #189 design checkpoint, issue #206 executable adapter checkpoint, issue #278 TiKV boundary checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #189 `design: define first decimal semantic slice boundary`
 - #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
+- #278 `design: define first TiKV decimal128 adapter request/response surface`
 
 ## Purpose
 
@@ -33,7 +34,8 @@ This boundary applies only to the first decimal differential slice:
 
 It does **not** yet define:
 
-- TiKV participation in this slice
+- TiKV-specific single-engine and pairwise checkpoint details, which are
+  handled separately in `adapters/first-decimal128-slice-tikv.md`
 - decimal arithmetic, casts, or coercion behavior
 - decimal rescaling or rounding policy
 - connection management, authentication, or environment provisioning
@@ -159,10 +161,15 @@ Later issues may extend this boundary to cover:
 
 - broader decimal error normalization
 - reusable session profiles or adapter capability advertisement
-- live runner wiring for this slice
+- checked-in artifact carriers and live runner wiring for this slice
+- TiKV live-runner and pairwise refresh workflow details beyond the docs-first
+  TiKV boundary
 
 Issue #206 now wires this boundary into executable TiDB and TiFlash adapter
 cores and paired differential artifacts.
+
+Issue #278 now defines the TiKV-specific request and response boundary for this
+same slice in `adapters/first-decimal128-slice-tikv.md`.
 
 Until then, this note fixes only the minimum request-and-response contract for
 first-slice decimal `decimal128` differential comparison.
