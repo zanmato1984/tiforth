@@ -1,12 +1,13 @@
 # First Differential Decimal `decimal128` Slice
 
-Status: issue #189 design checkpoint, issue #206 executable differential checkpoint
+Status: issue #189 design checkpoint, issue #206 executable differential checkpoint, issue #278 TiKV boundary checkpoint
 
 Related issues:
 
 - #127 `design: define milestone-1 nested and decimal/temporal metadata boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #189 `design: define first decimal semantic slice boundary`
+- #278 `design: define first TiKV decimal128 adapter request/response surface`
 
 ## Question
 
@@ -19,7 +20,9 @@ Which cross-engine comparison should `tiforth` define first for a narrow
 - `docs/spec/type-system.md`
 - `tests/conformance/first-decimal128-slice.md`
 - `tests/differential/README.md`
+- `adapters/first-decimal128-slice-tikv.md`
 - issue #189
+- issue #278
 
 ## First Slice Decision
 
@@ -111,6 +114,9 @@ Use these stable `case_id` assignments for this first decimal slice:
 The adapter-facing request and response boundary for these identifiers is
 defined in `adapters/first-decimal128-slice.md`.
 
+The TiKV request and response boundary for this same slice is defined in
+`adapters/first-decimal128-slice-tikv.md`.
+
 ### 2e. Shared Spec References
 
 For this first decimal differential slice, every shared request currently uses
@@ -169,7 +175,9 @@ This keeps adapters thin while letting the first decimal differential slice
 target real engine behavior.
 
 The minimal shared adapter request and response boundary for this slice lives
-in `adapters/first-decimal128-slice.md`.
+in `adapters/first-decimal128-slice.md`, and the TiKV request and response
+boundary for the same slice is anchored in
+`adapters/first-decimal128-slice-tikv.md`.
 
 ## Follow-On Boundary
 
@@ -177,9 +185,13 @@ Later issues may extend this slice to cover:
 
 - broader decimal logical families and precision/scale policy
 - decimal arithmetic, cast, and coercion semantics
-- TiKV participation
+- executable TiKV single-engine and pairwise checkpoints for this slice
 
-Issue #206 now adds executable adapter/harness wiring plus checked-in decimal `case-results` and `drift-report` artifacts for this slice.
+Issue #206 now adds executable adapter/harness wiring plus checked-in decimal
+`case-results` and `drift-report` artifacts for this slice.
+
+Issue #278 now adds the docs-first TiKV request and response boundary in
+`adapters/first-decimal128-slice-tikv.md`.
 
 Until then, this checkpoint fixes only the first decimal differential
 semantics, request IDs, adapter-boundary shape, normalized comparison
