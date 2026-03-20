@@ -436,10 +436,38 @@ For current shared contracts:
 - overflow remains an operator compute failure and does not change runtime
   ownership or admission error taxonomy
 
+## First Unsigned Arithmetic Follow-On Checkpoint
+
+Issue #300 adds a docs-first unsigned arithmetic checkpoint in
+`docs/design/first-unsigned-arithmetic-slice.md`.
+
+Issue #300 also adds the first docs-first unsigned arithmetic coverage anchors
+in:
+
+- `tests/conformance/first-unsigned-arithmetic-slice.md`
+- `tests/differential/first-unsigned-arithmetic-slice.md`
+- `adapters/first-unsigned-arithmetic-slice.md`
+
+For current shared contracts:
+
+- the first admitted unsigned arithmetic logical type beyond milestone 1 is
+  `uint64`
+- this checkpoint admits passthrough `column(index)`,
+  `literal<uint64>(value)`, `add<uint64>(lhs, rhs)`, and
+  `is_not_null(column(index))` over `uint64`
+- `add<uint64>` requires both operands to resolve to `uint64`; mixed signed and
+  unsigned arithmetic requests remain execution errors
+- `add<uint64>` overflow is an execution error in this checkpoint; shared
+  defaults do not wrap, saturate, widen, or coerce overflowed results
+- this checkpoint does not add unsigned cast/coercion edges, wider unsigned
+  families, or unsigned arithmetic beyond `add<uint64>`
+- local executable kernel and adapter coverage for this unsigned checkpoint
+  remains follow-on scope
+
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
-- TODO: define family-specific overflow semantics for decimal, temporal, and unsigned arithmetic checkpoints when those families become executable
+- TODO: define family-specific overflow semantics for decimal and temporal arithmetic checkpoints when those families become executable
 - TODO: extend collation semantics beyond the first string checkpoint,
   including locale-specific collation families, binary-type collation
   interactions, and executable adapter plus kernel coverage
