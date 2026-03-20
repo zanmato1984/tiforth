@@ -1,13 +1,15 @@
 # First Differential Decimal `decimal128` Slice
 
-Status: issue #189 design checkpoint, issue #206 executable differential checkpoint, issue #278 TiKV boundary checkpoint
+Status: issue #189 design checkpoint, issue #206 executable differential checkpoint, issue #278 TiKV boundary checkpoint, issue #284 TiKV executable checkpoint
 
 Related issues:
 
 - #127 `design: define milestone-1 nested and decimal/temporal metadata boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #189 `design: define first decimal semantic slice boundary`
+- #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
 - #278 `design: define first TiKV decimal128 adapter request/response surface`
+- #284 `harness: execute first-decimal128 TiKV single-engine and pairwise artifacts`
 
 ## Question
 
@@ -22,7 +24,9 @@ Which cross-engine comparison should `tiforth` define first for a narrow
 - `tests/differential/README.md`
 - `adapters/first-decimal128-slice-tikv.md`
 - issue #189
+- issue #206
 - issue #278
+- issue #284
 
 ## First Slice Decision
 
@@ -185,14 +189,18 @@ Later issues may extend this slice to cover:
 
 - broader decimal logical families and precision/scale policy
 - decimal arithmetic, cast, and coercion semantics
-- executable TiKV single-engine and pairwise checkpoints for this slice
+- live TiKV runner wiring and environment-backed artifact refresh flows
 
-Issue #206 now adds executable adapter/harness wiring plus checked-in decimal
-`case-results` and `drift-report` artifacts for this slice.
+Issue #206 adds executable adapter/harness wiring plus checked-in decimal
+`case-results` and `drift-report` artifacts for TiDB-versus-TiFlash.
 
-Issue #278 now adds the docs-first TiKV request and response boundary in
+Issue #278 adds the docs-first TiKV request and response boundary in
 `adapters/first-decimal128-slice-tikv.md`.
 
-Until then, this checkpoint fixes only the first decimal differential
-semantics, request IDs, adapter-boundary shape, normalized comparison
-rules.
+Issue #284 adds executable TiKV single-engine plus pairwise decimal
+`case-results` and `drift-report` artifacts alongside TiKV compatibility notes
+under `inventory/`.
+
+This checkpoint now fixes the first decimal differential semantics, request
+IDs, adapter-boundary shape, and normalized comparison rules with executable
+artifact coverage across TiDB, TiFlash, and TiKV.

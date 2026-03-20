@@ -1,6 +1,6 @@
 # First TiKV Decimal `decimal128` Adapter Boundary
 
-Status: issue #278 design checkpoint
+Status: issue #278 design checkpoint, issue #284 executable checkpoint
 
 Verified: 2026-03-20
 
@@ -10,6 +10,7 @@ Related issues:
 - #189 `design: define first decimal semantic slice boundary`
 - #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
 - #278 `design: define first TiKV decimal128 adapter request/response surface`
+- #284 `harness: execute first-decimal128 TiKV single-engine and pairwise artifacts`
 
 ## Purpose
 
@@ -112,23 +113,20 @@ unchanged:
   documented first-decimal `case_id`
 - normalized field meanings stay aligned with
   `tests/differential/first-decimal128-slice-artifacts.md`
-- executable TiKV decimal adapter, harness, and inventory checkpoints remain
-  follow-on scope
+- issue #284 adds executable TiKV decimal adapter, harness, and inventory checkpoints for this slice
 
 ## Follow-On Boundary
 
-After this docs-first request/response checkpoint, follow-on issues may
+After the issue #284 executable checkpoint, follow-on issues may
 separately define:
 
-- deterministic TiKV single-engine harness execution for
-  `first-decimal128-slice`
-- checked-in TiKV compatibility notes and single-engine `case-results`
-  artifacts for this slice
-- deterministic TiKV pairwise drift rendering and artifact refresh workflow
-  against `tidb` and `tiflash`
+- live TiKV decimal runner wiring and environment-backed artifact refresh
+  workflow
+- broader decimal-family adapter coverage beyond `first-decimal128-slice`
+- decimal orchestration policy expansion when shared slices require it
 
 ## Result
 
 TiKV now has a concrete docs-first request and response boundary for first
-decimal `decimal128` checkpoints while preserving the shared first differential
-decimal checkpoint as TiDB-versus-TiFlash.
+decimal `decimal128` checkpoints plus executable single-engine and pairwise
+artifacts aligned to the shared first differential decimal slice.
