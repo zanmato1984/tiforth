@@ -44,6 +44,7 @@ This file is a table of contents for future agents. The source of truth lives un
 - When a design conclusion must outlive an issue thread, record it under `docs/decisions/` rather than in a plan file.
 - Do not add a build system, package manager, CI workflow, or implementation runtime unless an accepted issue or decision explicitly requires it.
 - Every issue must use its own local git worktree. Do not run multiple issue-scoped tasks in the same directory. See `docs/process/worktrees.md`.
+- If no open issue exists, first open a bootstrap issue for the next concrete repository-backed task, then create its dedicated worktree.
 - For the ordinary clean setup case, prefer `scripts/start-issue-worktree.sh <issue-number>` before starting issue work.
 - After an issue PR merges, remove its dedicated local worktree and merged local branch, then leave the primary `main` worktree checked out, up to date, and clean before ending the session. If unrelated local changes block that cleanup, preserve them in their own branch or worktree or report the blocker instead of discarding them.
 - Every PR must link its primary issue. Use `Closes #...` when merge should close the issue; use `Refs #...` when the PR is partial or stacked. See `docs/process/issues-and-prs.md`.

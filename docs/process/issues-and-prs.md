@@ -7,6 +7,7 @@ Repo docs are for stable knowledge, not for day-to-day execution tracking.
 ## Core Rules
 
 - one active workstream should map to one primary issue
+- if no open issue exists, create a bootstrap issue for the next concrete repository-backed task before creating a branch or worktree
 - one primary issue should use one dedicated local git worktree
 - every PR must link at least one issue in its body
 - every PR must declare documentation impact in its body
@@ -34,6 +35,14 @@ Examples:
 - `design: host memory admission ABI for tiforth`
 - `design: tiforth dependency boundary over broken-pipeline-rs`
 - `milestone-1: first Arrow-bound operator and expression slice`
+
+## Empty Queue Bootstrap
+
+When `gh issue list --state open` is empty, contributors should still keep issue-first execution.
+
+1. identify the next concrete repository-backed task (for example: a documented TODO boundary, failing local check, or harness drift evidence)
+2. open a new bootstrap issue that records problem statement, scope, and non-goals
+3. continue with the normal one-issue/one-worktree flow for that new issue
 
 ## Relationship To Docs
 
