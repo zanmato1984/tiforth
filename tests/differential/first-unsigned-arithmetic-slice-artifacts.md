@@ -1,6 +1,6 @@
 # First Unsigned Arithmetic Slice Artifact Carriers
 
-Status: issue #300 design checkpoint, issue #302 artifact-carrier checkpoint
+Status: issue #300 design checkpoint, issue #302 artifact-carrier checkpoint, issue #310 executable checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #276 `spec: define overflow behavior checkpoint for follow-on operator families`
 - #300 `design: define first unsigned arithmetic semantic slice boundary`
 - #302 `docs: define first-unsigned-arithmetic-slice differential artifact carriers`
+- #310 `milestone-1: execute first unsigned arithmetic differential slice`
 
 ## Purpose
 
@@ -32,15 +33,15 @@ four checked-in artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Planned artifact filenames for this slice:
+Artifact filenames for this slice:
 
 - `inventory/first-unsigned-arithmetic-slice-tidb-case-results.json`
 - `inventory/first-unsigned-arithmetic-slice-tiflash-case-results.json`
 - `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.json`
 
-Issue #302 is docs-first only and does not add or refresh those `inventory/`
-files.
+Issue #310 now adds and validates those `inventory/` files through
+`crates/tiforth-harness-differential/src/first_unsigned_arithmetic_slice.rs`.
 
 ## `case-results` Artifact Shape
 
@@ -123,15 +124,11 @@ slice; it is not shared SQL `ORDER BY` policy.
 
 ## Inventory Refresh Boundary
 
-This checkpoint documents carriers only.
+This checkpoint now has executable TiDB/TiFlash fixture coverage plus checked-in
+inventory artifacts.
 
-Follow-on harness work should add executable runner wiring for this slice and
-then refresh or check in the planned `inventory/` files using the same carrier
-shape defined here.
-
-Until that executable checkpoint lands, PRs that touch this note may declare:
-
-- `Inventory-Impact: none - unsigned artifact carriers documented but no executable artifact refresh performed`
+Follow-on harness work should refresh these `inventory/` files whenever the
+documented case set, normalization rules, or shared carrier fields change.
 
 ## Boundary For Now
 
@@ -143,5 +140,4 @@ They do not yet define:
 - merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
-- executable unsigned adapter or differential harness wiring
 - unsigned cast/coercion or wider unsigned-family artifact coverage

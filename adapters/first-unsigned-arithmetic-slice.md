@@ -1,6 +1,6 @@
 # First Differential Unsigned Arithmetic Adapter Boundary
 
-Status: issue #300 design checkpoint, issue #302 artifact-carrier checkpoint
+Status: issue #300 design checkpoint, issue #302 artifact-carrier checkpoint, issue #310 executable checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #276 `spec: define overflow behavior checkpoint for follow-on operator families`
 - #300 `design: define first unsigned arithmetic semantic slice boundary`
 - #302 `docs: define first-unsigned-arithmetic-slice differential artifact carriers`
+- #310 `milestone-1: execute first unsigned arithmetic differential slice`
 
 ## Purpose
 
@@ -167,8 +168,8 @@ Later issues may extend this boundary to cover:
 
 - broader unsigned error normalization
 - reusable session profiles or adapter capability advertisement
-- executable harness wiring and checked-in inventory artifact refresh for this slice
 - TiKV single-engine and pairwise checkpoints for this slice
 
 Until then, this note fixes only the minimum request-and-response contract for
-first-slice unsigned arithmetic differential comparison.
+first-slice unsigned arithmetic differential comparison for the executable
+TiDB-versus-TiFlash checkpoint.
