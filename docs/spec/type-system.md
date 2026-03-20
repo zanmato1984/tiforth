@@ -168,6 +168,11 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 Issue #226 adds a docs-first nested struct checkpoint in
 `docs/design/first-struct-aware-handoff-slice.md`.
 
+Issue #329 adds the first executable local shared-kernel coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/struct_slice.rs`
+
 Issue #226 also adds the first docs-first struct coverage anchors in:
 
 - `tests/conformance/first-struct-slice.md`
@@ -188,8 +193,8 @@ For current shared contracts:
 - nested compute families and broader nested logical types (nested
   combinations beyond current list, struct, map, and union checkpoints)
   remain out of scope until follow-on issues
-- local executable kernel coverage for this struct checkpoint remains
-  follow-on scope
+- local executable kernel coverage for this struct checkpoint now exists in
+  `crates/tiforth-kernel/tests/struct_slice.rs`
 
 ## First Map Nested Follow-On Checkpoint
 

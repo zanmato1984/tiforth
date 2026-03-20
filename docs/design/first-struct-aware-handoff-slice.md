@@ -1,14 +1,15 @@
 # First Struct-Aware Handoff Slice
 
-Status: issue #226 design checkpoint
+Status: issue #226 design checkpoint, issue #329 local executable kernel checkpoint
 
-Verified: 2026-03-19
+Verified: 2026-03-20
 
 Related issues:
 
 - #127 `design: define milestone-1 nested and decimal/temporal metadata boundary`
 - #151 `design: define first nested-family shared handoff slice and claim-ownership boundary`
 - #226 `design: define first struct nested handoff slice checkpoint`
+- #329 `milestone-1: implement first executable struct slice in local kernel`
 
 ## Question
 
@@ -31,6 +32,7 @@ directly, and how should ownership claims attach in that slice?
 - issue #127
 - issue #151
 - issue #226
+- issue #329
 
 ## Design Summary
 
@@ -91,6 +93,11 @@ handoff checkpoint:
 - differential checkpoint doc: `tests/differential/first-struct-slice.md`
 - adapter boundary doc: `adapters/first-struct-slice.md`
 
+Issue #329 adds the first executable local shared-kernel coverage for the same
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/struct_slice.rs`
+
 ## Out Of Scope For This Checkpoint
 
 - nested families beyond this struct checkpoint (`union` and nested
@@ -106,4 +113,5 @@ handoff checkpoint:
 The shared data contract now has one additional post-milestone nested-aware
 handoff checkpoint: passthrough of `struct<a:int32, b:int32?>` through
 `column(index)` while keeping ownership claims split between parent-domain and
-per-child-domain bytes.
+per-child-domain bytes. Local executable shared-kernel conformance coverage for
+this checkpoint now exists in `crates/tiforth-kernel/tests/struct_slice.rs`.
