@@ -1,6 +1,6 @@
 # First Temporal `timestamp_tz(us)` Slice Artifact Carriers
 
-Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint, issue #304 harness checkpoint
+Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint, issue #304 harness checkpoint, issue #306 TiKV executable artifact checkpoint
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 - #298 `docs: define first-temporal-timestamp-tz differential artifact carriers`
 - #304 `harness: execute first timestamp_tz(us) differential artifacts`
+- #306 `checkpoint: implement TiKV first-temporal-timestamp-tz executable differential slice`
 
 ## Purpose
 
@@ -28,24 +29,34 @@ defined in `adapters/first-temporal-timestamp-tz-slice.md` plus
 
 ## Artifact Set
 
-The first executable timestamp-timezone differential checkpoint should produce
-four checked-in artifacts:
+The current executable timestamp-timezone checkpoint now produces nine
+checked-in artifacts:
 
-1. one normalized TiDB `case-results` artifact
-2. one normalized TiFlash `case-results` artifact
-3. one aggregated TiDB-versus-TiFlash `drift-report`
-4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+1. normalized TiDB `case-results`
+2. normalized TiFlash `case-results`
+3. normalized TiKV `case-results`
+4. TiDB-versus-TiFlash `drift-report`
+5. TiDB-versus-TiFlash machine-readable sidecar
+6. TiDB-versus-TiKV `drift-report`
+7. TiDB-versus-TiKV machine-readable sidecar
+8. TiFlash-versus-TiKV `drift-report`
+9. TiFlash-versus-TiKV machine-readable sidecar
 
 Current artifact filenames for this slice:
 
 - `inventory/first-temporal-timestamp-tz-slice-tidb-case-results.json`
 - `inventory/first-temporal-timestamp-tz-slice-tiflash-case-results.json`
+- `inventory/first-temporal-timestamp-tz-slice-tikv-case-results.json`
 - `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-temporal-timestamp-tz-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-temporal-timestamp-tz-slice-tiflash-vs-tikv-drift-report.json`
 
 ## `case-results` Artifact Shape
 
-Each per-engine artifact should record at least:
+Each per-engine artifact records at least:
 
 - top-level `slice_id`
 - top-level `engine`
@@ -67,7 +78,7 @@ When `outcome.kind = rows`, include:
 - `rows[]` using normalized UTC epoch-microsecond integer scalars plus `null`
 - `row_count`
 
-For this slice, equivalent instants represented with different offsets should
+For this slice, equivalent instants represented with different offsets
 normalize to the same UTC epoch-microsecond integer value.
 
 When `outcome.kind = error`, include:
@@ -76,7 +87,7 @@ When `outcome.kind = error`, include:
 - optional `engine_code`
 - optional `engine_message`
 
-For this slice, `error_class` must stay stable enough for:
+For this slice, `error_class` stays stable enough for:
 
 - `missing_column`
 - `unsupported_temporal_type`
@@ -86,15 +97,15 @@ For this slice, `error_class` must stay stable enough for:
 
 ## `drift-report` Carrier For This Slice
 
-The shared cross-slice drift-report carrier now lives in:
+The shared cross-slice drift-report carrier lives in:
 
 - `tests/differential/drift-report-carrier.md`
 
-The first timestamp-timezone checkpoint should use that shared carrier without
-adding extra status values.
+This timestamp-timezone checkpoint uses that shared carrier without adding extra
+status values.
 
-For this slice, `comparison_dimensions[]` should only use dimensions that the
-slice actually compares:
+For this slice, `comparison_dimensions[]` only uses dimensions that the slice
+actually compares:
 
 - `field_name`
 - `field_nullability`
@@ -103,20 +114,22 @@ slice actually compares:
 - `row_values`
 - `error_class`
 
-For this slice, `unsupported` should stay limited to explicit adapter or
-engine-path gaps for already-documented first timestamp-timezone cases, and
-each `unsupported` record should include a concrete `follow_up`.
+For this slice, `unsupported` stays limited to explicit adapter or engine-path
+gaps for already documented timestamp-timezone cases, and each `unsupported`
+record includes a concrete `follow_up`.
 
-The machine-readable sidecar should mirror the shared carrier fields
-(`slice_id`, `engines[]`, `spec_refs[]`, and `cases[]`) used by the paired
-Markdown report.
+The machine-readable sidecar mirrors the shared carrier fields (`slice_id`,
+`engines[]`, `spec_refs[]`, and `cases[]`) used by the paired Markdown report.
 
 ## Inventory Refresh Boundary
 
-Issue #304 adds executable fixture-runner wiring and checks in the first
-`first-temporal-timestamp-tz-slice` differential artifacts listed above.
+Issue #304 adds executable fixture-runner wiring and checked-in TiDB-versus-
+TiFlash artifacts for this slice.
 
-Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
+Issue #306 extends that executable checkpoint with TiKV single-engine artifacts
+plus TiDB-versus-TiKV and TiFlash-versus-TiKV pairwise drift artifacts.
+
+Follow-on PRs should refresh these artifacts when slice semantics, case IDs,
 normalized fields, or drift conclusions change under
 `docs/process/inventory-refresh.md`.
 
@@ -127,7 +140,6 @@ The first timestamp-timezone artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- merged multi-engine summaries beyond explicit two-engine pairwise reports
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
-- TiKV single-engine and pairwise timestamp-timezone artifact expansion

@@ -1,6 +1,6 @@
 # First Differential Temporal `timestamp_tz(us)` Slice
 
-Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint, issue #304 harness checkpoint
+Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint, issue #298 artifact-carrier checkpoint, issue #304 harness checkpoint, issue #306 TiKV executable checkpoint
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 - #298 `docs: define first-temporal-timestamp-tz differential artifact carriers`
 - #304 `harness: execute first timestamp_tz(us) differential artifacts`
+- #306 `checkpoint: implement TiKV first-temporal-timestamp-tz executable differential slice`
 
 ## Question
 
@@ -30,17 +31,13 @@ without claiming broad temporal-family behavior?
 - issue #290
 - issue #298
 - issue #304
+- issue #306
 
 ## First Slice Decision
 
 ### 1. Engines
 
-The first timezone-aware timestamp differential slice compares `TiDB` and
-`TiFlash`.
-
-This keeps the timestamp checkpoint aligned with the existing first
-cross-engine differential pair while keeping adapter and harness expansion
-narrow.
+The first timezone-aware timestamp differential slice keeps `TiDB` and `TiFlash` as the baseline pair, and the same shared case set now also has executable TiKV single-engine plus pairwise (`tidb-vs-tikv`, `tiflash-vs-tikv`) coverage from issue #306.
 
 ### 2. Case Family
 
@@ -73,7 +70,7 @@ Defer these cases from the first timestamp-timezone differential checkpoint:
 - timezone-name canonicalization and timezone-database negotiation
 - runtime and ownership traces (claim handoff, shrink, release, cancellation)
 - memory-admission deny or spill-and-retry behavior
-- non-TiDB/TiFlash engines
+- engines beyond TiDB, TiFlash, and TiKV
 
 ### 2a. Shared Slice ID
 
@@ -220,12 +217,10 @@ The TiKV request and response boundary for this same slice is defined in
 
 Later issues may extend this slice to cover:
 
-- checked-in inventory artifact carriers and refresh workflow for this slice
 - additional timestamp units, timestamp-without-timezone semantics, and
   timezone-name canonicalization
 - temporal arithmetic, cast, extract, truncation, and interval semantics
-- executable TiKV single-engine and pairwise checkpoints on top of the
-  docs-first `first-temporal-timestamp-tz-slice` TiKV adapter boundary
+- live-runner TiKV timestamp-timezone execution and environment-backed artifact refresh workflow
 
 Until then, this checkpoint fixes only the first timezone-aware timestamp
 semantics, request IDs, adapter-boundary shape, and normalized comparison

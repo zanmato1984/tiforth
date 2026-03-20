@@ -1,6 +1,6 @@
 # First TiKV Temporal `timestamp_tz(us)` Adapter Boundary
 
-Status: issue #290 design checkpoint
+Status: issue #290 design checkpoint, issue #306 executable checkpoint
 
 Verified: 2026-03-20
 
@@ -11,15 +11,16 @@ Related issues:
 - #280 `design: define first timezone-aware timestamp semantic slice checkpoint`
 - #288 `kernel: execute first timestamp_tz(us) local conformance slice`
 - #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
+- #306 `checkpoint: implement TiKV first-temporal-timestamp-tz executable differential slice`
 
 ## Purpose
 
-This note defines the first TiKV-specific adapter boundary for the existing
-`first-temporal-timestamp-tz-slice` semantic checkpoint.
+This note defines the TiKV-specific adapter boundary for the
+`first-temporal-timestamp-tz-slice` semantic checkpoint and records the first
+executable TiKV checkpoint that conforms to that boundary.
 
-The goal is to make TiKV request and response expectations explicit for harness
-and follow-on adapter work without changing shared slice semantics or widening
-temporal families.
+The goal is to keep shared slice semantics stable while making TiKV request,
+normalization, and artifact expectations explicit.
 
 ## Scope
 
@@ -32,12 +33,11 @@ This boundary applies only to:
 
 It does not define:
 
-- TiKV single-engine execution coverage or pairwise drift artifacts for this
-  slice
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - temporal arithmetic, cast, extraction, truncation, or interval behavior
 - timezone-name canonicalization or timezone-database negotiation
+- live-runner orchestration for environment-backed refresh
 
 ## Shared Ownership
 
@@ -58,9 +58,8 @@ engine-local.
 
 ## Request Surface
 
-Harnesses should submit one documented first timestamp-timezone case at a time
-to the TiKV adapter with the same minimal request fields already used by TiDB
-and TiFlash:
+Harnesses submit one documented first timestamp-timezone case at a time to the
+TiKV adapter with the same minimal request fields used by TiDB and TiFlash:
 
 - `slice_id`
 - `case_id`
@@ -71,7 +70,7 @@ and TiFlash:
   - `filter_ref` for `is_not_null(column(index))` cases
   - `ordering_ref` for ordering-probe cases
 
-The request should not carry engine-native query text, planner directives,
+The request does not carry engine-native query text, planner directives,
 credentials, or expected rows.
 
 ## Response Surface
@@ -95,9 +94,8 @@ When `outcome.kind = rows`, the record includes:
 - `rows[]` in normalized JSON numeric scalar form plus `null`
 - `row_count`
 
-For this slice, non-null `timestamp_tz(us)` row values should normalize to
-signed UTC epoch-microsecond integers so equivalent instants compare equal
-across engines.
+For this slice, non-null `timestamp_tz(us)` row values normalize to signed UTC
+epoch-microsecond integers so equivalent instants compare equal across engines.
 
 When `outcome.kind = error`, the record includes:
 
@@ -105,8 +103,7 @@ When `outcome.kind = error`, the record includes:
 - optional `engine_code`
 - optional `engine_message`
 
-For this first TiKV timestamp-timezone checkpoint, the normalized error
-vocabulary is unchanged:
+For this checkpoint, the normalized error vocabulary stays:
 
 - `missing_column`
 - `unsupported_temporal_type`
@@ -114,30 +111,35 @@ vocabulary is unchanged:
 - `adapter_unavailable`
 - `engine_error`
 
-## First Checkpoint Expectations
+## Executable Checkpoint Evidence
 
-- issue #290 defines docs-first TiKV request and response ownership for every
-  documented first timestamp-timezone `case_id`
-- until a follow-on executable issue lands, TiKV may return
-  `adapter_unavailable` for documented cases
-- normalized field meanings stay aligned with
-  `tests/differential/first-temporal-timestamp-tz-slice.md`
+Issue #306 adds deterministic TiKV executable coverage on top of this boundary:
+
+- adapter implementation in
+  `crates/tiforth-adapter-tikv/src/first_temporal_timestamp_tz_slice.rs`
+- single-engine harness execution in
+  `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv.rs`
+- pairwise TiDB-vs-TiKV and TiFlash-vs-TiKV drift rendering in
+  `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_pairwise.rs`
+- checked-in inventory artifacts:
+  - `inventory/first-temporal-timestamp-tz-slice-tikv-case-results.json`
+  - `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tikv-drift-report.md`
+  - `inventory/first-temporal-timestamp-tz-slice-tidb-vs-tikv-drift-report.json`
+  - `inventory/first-temporal-timestamp-tz-slice-tiflash-vs-tikv-drift-report.md`
+  - `inventory/first-temporal-timestamp-tz-slice-tiflash-vs-tikv-drift-report.json`
+  - `inventory/first-temporal-timestamp-tz-slice-tikv-compat-notes.md`
 
 ## Follow-On Boundary
 
-After this docs-first request/response checkpoint, follow-on issues may
-separately define:
+Follow-on issues may still separately define:
 
-- deterministic TiKV single-engine timestamp-timezone adapter and harness
-  execution
-- deterministic TiKV pairwise drift rendering for `tidb-vs-tikv` and
-  `tiflash-vs-tikv`
 - live TiKV timestamp-timezone runner wiring and environment-backed refresh
   workflow
+- broader temporal-family semantics beyond `timestamp_tz(us)`
 
 ## Result
 
-TiKV now has a concrete docs-first request and response boundary for
-`first-temporal-timestamp-tz-slice` while the shared differential executable
-checkpoint remains TiDB-versus-TiFlash until follow-on TiKV execution issues
-land.
+TiKV now has both a stable docs-defined request/response boundary and the first
+executable single-engine plus pairwise differential checkpoint for
+`first-temporal-timestamp-tz-slice`, while broader temporal-family expansion
+remains follow-on scope.
