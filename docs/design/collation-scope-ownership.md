@@ -2,7 +2,7 @@
 
 Status: issue #143 design checkpoint
 
-Verified: 2026-03-18
+Verified: 2026-03-19
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #92 `design: define adapter-local runtime orchestration boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #143 `docs: define initial collation scope and ownership boundary`
+- #233 `design: define first string collation semantic slice`
 
 ## Question
 
@@ -26,7 +27,9 @@ What collation semantics are required in shared `tiforth` contracts now, and whi
 - `tests/conformance/expression-projection-slice.md`
 - `tests/conformance/first-filter-is-not-null-slice.md`
 - `tests/differential/first-expression-slice.md`
+- `docs/design/first-collation-string-slice.md`
 - issue #143
+- issue #233
 
 ## Design Summary
 
@@ -53,7 +56,8 @@ The current shared boundary remains collation-light:
 
 - no milestone-1 shared executable checkpoint requires collation-sensitive expression families
 - no milestone-1 fixture or differential artifact requires explicit collation fields
-- milestone-1 docs should continue to treat collation-sensitive families as out of scope until a follow-on issue defines the first executable slice and harness coverage
+- milestone-1 docs should continue to treat executable collation-sensitive families as out of scope
+- the first post-milestone docs-first collation checkpoint is now fixed in `docs/design/first-collation-string-slice.md`
 
 ## Why This Boundary
 
@@ -65,11 +69,11 @@ The current shared boundary remains collation-light:
 
 Later issues may extend this checkpoint to define:
 
-- first executable collation-sensitive string comparison and ordering slice
-- first shared collation identifier vocabulary, if any, needed across adapters and harnesses
+- executable adapter and kernel coverage for `first-collation-string-slice`
+- broader shared collation identifier vocabulary beyond `binary` and `unicode_ci`
 - cross-adapter normalization rules when engines expose different collation names or capabilities
 - required conformance and differential case coverage for collation-sensitive behavior
 
 ## Result
 
-Collation ownership is now explicit: milestone-1 shared slices stay collation-insensitive, adapter session-level collation choices remain local orchestration concerns, and any collation-sensitive semantics require a follow-on docs-first slice before executable adoption.
+Collation ownership is now explicit: milestone-1 shared slices stay collation-insensitive, adapter session-level collation choices remain local orchestration concerns, and the first post-milestone docs-first collation slice is fixed in `docs/design/first-collation-string-slice.md` before executable adoption.

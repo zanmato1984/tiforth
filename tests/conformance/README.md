@@ -29,3 +29,5 @@ Issue #224 adds the first JSON conformance checkpoint in `tests/conformance/firs
 Issue #226 adds the first struct passthrough conformance checkpoint in `tests/conformance/first-struct-slice.md`.
 
 Issue #230 adds the first map passthrough conformance checkpoint in `tests/conformance/first-map-slice.md`.
+
+Issue #233 adds the first collation-sensitive string conformance checkpoint in `tests/conformance/first-collation-string-slice.md`.
