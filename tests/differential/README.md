@@ -44,6 +44,7 @@ Current checkpoint:
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-filter drift reports
 - `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-decimal drift reports
 - `crates/tiforth-harness-differential/src/bin/first_temporal_timestamp_tz_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-temporal-timestamp-tz drift reports
+- `crates/tiforth-harness-differential/src/bin/first_exchange_slice.rs` wires a fixture-based baseline-versus-exchange artifact refresh path for the first exchange parity checkpoint
 - `scripts/refresh-first-filter-live-artifacts.sh` provides the canonical local command for env-validated dry runs and checked-in first-filter artifact refresh
 - `docs/design/next-thin-end-to-end-slice.md` defines the next thin end-to-end checkpoint as executing that documented slice through adapters and into checked-in differential evidence
 - `docs/design/adapter-milestone-breakdown.md` breaks that executable path into TiDB, TiFlash, and pairwise harness checkpoints so future issues stay reviewable

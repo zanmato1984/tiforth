@@ -16,7 +16,7 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 ## Current Checkpoints
 
 - executable differential coverage exists for `first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, and `first-unsigned-arithmetic-slice`
-- checked-in `inventory/` evidence now includes normalized per-engine `case-results`, compatibility notes, and pairwise drift reports for the executable slices that have landed
+- checked-in `inventory/` evidence now includes normalized per-engine `case-results`, compatibility notes, pairwise drift reports, and the first baseline-versus-exchange parity drift reports for the executable slices that have landed
 - TiKV executable coverage currently extends through the first expression, filter, temporal, decimal, and float64-ordering checkpoints, with pairwise drift artifacts recorded against TiDB and TiFlash where those slices are implemented
 - docs-first follow-on checkpoints already define the first JSON, collation-sensitive string, and nested struct/map/union slice boundaries before executable expansion claims those families
 

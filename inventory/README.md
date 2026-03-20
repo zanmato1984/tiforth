@@ -31,6 +31,7 @@ Current checkpoint:
 - `tests/differential/first-temporal-timestamp-tz-slice-artifacts.md` defines the stable carrier for first-temporal timezone-aware `timestamp_tz(us)` case-results artifacts plus first-temporal timestamp-timezone constraints on the shared `drift-report` carrier
 - `tests/differential/first-decimal128-slice-artifacts.md` defines the stable carrier for first-decimal `decimal128` case-results artifacts plus first-decimal constraints on the shared `drift-report` carrier
 - `tests/differential/first-float64-ordering-slice-artifacts.md` defines the stable carrier for first-float64 ordering case-results artifacts plus first-float64 constraints on the shared `drift-report` carrier
+- `tests/differential/first-exchange-slice-artifacts.md` defines the stable carrier for the first baseline-versus-exchange parity `drift-report` artifacts
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
 - `inventory/first-expression-slice-tikv-case-results.json` records the current TiKV-side single-engine case results for the same first-expression checkpoint
@@ -48,6 +49,8 @@ Current checkpoint:
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.json` records the paired machine-readable TiDB-versus-TiKV drift-report sidecar for the same first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.md` records the current paired TiFlash-versus-TiKV classification summary for the first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.json` records the paired machine-readable TiFlash-versus-TiKV drift-report sidecar for the same first-filter checkpoint
+- `inventory/first-exchange-slice-baseline-vs-exchange-drift-report.md` records the current baseline-versus-exchange parity summary for the first exchange checkpoint
+- `inventory/first-exchange-slice-baseline-vs-exchange-drift-report.json` records the paired machine-readable baseline-versus-exchange parity sidecar for the same exchange checkpoint
 - `inventory/first-temporal-date32-slice-tidb-case-results.json` records the current TiDB-side case results for the first temporal `date32` harness checkpoint
 - `inventory/first-temporal-date32-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tikv-case-results.json` records the current TiKV-side single-engine case results for the same first temporal checkpoint
