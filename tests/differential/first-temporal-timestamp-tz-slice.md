@@ -1,6 +1,6 @@
 # First Differential Temporal `timestamp_tz(us)` Slice
 
-Status: issue #280 design checkpoint
+Status: issue #280 design checkpoint, issue #290 TiKV boundary checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #176 `docs: define first temporal date32 coverage and adapter checkpoints`
 - #178 `milestone-1: implement first executable temporal date32 slice in local kernel`
 - #280 `design: define first timezone-aware timestamp semantic slice checkpoint`
+- #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 
 ## Question
 
@@ -21,7 +22,9 @@ without claiming broad temporal-family behavior?
 - `docs/spec/type-system.md`
 - `tests/conformance/first-temporal-timestamp-tz-slice.md`
 - `tests/differential/README.md`
+- `adapters/first-temporal-timestamp-tz-slice-tikv.md`
 - issue #280
+- issue #290
 
 ## First Slice Decision
 
@@ -137,8 +140,11 @@ Use these stable `case_id` assignments for this first timestamp-timezone slice:
   `input_ref = first-temporal-timestamp-tz-ms-basic`,
   `projection_ref = column-0`
 
-The adapter-facing request and response boundary for these identifiers is
-defined in `adapters/first-temporal-timestamp-tz-slice.md`.
+The adapter-facing request and response boundary for TiDB and TiFlash
+identifiers is defined in `adapters/first-temporal-timestamp-tz-slice.md`.
+
+The TiKV request and response boundary for this same slice is defined in
+`adapters/first-temporal-timestamp-tz-slice-tikv.md`.
 
 ### 2e. Shared Spec References
 
@@ -202,6 +208,9 @@ differential slice target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-temporal-timestamp-tz-slice.md`.
 
+The TiKV request and response boundary for this same slice is defined in
+`adapters/first-temporal-timestamp-tz-slice-tikv.md`.
+
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
@@ -211,7 +220,8 @@ Later issues may extend this slice to cover:
 - additional timestamp units, timestamp-without-timezone semantics, and
   timezone-name canonicalization
 - temporal arithmetic, cast, extract, truncation, and interval semantics
-- TiKV participation
+- executable TiKV single-engine and pairwise checkpoints on top of the
+  docs-first `first-temporal-timestamp-tz-slice` TiKV adapter boundary
 
 Until then, this checkpoint fixes only the first timezone-aware timestamp
 semantics, request IDs, adapter-boundary shape, and normalized comparison
