@@ -14,6 +14,7 @@ Current checkpoint:
 - `adapters/first-temporal-date32-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-temporal-date32-slice`
 - `adapters/first-decimal128-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-decimal128-slice`
 - `adapters/first-float64-ordering-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-float64-ordering-slice`
+- `adapters/first-unsigned-arithmetic-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-unsigned-arithmetic-slice`
 - `adapters/first-temporal-timestamp-tz-slice-tikv.md` now defines the first TiKV-specific request and response boundary for `first-temporal-timestamp-tz-slice`
 - `docs/design/adapter-milestone-breakdown.md` records why TiKV follows the initial TiDB/TiFlash pairwise checkpoint sequence
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiKV environment, timeout, retry, cancellation, and diagnostic concerns should stay adapter-local
@@ -54,10 +55,11 @@ Current checkpoint:
 
 Next checkpoint:
 
+- define executable TiKV single-engine and pairwise unsigned arithmetic coverage on top of `adapters/first-unsigned-arithmetic-slice-tikv.md`
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal, or first-float64-ordering case-results evidence changes
 - define live TiKV temporal and decimal runner wiring plus refresh workflow when shared environments are available
 - broaden TiKV executable temporal coverage beyond the current first-temporal-date32 and first-temporal-timestamp-tz checkpoints once follow-on semantic slices are accepted
 
 ## TODOs
 
-- extend TiKV executable slice coverage beyond the current first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, and first-float64-ordering executable checkpoints
+- extend TiKV executable slice coverage beyond the current first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, and first-float64-ordering executable checkpoints, starting with the docs-defined `first-unsigned-arithmetic-slice` boundary
