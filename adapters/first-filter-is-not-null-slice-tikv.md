@@ -1,8 +1,8 @@
 # First TiKV Filter Adapter Boundary
 
-Status: issue #247 design checkpoint
+Status: issue #247 design checkpoint, issue #249 executable checkpoint
 
-Verified: 2026-03-19
+Verified: 2026-03-20
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
 - #247 `design: define first TiKV differential filter adapter request/response surface`
+- #249 `adapter: execute first-filter-is-not-null-slice through TiKV`
 
 ## Purpose
 
@@ -104,26 +105,25 @@ unchanged:
 
 ## First Checkpoint Expectations
 
-- a TiKV adapter may return `adapter_unavailable` for documented first-filter
-  cases while implementation is still incomplete
-- unsupported cases should still emit explicit `case result` records, not
-  silent omission
+- issue #249 adds deterministic TiKV adapter-core coverage for every
+  documented first-filter `case_id`
+- issue #249 adds a deterministic TiKV single-engine harness carrier at
+  `crates/tiforth-harness-differential/src/first_filter_is_not_null_slice_tikv.rs`
+- issue #249 lands first TiKV filter compatibility notes and normalized
+  `case-results` inventory artifacts
 - normalized field meanings stay aligned with
   `tests/differential/first-filter-is-not-null-slice-artifacts.md`
 
 ## Follow-On Boundary
 
-After this first request and response checkpoint is executable, follow-on
-issues may separately define:
+After this first request/response plus single-engine executable checkpoint,
+follow-on issues may separately define:
 
-- TiKV single-engine executable adapter coverage for the documented first-filter
-  case set
-- TiKV first-filter compatibility-notes and normalized `case-results`
-  inventory checkpoints
 - TiKV pairwise drift-report policy and checked-in artifacts for this slice
+- live TiKV runner wiring and refresh workflow for this slice
 
 ## Result
 
-TiKV now has a concrete docs-first request and response boundary for the
-existing `first-filter-is-not-null-slice` harness surface while preserving the
-shared first differential filter checkpoint as TiDB-versus-TiFlash.
+TiKV now has a concrete docs-first request and response boundary plus an
+executable single-engine first-filter checkpoint while preserving the shared
+first differential filter checkpoint as TiDB-versus-TiFlash.

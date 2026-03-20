@@ -1,6 +1,6 @@
 # First Filter Slice Artifact Carriers
 
-Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint
+Status: issue #147 design checkpoint, issue #153 harness checkpoint, issue #155 live-runner checkpoint, issue #157 refresh-script checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #249 TiKV single-engine case-results checkpoint
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #157 `workflow: add script for first-filter live artifact refresh`
 - #159 `docs: define machine-readable sidecar policy for differential drift reports`
 - #161 `harness: add machine-readable drift-report sidecars for first differential slices`
+- #249 `adapter: execute first-filter-is-not-null-slice through TiKV`
 
 ## Purpose
 
@@ -27,13 +28,15 @@ defined in `adapters/first-filter-is-not-null-slice.md`.
 
 ## Artifact Set
 
-The first executable differential filter checkpoint produces four checked-in
+The first executable differential filter checkpoint originally produced four checked-in
 artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+
+Issue #249 also adds one checked-in TiKV single-engine `case-results` artifact that reuses the same `case-results` carrier shape below.
 
 These carriers should stay simple and JSON-serializable at the record level
 even when the drift report also renders a human-readable Markdown summary.
@@ -42,6 +45,7 @@ Current checked-in examples:
 
 - `inventory/first-filter-is-not-null-slice-tidb-case-results.json`
 - `inventory/first-filter-is-not-null-slice-tiflash-case-results.json`
+- `inventory/first-filter-is-not-null-slice-tikv-case-results.json`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json`
 

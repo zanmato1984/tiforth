@@ -8,6 +8,7 @@ Related issues:
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
 - #247 `design: define first TiKV differential filter adapter request/response surface`
+- #249 `adapter: execute first-filter-is-not-null-slice through TiKV`
 
 ## Purpose
 
@@ -158,8 +159,8 @@ Later issues may extend this boundary to cover:
 - reusable session profiles or adapter capability advertisement
 - live TiDB and TiFlash runner orchestration beyond deterministic local
   adapter-core fixtures
-- TiKV single-engine executable checkpoint work on top of
-  `adapters/first-filter-is-not-null-slice-tikv.md`
+- TiKV pairwise drift-policy and artifact checkpoints for this slice on top of
+  the single-engine TiKV checkpoint in `adapters/first-filter-is-not-null-slice-tikv.md`
 
 Until then, this note fixes only the minimum request-and-response contract for
 the first differential filter slice.

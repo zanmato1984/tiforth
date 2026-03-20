@@ -8,6 +8,8 @@ Related issues:
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #147 `design: define first differential filter slice and adapter boundary for is_not_null`
 - #153 `harness: execute first-filter-is-not-null differential artifacts for TiDB and TiFlash`
+- #247 `design: define first TiKV differential filter adapter request/response surface`
+- #249 `adapter: execute first-filter-is-not-null-slice through TiKV`
 
 ## Question
 
@@ -169,7 +171,7 @@ Later issues may extend this slice to cover:
 - checked-in artifact refresh from live TiDB and TiFlash runner output when shared
   review environments are available
 - broader predicate families and wider logical-type coverage
-- TiKV participation
+- TiKV pairwise participation beyond the current single-engine TiKV case-results checkpoint
 
 Until then, this checkpoint fixes only the first differential filter semantics,
 request IDs, adapter-boundary shape, and stable first artifact carriers.
