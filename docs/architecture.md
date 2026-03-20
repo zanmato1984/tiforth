@@ -83,11 +83,14 @@ After the current milestone-1 slices, layer 3 should grow only when:
 - the proposed kernel growth is one narrow boundary with docs and harness coverage already named
 - the resulting issue can show which shared surfaces change and which stay out of scope
 
+## Differential Drift-Report Policy
+
+- machine-readable JSON `drift-report` sidecars are required for differential slices that check in `drift-report` evidence
+- the shared engine-pair carrier boundary lives in `tests/differential/drift-report-carrier.md`
+- the accepted policy record is `docs/decisions/0002-drift-report-sidecar-policy.md`
+
 ## TODOs
 
-- Decide when to require one shared machine-readable `drift-report` schema
-  across slices instead of the current milestone-1 optional-sidecar policy from
-  `tests/differential/drift-report-carrier.md`.
 - Decide whether later checkpoints should support merged summaries across
   multiple engine pairs in one artifact or continue one pairwise report per
   artifact.

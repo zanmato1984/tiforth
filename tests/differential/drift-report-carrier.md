@@ -1,6 +1,6 @@
 # Differential Drift Report Carrier
 
-Status: issue #133 design checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint
+Status: issue #133 design checkpoint, issue #159 sidecar-policy checkpoint, issue #161 first-sidecar checkpoint, issue #256 required-sidecar checkpoint
 
 Related issues:
 
@@ -9,6 +9,7 @@ Related issues:
 - #133 `design: define reusable differential drift-report carrier guidance`
 - #159 `docs: define machine-readable sidecar policy for differential drift reports`
 - #161 `harness: add machine-readable drift-report sidecars for first differential slices`
+- #256 `docs: decide cross-slice machine-readable drift-report schema policy`
 
 ## Purpose
 
@@ -20,8 +21,8 @@ still allowing each slice to define its own compared dimensions.
 
 ## Applicability
 
-This guidance applies to aggregated differential `drift-report` artifacts, such
-as:
+This guidance applies to aggregated engine-pair differential `drift-report`
+artifacts, such as:
 
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-expression-slice-tidb-vs-tiflash-drift-report.json`
@@ -29,9 +30,14 @@ as:
 Slice-specific artifact docs should reference this shared carrier and define
 only their additional constraints.
 
+Non-engine-pair differential carriers (for example the first exchange parity
+carrier in `tests/differential/first-exchange-slice-artifacts.md`) may define
+family-specific case identity fields, but they still require paired Markdown
+and JSON drift-report artifacts per `docs/decisions/0002-drift-report-sidecar-policy.md`.
+
 ## Minimum Report Fields
 
-Each drift report should record at least:
+Each engine-pair drift report should record at least:
 
 - `slice_id`
 - `engines[]`
@@ -82,28 +88,28 @@ allowed for that slice.
 
 ## Format Boundary
 
-Milestone 1 keeps drift reports as review-first Markdown artifacts.
+Drift reports remain review-first Markdown artifacts with required
+machine-readable sidecars.
 
-For milestone 1, this means:
+For current checkpoints, this means:
 
-- each differential slice checks in one Markdown `drift-report` artifact
-- a machine-readable `drift-report` sidecar is optional and not required for
-  slice completion
-- milestone-1 slices may additionally check in one JSON sidecar that mirrors
-  the same `slice_id`, engine pair, status vocabulary, and `cases[]` entries as
+- each differential engine-pair slice checks in one Markdown `drift-report` artifact
+- each checked-in Markdown `drift-report` has a paired JSON sidecar
+- the JSON sidecar is required for slice completion and inventory refresh
+- the sidecar mirrors the same `slice_id`, `engines[]`, status vocabulary, and
+  `cases[]` case identity used by the paired Markdown report
+
+When a slice adds sidecar-only fields, it should:
+
+- derive those fields from the same normalized `case-results` evidence used by
   the paired Markdown report
-
-If a follow-on slice adds a machine-readable sidecar, it should:
-
-- derive that sidecar from the same normalized `case-results` evidence used by
-  the Markdown report
-- use the same `slice_id`, `engines[]`, status vocabulary, and `cases[]` case
-  identity as the paired Markdown report
+- keep the shared minimum fields above stable
 - update this shared carrier and the slice-specific artifact doc before adding
-  sidecar-only fields
+  those fields to checked-in artifacts
 
-This carrier still does not yet define:
+This carrier now fixes required paired Markdown plus JSON drift reports for
+engine-pair slices. It still does not yet define:
 
-- one required machine-readable drift-report schema for all slices
+- one strict monolithic JSON struct for every differential report family
 - merged summaries across more than one engine pair in one artifact
 - adapter-internal traces, engine plans, or local orchestration metadata
