@@ -26,8 +26,9 @@ Each decision record should capture:
 ## Current Records
 
 - `0001-kernel-language.md`: accepted decision for shared-kernel language and runtime substrate.
+- `0002-drift-report-sidecar-policy.md`: accepted decision for required machine-readable differential drift-report sidecars and shared carrier scope.
 
 ## Adding The Next Record
 
 When a new architectural conclusion needs a durable record, use the next
-sequential identifier (for example, `0002-...`).
+sequential identifier (for example, `0003-...`).
