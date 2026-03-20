@@ -1,6 +1,6 @@
 # First Differential Unsigned Arithmetic Slice
 
-Status: issue #300 design checkpoint
+Status: issue #300 design checkpoint, issue #302 artifact-carrier checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #141 `spec: define signed/unsigned interaction checkpoint for initial coercion lattice`
 - #276 `spec: define overflow behavior checkpoint for follow-on operator families`
 - #300 `design: define first unsigned arithmetic semantic slice boundary`
+- #302 `docs: define first-unsigned-arithmetic-slice differential artifact carriers`
 
 ## Question
 
@@ -21,7 +22,9 @@ expanding into broad signed/unsigned coercion policy?
 - `docs/spec/type-system.md`
 - `tests/conformance/first-unsigned-arithmetic-slice.md`
 - `tests/differential/README.md`
+- `tests/differential/first-unsigned-arithmetic-slice-artifacts.md`
 - issue #300
+- issue #302
 
 ## First Slice Decision
 
@@ -189,13 +192,16 @@ differential slice target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives in
 `adapters/first-unsigned-arithmetic-slice.md`.
 
+Stable artifact-carrier fields and planned filenames for this slice now live in
+`tests/differential/first-unsigned-arithmetic-slice-artifacts.md`.
+
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
 
 - TiKV adapter and pairwise drift checkpoints for this slice
 - broader unsigned family and cast/coercion checkpoints
-- checked-in artifact carriers and executable harness wiring for this slice
+- executable harness wiring and checked-in inventory artifact refresh for this slice
 - unsigned arithmetic families beyond `add<uint64>`
 
 Until then, this checkpoint fixes only the first unsigned arithmetic
