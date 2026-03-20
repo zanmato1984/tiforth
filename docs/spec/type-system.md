@@ -155,13 +155,38 @@ Issue #149 makes that predicate checkpoint executable in the local shared-kernel
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, or `float64` in current shared checkpoints
+- requires one `column(index)` operand that resolves to logical type `int32`, `date32`, `decimal128`, `float64`, or `json` in current shared checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
 - local executable kernel coverage for this predicate now includes `int32`, `date32`, `decimal128`, and `float64` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, and `crates/tiforth-kernel/tests/float64_slice.rs`
+
+## First Struct Nested Follow-On Checkpoint
+
+Issue #226 adds a docs-first nested struct checkpoint in
+`docs/design/first-struct-aware-handoff-slice.md`.
+
+Issue #226 also adds the first docs-first struct coverage anchors in:
+
+- `tests/conformance/first-struct-slice.md`
+- `tests/differential/first-struct-slice.md`
+- `adapters/first-struct-slice.md`
+
+For current shared contracts:
+
+- the first admitted struct nested logical type beyond milestone 1 is
+  `struct<a:int32, b:int32?>`
+- this struct checkpoint reuses existing expression family scope through
+  passthrough `column(index)`
+- this checkpoint does not define nested predicate behavior
+  (`is_not_null(column(index))` over `struct`), nested casts, or nested
+  ordering semantics
+- nested compute families and broader nested logical types (`map`, `union`,
+  nested combinations) remain out of scope until follow-on issues
+- local executable kernel coverage for this struct checkpoint remains
+  follow-on scope
 
 ## First Temporal Follow-On Checkpoint
 

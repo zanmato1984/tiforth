@@ -11,6 +11,7 @@ Related issues:
 - #127 `design: define milestone-1 nested and decimal/temporal metadata boundary`
 - #174 `design: define first temporal semantic slice boundary`
 - #189 `design: define first decimal semantic slice boundary`
+- #226 `design: define first struct nested handoff slice checkpoint`
 
 ## Question
 
@@ -30,6 +31,7 @@ milestone 1 across the shared data and type-system contracts?
 - issue #127
 - issue #174
 - issue #189
+- issue #226
 
 ## Design Summary
 
@@ -91,6 +93,9 @@ Post-milestone follow-on checkpoints are now explicit:
 - `docs/design/first-decimal-semantic-slice.md` fixes the first decimal
   semantic checkpoint as narrow `decimal128` passthrough plus
   `is_not_null(column(index))`
+- `docs/design/first-struct-aware-handoff-slice.md` fixes the first struct
+  nested checkpoint as narrow `struct<a:int32, b:int32?>` passthrough through
+  `column(index)` with parent-domain and per-child-domain claim ownership
 
 Later issues may extend this checkpoint to define:
 

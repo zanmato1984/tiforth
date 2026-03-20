@@ -12,6 +12,7 @@ Current checkpoint:
 - `adapters/first-decimal128-slice.md` defines the shared request and response surface for the docs-first differential decimal `decimal128` checkpoint
 - `adapters/first-float64-ordering-slice.md` defines the shared request and response surface for the docs-first differential float64 NaN/infinity ordering checkpoint
 - `adapters/first-json-slice.md` defines the shared request and response surface for the docs-first differential JSON comparability/cast checkpoint
+- `adapters/first-struct-slice.md` defines the shared request and response surface for the docs-first differential nested struct passthrough checkpoint
 - `docs/design/adapter-milestone-breakdown.md` fixes the next TiDB checkpoint as a single-engine adapter issue before pairwise drift aggregation lands
 - `docs/design/adapter-runtime-orchestration-boundary.md` fixes which TiDB session, timeout, retry, cancellation, and diagnostic concerns stay adapter-local for milestone 1
 - `crates/tiforth-adapter-tidb` now encodes first-expression-slice, first-filter-is-not-null-slice, first-temporal-date32-slice, first-decimal128-slice, and first-float64-ordering-slice request catalogs with TiDB-oriented SQL lowering and row / error normalization behind runner boundaries
@@ -25,5 +26,5 @@ Next checkpoint:
 
 ## TODOs
 
-- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, and `first-json-slice`)
+- extend the request and response surface beyond the current first differential slices (`first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, `first-json-slice`, and `first-struct-slice`)
 - extend TiDB compatibility notes beyond the current first-expression, first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering slice boundaries as new semantic families land
