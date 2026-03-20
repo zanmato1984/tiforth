@@ -24,6 +24,7 @@ Current checkpoint:
 - `crates/tiforth-harness-differential/src/first_float64_ordering_slice_tikv.rs` now provides deterministic TiKV single-engine harness execution for the documented first-float64-ordering case set
 - `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_pairwise.rs` now provides deterministic TiKV pairwise drift rendering for the documented first-temporal `date32` case set
 - `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_pairwise.rs` now provides deterministic TiKV pairwise drift rendering for the documented first-decimal `decimal128` case set
+- `crates/tiforth-harness-differential/src/first_float64_ordering_slice_tikv_pairwise.rs` now provides deterministic TiKV pairwise drift rendering for the documented first-float64-ordering case set
 - `inventory/first-expression-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-expression-slice`
 - `inventory/first-expression-slice-tikv-case-results.json` now captures the first checked-in TiKV single-engine normalized `case-results` evidence for `first-expression-slice`
 - `inventory/first-filter-is-not-null-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-filter-is-not-null-slice`
@@ -42,13 +43,15 @@ Current checkpoint:
 - `inventory/first-temporal-date32-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-temporal-date32-slice`
 - `inventory/first-decimal128-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-decimal128-slice`
 - `inventory/first-decimal128-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-decimal128-slice`
+- `inventory/first-float64-ordering-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-float64-ordering-slice`
+- `inventory/first-float64-ordering-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-float64-ordering-slice`
 
 Next checkpoint:
 
-- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal, or first-decimal case-results evidence changes
+- refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal, first-decimal, or first-float64-ordering case-results evidence changes
 - define live TiKV temporal and decimal runner wiring plus refresh workflow when shared environments are available
-- add deterministic TiKV pairwise float64 ordering drift artifacts plus timestamp-timezone single-engine and pairwise adapter/harness execution and checked-in artifacts on top of `adapters/first-float64-ordering-slice-tikv.md` and `adapters/first-temporal-timestamp-tz-slice-tikv.md`
+- add timestamp-timezone single-engine and pairwise adapter/harness execution plus checked-in artifacts on top of `adapters/first-temporal-timestamp-tz-slice-tikv.md`
 
 ## TODOs
 
-- extend TiKV executable slice coverage beyond the current first-expression, first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering executable checkpoints, starting with the docs-first `first-temporal-timestamp-tz-slice` boundary and float64 pairwise drift coverage
+- extend TiKV executable slice coverage beyond the current first-expression, first-filter, first-temporal-date32, first-decimal128, and first-float64-ordering executable checkpoints, starting with the docs-first `first-temporal-timestamp-tz-slice` boundary
