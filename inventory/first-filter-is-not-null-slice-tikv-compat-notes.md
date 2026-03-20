@@ -31,8 +31,8 @@ source evidence, not as shared design authority.
 - tiforth repository base commit reviewed: `b22bf9be7a75423944b55dbe4853e9c271cf0bcb`
 - artifact baseline: deterministic TiKV adapter-core checkpoint from issue #249
   with checked-in single-engine `case-results` evidence
-- live TiKV runner artifacts and pairwise TiKV filter drift reports are
-  follow-on scope
+- paired TiKV filter drift artifacts now cover `tidb-vs-tikv` and `tiflash-vs-tikv`
+- live TiKV runner artifacts remain follow-on scope
 
 ## Shared Slice Anchors
 
@@ -54,7 +54,10 @@ This note stays anchored to first-filter shared vocabulary:
 - `tests/differential/first-filter-is-not-null-slice-artifacts.md`
 - `crates/tiforth-adapter-tikv/src/first_filter_is_not_null_slice.rs`
 - `crates/tiforth-harness-differential/src/first_filter_is_not_null_slice_tikv.rs`
+- `crates/tiforth-harness-differential/src/first_filter_is_not_null_slice_tikv_pairwise.rs`
 - `inventory/first-filter-is-not-null-slice-tikv-case-results.json`
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.md`
 
 ## Compatibility Notes
 
@@ -77,7 +80,7 @@ This note stays anchored to first-filter shared vocabulary:
 #### Evidence Gaps
 
 - this checkpoint does not include live TiKV planner or execution captures
-- pairwise TiKV filter drift artifacts are follow-on scope
+- live TiKV pairwise runner captures remain follow-on scope
 
 ### Error Normalization
 
@@ -106,6 +109,7 @@ This note stays anchored to first-filter shared vocabulary:
 - this note records TiKV-side compatibility evidence only for the first
   `is_not_null(column(index))` differential checkpoint
 - it does not redefine shared filter semantics or shared request/response fields
-- checked-in evidence for this checkpoint currently includes only the TiKV
-  single-engine `case-results` artifact
-- TiKV pairwise drift aggregation and live-runner evidence remain follow-on work
+- checked-in evidence for this checkpoint includes the TiKV single-engine
+  `case-results` artifact plus paired TiDB-vs-TiKV and TiFlash-vs-TiKV
+  `drift-report` artifacts
+- live TiKV runner evidence remains follow-on work

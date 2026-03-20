@@ -171,7 +171,7 @@ Later issues may extend this slice to cover:
 - checked-in artifact refresh from live TiDB and TiFlash runner output when shared
   review environments are available
 - broader predicate families and wider logical-type coverage
-- TiKV pairwise participation beyond the current single-engine TiKV case-results checkpoint
+- TiKV scope expansion beyond the current TiDB/TiKV and TiFlash/TiKV pairwise drift checkpoints
 
 Until then, this checkpoint fixes only the first differential filter semantics,
 request IDs, adapter-boundary shape, and stable first artifact carriers.

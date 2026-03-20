@@ -43,6 +43,10 @@ Current checkpoint:
 - `inventory/first-filter-is-not-null-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first-filter checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first-filter checkpoint
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.md` records the current paired TiDB-versus-TiKV classification summary for the first-filter checkpoint
+- `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.json` records the paired machine-readable TiDB-versus-TiKV drift-report sidecar for the same first-filter checkpoint
+- `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.md` records the current paired TiFlash-versus-TiKV classification summary for the first-filter checkpoint
+- `inventory/first-filter-is-not-null-slice-tiflash-vs-tikv-drift-report.json` records the paired machine-readable TiFlash-versus-TiKV drift-report sidecar for the same first-filter checkpoint
 - `inventory/first-temporal-date32-slice-tidb-case-results.json` records the current TiDB-side case results for the first temporal `date32` harness checkpoint
 - `inventory/first-temporal-date32-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first temporal checkpoint
 - `inventory/first-temporal-date32-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first temporal checkpoint
@@ -81,6 +85,7 @@ Current checkpoint:
 - issue #228 adds the first checked-in TiKV-side compatibility notes artifact for `first-expression-slice`
 - issue #235 adds the first checked-in TiKV single-engine `case-results` artifact for `first-expression-slice`
 - issue #245 adds the first checked-in TiKV pairwise `drift-report` artifacts for `first-expression-slice` (`tidb-vs-tikv` and `tiflash-vs-tikv`)
+- issue #249 follow-on checkpoint adds the first checked-in TiKV pairwise `drift-report` artifacts for `first-filter-is-not-null-slice` (`tidb-vs-tikv` and `tiflash-vs-tikv`)
 
 Current inventory priority:
 
