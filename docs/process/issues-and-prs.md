@@ -103,6 +103,8 @@ Before `git push`, before opening or updating a PR, and before merge, run:
 
 That helper exits non-zero when any commit in the range is missing a `Signed-off-by:` trailer.
 
+Each issue worktree should also keep `git config --local format.signoff true`; `scripts/start-issue-worktree.sh` sets and verifies this when used.
+
 ### 6. Keep PR scope tight
 
 A PR should not silently combine unrelated issues.
