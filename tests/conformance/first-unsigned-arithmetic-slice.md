@@ -1,6 +1,6 @@
 # First Unsigned Arithmetic Slice Cases
 
-Status: issue #300 docs checkpoint
+Status: issue #300 docs checkpoint, issue #308 local executable kernel checkpoint
 
 Spec source: `docs/design/first-unsigned-arithmetic-slice.md`
 
@@ -36,5 +36,9 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. Local executable kernel conformance for
-unsigned arithmetic remains follow-on scope.
+Issue #308 adds the first executable local kernel conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
+
+Differential harness execution remains follow-on scope.

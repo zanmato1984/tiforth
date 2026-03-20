@@ -115,7 +115,14 @@ fn evaluate_selection(
 
 fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
     match data_type {
-        DataType::Int32 | DataType::Date32 | DataType::Float64 => Ok(()),
+        DataType::Int32 | DataType::Date32 | DataType::Float64 | DataType::UInt64 => Ok(()),
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 => {
+            Err(TiforthError::UnsupportedDataType {
+                detail: format!(
+                    "unsupported unsigned predicate input at column {index}, got {data_type:?}; first unsigned slice supports UInt64 only"
+                ),
+            })
+        }
         DataType::Decimal128(precision, scale) => {
             validate_decimal128_metadata(index, *precision, *scale, "predicate")
         }
@@ -141,7 +148,7 @@ fn validate_predicate_input_type(index: usize, data_type: &DataType) -> Result<(
         }),
         _ => Err(TiforthError::UnsupportedDataType {
             detail: format!(
-                "expected Int32, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column {index}, got {data_type:?}"
+                "expected Int32, UInt64, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column {index}, got {data_type:?}"
             ),
         }),
     }

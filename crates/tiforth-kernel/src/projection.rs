@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow_array::builder::Int32Builder;
-use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch};
+use arrow_array::builder::{Int32Builder, UInt64Builder};
+use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, UInt64Array};
 use arrow_schema::Schema;
 
 use broken_pipeline::traits::arrow::Batch;
@@ -28,7 +28,8 @@ impl ProjectionExpr {
 
 enum EvalValue {
     Array(ArrayRef),
-    Scalar(Option<i32>),
+    Int32Scalar(Option<i32>),
+    UInt64Scalar(Option<u64>),
 }
 
 pub fn project_batch(
@@ -105,7 +106,14 @@ fn evaluate_projection(
         &projection.name,
     )? {
         EvalValue::Array(array) => Ok(array),
-        EvalValue::Scalar(value) => materialize_scalar(
+        EvalValue::Int32Scalar(value) => materialize_int32_scalar(
+            value,
+            batch.num_rows(),
+            controller,
+            operator_name,
+            &projection.name,
+        ),
+        EvalValue::UInt64Scalar(value) => materialize_uint64_scalar(
             value,
             batch.num_rows(),
             controller,
@@ -137,7 +145,7 @@ fn evaluate_governed_projection(
                 .ok_or(TiforthError::MissingColumn { index: *index })?;
             Ok((array, claims))
         }
-        Expr::Literal(value) => materialize_scalar_with_claim(
+        Expr::LiteralInt32(value) => materialize_int32_scalar_with_claim(
             *value,
             input.batch().num_rows(),
             controller,
@@ -145,7 +153,15 @@ fn evaluate_governed_projection(
             &projection.name,
             claim_factory,
         ),
-        Expr::Add(lhs, rhs) => {
+        Expr::LiteralUInt64(value) => materialize_uint64_scalar_with_claim(
+            *value,
+            input.batch().num_rows(),
+            controller,
+            operator_name,
+            &projection.name,
+            claim_factory,
+        ),
+        Expr::AddInt32(lhs, rhs) => {
             let lhs = evaluate_value(
                 lhs,
                 input.batch().as_ref(),
@@ -160,7 +176,32 @@ fn evaluate_governed_projection(
                 operator_name,
                 &projection.name,
             )?;
-            materialize_add_with_claim(
+            materialize_int32_add_with_claim(
+                &lhs,
+                &rhs,
+                input.batch().num_rows(),
+                controller,
+                operator_name,
+                &projection.name,
+                claim_factory,
+            )
+        }
+        Expr::AddUInt64(lhs, rhs) => {
+            let lhs = evaluate_value(
+                lhs,
+                input.batch().as_ref(),
+                controller,
+                operator_name,
+                &projection.name,
+            )?;
+            let rhs = evaluate_value(
+                rhs,
+                input.batch().as_ref(),
+                controller,
+                operator_name,
+                &projection.name,
+            )?;
+            materialize_uint64_add_with_claim(
                 &lhs,
                 &rhs,
                 input.batch().num_rows(),
@@ -187,11 +228,24 @@ fn evaluate_value(
             .cloned()
             .map(EvalValue::Array)
             .ok_or(TiforthError::MissingColumn { index: *index }),
-        Expr::Literal(value) => Ok(EvalValue::Scalar(*value)),
-        Expr::Add(lhs, rhs) => {
+        Expr::LiteralInt32(value) => Ok(EvalValue::Int32Scalar(*value)),
+        Expr::LiteralUInt64(value) => Ok(EvalValue::UInt64Scalar(*value)),
+        Expr::AddInt32(lhs, rhs) => {
             let lhs = evaluate_value(lhs, batch, controller, operator_name, output_name)?;
             let rhs = evaluate_value(rhs, batch, controller, operator_name, output_name)?;
-            Ok(EvalValue::Array(materialize_add(
+            Ok(EvalValue::Array(materialize_int32_add(
+                &lhs,
+                &rhs,
+                batch.num_rows(),
+                controller,
+                operator_name,
+                output_name,
+            )?))
+        }
+        Expr::AddUInt64(lhs, rhs) => {
+            let lhs = evaluate_value(lhs, batch, controller, operator_name, output_name)?;
+            let rhs = evaluate_value(rhs, batch, controller, operator_name, output_name)?;
+            Ok(EvalValue::Array(materialize_uint64_add(
                 &lhs,
                 &rhs,
                 batch.num_rows(),
@@ -203,7 +257,7 @@ fn evaluate_value(
     }
 }
 
-fn materialize_scalar(
+fn materialize_int32_scalar(
     value: Option<i32>,
     rows: usize,
     controller: &dyn AdmissionController,
@@ -221,7 +275,7 @@ fn materialize_scalar(
     })
 }
 
-fn materialize_scalar_with_claim(
+fn materialize_int32_scalar_with_claim(
     value: Option<i32>,
     rows: usize,
     controller: &dyn AdmissionController,
@@ -247,7 +301,51 @@ fn materialize_scalar_with_claim(
     )
 }
 
-fn materialize_add(
+fn materialize_uint64_scalar(
+    value: Option<u64>,
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+) -> Result<ArrayRef, TiforthError> {
+    with_admitted_uint64_array(rows, controller, operator_name, output_name, |builder| {
+        for _ in 0..rows {
+            match value {
+                Some(value) => builder.append_value(value),
+                None => builder.append_null(),
+            }
+        }
+        Ok(())
+    })
+}
+
+fn materialize_uint64_scalar_with_claim(
+    value: Option<u64>,
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
+) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    with_claimed_uint64_array(
+        rows,
+        controller,
+        operator_name,
+        output_name,
+        claim_factory,
+        |builder| {
+            for _ in 0..rows {
+                match value {
+                    Some(value) => builder.append_value(value),
+                    None => builder.append_null(),
+                }
+            }
+            Ok(())
+        },
+    )
+}
+
+fn materialize_int32_add(
     lhs: &EvalValue,
     rhs: &EvalValue,
     rows: usize,
@@ -272,7 +370,7 @@ fn materialize_add(
     })
 }
 
-fn materialize_add_with_claim(
+fn materialize_int32_add_with_claim(
     lhs: &EvalValue,
     rhs: &EvalValue,
     rows: usize,
@@ -294,6 +392,64 @@ fn materialize_add_with_claim(
                         builder.append_value(lhs.checked_add(rhs).ok_or_else(|| {
                             TiforthError::Message(format!(
                                 "int32 overflow in {operator_name}:{output_name} at row {row}"
+                            ))
+                        })?)
+                    }
+                    _ => builder.append_null(),
+                }
+            }
+            Ok(())
+        },
+    )
+}
+
+fn materialize_uint64_add(
+    lhs: &EvalValue,
+    rhs: &EvalValue,
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+) -> Result<ArrayRef, TiforthError> {
+    with_admitted_uint64_array(rows, controller, operator_name, output_name, |builder| {
+        for row in 0..rows {
+            match (uint64_value(lhs, row)?, uint64_value(rhs, row)?) {
+                (Some(lhs), Some(rhs)) => {
+                    builder.append_value(lhs.checked_add(rhs).ok_or_else(|| {
+                        TiforthError::Message(format!(
+                            "uint64 overflow in {operator_name}:{output_name} at row {row}"
+                        ))
+                    })?)
+                }
+                _ => builder.append_null(),
+            }
+        }
+        Ok(())
+    })
+}
+
+fn materialize_uint64_add_with_claim(
+    lhs: &EvalValue,
+    rhs: &EvalValue,
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
+) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    with_claimed_uint64_array(
+        rows,
+        controller,
+        operator_name,
+        output_name,
+        claim_factory,
+        |builder| {
+            for row in 0..rows {
+                match (uint64_value(lhs, row)?, uint64_value(rhs, row)?) {
+                    (Some(lhs), Some(rhs)) => {
+                        builder.append_value(lhs.checked_add(rhs).ok_or_else(|| {
+                            TiforthError::Message(format!(
+                                "uint64 overflow in {operator_name}:{output_name} at row {row}"
                             ))
                         })?)
                     }
@@ -373,9 +529,77 @@ where
     Ok((Arc::new(array), vec![claim]))
 }
 
+fn with_admitted_uint64_array<F>(
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    build: F,
+) -> Result<ArrayRef, TiforthError>
+where
+    F: FnOnce(&mut UInt64Builder) -> Result<(), TiforthError>,
+{
+    let consumer = controller.open(ConsumerSpec::new(
+        format!("{operator_name}:{output_name}"),
+        ConsumerKind::ProjectionOutput,
+        false,
+    ));
+    let estimated = estimate_uint64_array_bytes(rows);
+    consumer.try_reserve(estimated)?;
+
+    let mut builder = UInt64Builder::with_capacity(rows);
+    if let Err(error) = build(&mut builder) {
+        consumer.release()?;
+        return Err(error);
+    }
+
+    let array = builder.finish();
+    let actual = actual_uint64_array_bytes(&array);
+    if estimated > actual {
+        consumer.shrink(estimated - actual)?;
+    }
+    consumer.release()?;
+    Ok(Arc::new(array))
+}
+
+fn with_claimed_uint64_array<F>(
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
+    build: F,
+) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError>
+where
+    F: FnOnce(&mut UInt64Builder) -> Result<(), TiforthError>,
+{
+    let consumer = controller.open(ConsumerSpec::new(
+        format!("{operator_name}:{output_name}"),
+        ConsumerKind::ProjectionOutput,
+        false,
+    ));
+    let estimated = estimate_uint64_array_bytes(rows);
+    consumer.try_reserve(estimated)?;
+
+    let mut builder = UInt64Builder::with_capacity(rows);
+    if let Err(error) = build(&mut builder) {
+        consumer.release()?;
+        return Err(error);
+    }
+
+    let array = builder.finish();
+    let actual = actual_uint64_array_bytes(&array);
+    if estimated > actual {
+        consumer.shrink(estimated - actual)?;
+    }
+
+    let claim = claim_factory(consumer);
+    Ok((Arc::new(array), vec![claim]))
+}
+
 fn int32_value(value: &EvalValue, row: usize) -> Result<Option<i32>, TiforthError> {
     match value {
-        EvalValue::Scalar(value) => Ok(*value),
+        EvalValue::Int32Scalar(value) => Ok(*value),
         EvalValue::Array(array) => {
             let int32 = array.as_any().downcast_ref::<Int32Array>().ok_or_else(|| {
                 TiforthError::UnsupportedDataType {
@@ -391,6 +615,36 @@ fn int32_value(value: &EvalValue, row: usize) -> Result<Option<i32>, TiforthErro
                 Ok(Some(int32.value(row)))
             }
         }
+        EvalValue::UInt64Scalar(_) => Err(TiforthError::UnsupportedDataType {
+            detail: "mixed signed and unsigned arithmetic is unsupported in the current checkpoint"
+                .to_string(),
+        }),
+    }
+}
+
+fn uint64_value(value: &EvalValue, row: usize) -> Result<Option<u64>, TiforthError> {
+    match value {
+        EvalValue::UInt64Scalar(value) => Ok(*value),
+        EvalValue::Array(array) => {
+            let uint64 = array
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .ok_or_else(|| TiforthError::UnsupportedDataType {
+                    detail: format!(
+                        "expected UInt64 expression input, got {:?}",
+                        array.data_type()
+                    ),
+                })?;
+            if uint64.is_null(row) {
+                Ok(None)
+            } else {
+                Ok(Some(uint64.value(row)))
+            }
+        }
+        EvalValue::Int32Scalar(_) => Err(TiforthError::UnsupportedDataType {
+            detail: "mixed signed and unsigned arithmetic is unsupported in the current checkpoint"
+                .to_string(),
+        }),
     }
 }
 
@@ -400,6 +654,18 @@ fn estimate_int32_array_bytes(rows: usize) -> usize {
 
 fn actual_int32_array_bytes(array: &Int32Array) -> usize {
     let mut bytes = array.len() * std::mem::size_of::<i32>();
+    if array.null_count() > 0 {
+        bytes += array.len().div_ceil(8);
+    }
+    bytes
+}
+
+fn estimate_uint64_array_bytes(rows: usize) -> usize {
+    rows * std::mem::size_of::<u64>() + rows.div_ceil(8)
+}
+
+fn actual_uint64_array_bytes(array: &UInt64Array) -> usize {
+    let mut bytes = array.len() * std::mem::size_of::<u64>();
     if array.null_count() > 0 {
         bytes += array.len().div_ceil(8);
     }
