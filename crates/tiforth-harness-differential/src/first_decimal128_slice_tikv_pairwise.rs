@@ -58,6 +58,7 @@ pub enum HarnessError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArtifactBundle {
+    pub tikv_case_results: TikvCaseResultsArtifact,
     pub tidb_vs_tikv_drift_report: DriftReport,
     pub tiflash_vs_tikv_drift_report: DriftReport,
 }
@@ -109,22 +110,23 @@ where
         .map_err(|error| HarnessError::TidbTiflashAdapterValidation { error })?;
     let tikv_case_results = execute_first_decimal128_slice_tikv(tikv_runner)
         .map_err(|error| HarnessError::TikvAdapterValidation { error })?;
-    let tikv_case_results = convert_tikv_case_results(tikv_case_results);
+    let comparable_tikv_case_results = convert_tikv_case_results(tikv_case_results.clone());
 
     let tidb_vs_tikv_drift_report = build_pairwise_drift_report(
         &tidb_tiflash_bundle.tidb_case_results,
         TIDB_CASE_RESULTS_REF,
-        &tikv_case_results,
+        &comparable_tikv_case_results,
         TIKV_CASE_RESULTS_REF,
     )?;
     let tiflash_vs_tikv_drift_report = build_pairwise_drift_report(
         &tidb_tiflash_bundle.tiflash_case_results,
         TIFLASH_CASE_RESULTS_REF,
-        &tikv_case_results,
+        &comparable_tikv_case_results,
         TIKV_CASE_RESULTS_REF,
     )?;
 
     Ok(ArtifactBundle {
+        tikv_case_results,
         tidb_vs_tikv_drift_report,
         tiflash_vs_tikv_drift_report,
     })

@@ -1,8 +1,8 @@
 # First TiKV Decimal `decimal128` Adapter Boundary
 
-Status: issue #278 design checkpoint, issue #284 executable checkpoint
+Status: issue #278 design checkpoint, issue #284 executable checkpoint, issue #378 live-runner executable checkpoint
 
-Verified: 2026-03-20
+Verified: 2026-03-21
 
 Related issues:
 
@@ -11,6 +11,8 @@ Related issues:
 - #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
 - #278 `design: define first TiKV decimal128 adapter request/response surface`
 - #284 `harness: execute first-decimal128 TiKV single-engine and pairwise artifacts`
+- #376 `design: define live TiKV temporal and decimal runner refresh boundary`
+- #378 `harness: implement first-decimal128-slice TiKV live runner refresh workflow`
 
 ## Purpose
 
@@ -35,7 +37,6 @@ It does not define:
 - TiKV connection provisioning, cluster topology, or deployment assumptions
 - planner, coprocessor, or pushdown strategy details
 - decimal semantics beyond the existing first `decimal128` checkpoint
-- executable TiKV decimal artifact refresh workflows
 
 ## Shared Ownership
 
@@ -114,14 +115,20 @@ unchanged:
 - normalized field meanings stay aligned with
   `tests/differential/first-decimal128-slice-artifacts.md`
 - issue #284 adds executable TiKV decimal adapter, harness, and inventory checkpoints for this slice
+- issue #378 lands executable live-runner wiring in
+  `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`,
+  `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_live.rs`,
+  and `scripts/refresh-first-decimal128-tikv-live-artifacts.sh`
 
 ## Follow-On Boundary
 
-After the issue #284 executable checkpoint, follow-on issues may
-separately define:
+After issue #378, follow-on issues may separately define:
 
-- live TiKV decimal runner wiring and environment-backed artifact refresh
-  workflow
+- shared-review environment refresh cadence for checked-in first-decimal128
+  TiKV artifacts
+- live-runner expansion to first-temporal-date32 or
+  first-temporal-timestamp-tz checkpoints under
+  `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md`
 - broader decimal-family adapter coverage beyond `first-decimal128-slice`
 - decimal orchestration policy expansion when shared slices require it
 
@@ -129,4 +136,5 @@ separately define:
 
 TiKV now has a concrete docs-first request and response boundary for first
 decimal `decimal128` checkpoints plus executable single-engine and pairwise
-artifacts aligned to the shared first differential decimal slice.
+artifacts, and executable live-runner wiring aligned to the shared first
+differential decimal slice.

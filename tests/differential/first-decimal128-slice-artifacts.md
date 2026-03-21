@@ -1,6 +1,6 @@
 # First Decimal `decimal128` Slice Artifact Carriers
 
-Status: issue #206 artifact-carrier and harness checkpoint, issue #284 TiKV artifact expansion checkpoint
+Status: issue #206 artifact-carrier and harness checkpoint, issue #284 TiKV artifact expansion checkpoint, issue #378 live-runner refresh checkpoint
 
 Related issues:
 
@@ -8,6 +8,8 @@ Related issues:
 - #206 `harness: execute first-decimal128-slice differential artifacts for TiDB and TiFlash`
 - #278 `design: define first TiKV decimal128 adapter request/response surface`
 - #284 `harness: execute first-decimal128 TiKV single-engine and pairwise artifacts`
+- #376 `design: define live TiKV temporal and decimal runner refresh boundary`
+- #378 `harness: implement first-decimal128-slice TiKV live runner refresh workflow`
 
 ## Purpose
 
@@ -118,7 +120,7 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-Issue #206 adds executable fixture-runner wiring and checks in the first TiDB/TiFlash `first-decimal128-slice` artifacts listed above. Issue #284 extends the same carrier set with TiKV single-engine and pairwise artifacts.
+Issue #206 adds executable fixture-runner wiring and checks in the first TiDB/TiFlash `first-decimal128-slice` artifacts listed above. Issue #284 extends the same carrier set with TiKV single-engine and pairwise artifacts. Issue #378 adds env-backed decimal live-runner refresh wiring in `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_live.rs`, and `scripts/refresh-first-decimal128-tikv-live-artifacts.sh` while preserving these filenames and carrier fields.
 
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 normalized fields, or drift conclusions change under
