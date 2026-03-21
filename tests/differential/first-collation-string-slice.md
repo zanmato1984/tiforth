@@ -1,11 +1,12 @@
 # First Differential Collation-Sensitive String Slice
 
-Status: issue #233 design checkpoint
+Status: issue #233 design checkpoint, issue #342 artifact-carrier checkpoint
 
 Related issues:
 
 - #143 `docs: define initial collation scope and ownership boundary`
 - #233 `design: define first string collation semantic slice`
+- #342 `docs: define first-collation-string-slice differential artifact carriers`
 
 ## Question
 
@@ -18,8 +19,10 @@ comparison intent, and ordering intent explicit?
 - `docs/design/first-collation-string-slice.md`
 - `docs/spec/type-system.md`
 - `tests/conformance/first-collation-string-slice.md`
+- `tests/differential/first-collation-string-slice-artifacts.md`
 - `tests/differential/README.md`
 - issue #233
+- issue #342
 
 ## First Slice Decision
 
@@ -203,15 +206,20 @@ target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-collation-string-slice.md`.
 
+Stable artifact-carrier fields and planned checked-in filenames for this slice
+now live in `tests/differential/first-collation-string-slice-artifacts.md`.
+
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
 
-- checked-in artifact carriers and live-runner wiring for this slice
+- executable adapter and harness wiring for this slice
+- checked-in inventory refresh against the carrier contract in
+  `tests/differential/first-collation-string-slice-artifacts.md`
 - locale-specific collation families and capability normalization
 - broader string/binary semantic families beyond this comparison boundary
 - TiKV participation
 
 Until then, this checkpoint fixes only the first collation-sensitive string
-differential semantics, request IDs, adapter-boundary shape, and normalized
-comparison rules.
+differential semantics, request IDs, adapter-boundary shape, normalized
+comparison rules, and planned artifact-carrier contract.
