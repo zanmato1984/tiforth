@@ -124,6 +124,7 @@ For milestone 1, runtime-visible memory governance follows the reserve-first des
 
 Detailed admission semantics live in `docs/design/host-memory-admission-abi.md`.
 Detailed spill and retry runtime mapping semantics live in `docs/design/spill-retry-runtime-mapping.md`.
+Detailed first Go host off-heap interop boundary semantics live in `docs/design/first-go-host-off-heap-interop-boundary.md`.
 
 ## Milestone-1 Spill And Retry Runtime Mapping
 
@@ -167,6 +168,17 @@ meanings.
 Milestone 1 therefore keeps ownership transfer as `tiforth`-owned policy layered on top of the adopted upstream batch runtime, not as a replacement for that runtime.
 
 Detailed handoff rationale lives in `docs/design/arrow-batch-handoff-ownership.md`.
+
+## First Go Host Off-Heap Interop Follow-On Checkpoint
+
+Issue #363 now fixes one design-only host interop checkpoint in
+`docs/design/first-go-host-off-heap-interop-boundary.md`.
+
+For this first Go-host boundary:
+
+- host orchestration stays outside shared runtime states and remains explicit `compile` -> `pipe_exec` -> step control flow
+- host-provided off-heap input batches remain host-owned borrows while runtime operators read them
+- `tiforth`-materialized output batches remain governed `tiforth`-owned bytes until host-driven release or drop completes
 
 ## Observable Milestone-1 Events
 
@@ -219,7 +231,7 @@ This fixture remains the canonical milestone-1 serialized event carrier. It does
 ## Milestone-1 Adapter-Visible Event Carrier Boundary
 
 Detailed guidance lives in `docs/design/adapter-visible-runtime-event-carrier.md`.
-Shared callback or streaming event surfaces are gated by `docs/design/runtime-event-streaming-adoption-gate.md`.
+Shared callback or streaming event surfaces are gated by `docs/design/runtime-event-streaming-adoption-gate.md`, and the first Go-host off-heap interop checkpoint under `docs/design/first-go-host-off-heap-interop-boundary.md`.
 Detailed batch-envelope claim-carrier guidance lives in `docs/design/adapter-visible-batch-envelope-claim-carrier.md`.
 
 For milestone 1:

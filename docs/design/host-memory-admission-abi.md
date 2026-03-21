@@ -250,4 +250,5 @@ This design does not require or define:
 - map the semantic operations here onto the concrete dependency boundary work in issue #9
 - define the exact metrics fields and snapshot payloads used for admit, deny, handoff, release, spill, and allocation failure paths
 - map the claim-carrying handoff rules here onto the eventual kernel implementation hooks and batch-drop teardown paths
+- keep Go-host embedding work aligned with the first host interop checkpoint in `docs/design/first-go-host-off-heap-interop-boundary.md`
 - decide whether a later milestone needs direct host-allocator-backed buffers or imported immutable buffer bridges beyond this reserve-first, claim-carrying contract
