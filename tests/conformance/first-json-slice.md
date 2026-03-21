@@ -1,6 +1,6 @@
 # First JSON Slice Cases
 
-Status: issue #224 docs checkpoint
+Status: issue #224 docs checkpoint, issue #354 executable local conformance checkpoint
 
 Spec source: `docs/design/first-json-semantic-slice.md`
 
@@ -37,5 +37,4 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. Local executable kernel conformance for
-`json` is follow-on scope.
+This checkpoint now has local executable shared-kernel conformance coverage in `crates/tiforth-kernel/tests/json_slice.rs` for passthrough `column(index)`, `is_not_null(column(index))`, and missing-column error cases. Unsupported JSON ordering-comparison and explicit non-identity cast probes remain differential adapter and harness scope for follow-on checkpoints.
