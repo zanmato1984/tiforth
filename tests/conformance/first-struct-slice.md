@@ -1,6 +1,6 @@
 # First Struct Slice Cases
 
-Status: issue #226 docs checkpoint, issue #329 local executable kernel checkpoint
+Status: issue #226 docs checkpoint, issue #329 local executable kernel checkpoint, issue #360 executable differential checkpoint
 
 Spec source: `docs/design/first-struct-aware-handoff-slice.md`
 
@@ -27,7 +27,8 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-Issue #329 adds the first executable local kernel conformance coverage for this
-checkpoint in:
+Issue #329 adds the first executable local kernel conformance coverage for this checkpoint in:
 
 - `crates/tiforth-kernel/tests/struct_slice.rs`
+
+Issue #360 adds executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in `crates/tiforth-adapter-tidb/src/first_struct_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_struct_slice.rs`, and `crates/tiforth-harness-differential/src/first_struct_slice.rs`, with checked-in artifacts under `inventory/first-struct-slice-*`

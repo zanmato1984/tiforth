@@ -1,0 +1,179 @@
+{
+  "slice_id": "first-struct-slice",
+  "engine": "tidb",
+  "adapter": "tidb-sql",
+  "cases": [
+    {
+      "slice_id": "first-struct-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "struct-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-struct-aware-handoff-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-struct-slice.md",
+        "tests/differential/first-struct-slice.md"
+      ],
+      "input_ref": "first-struct-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "struct<a:int32,b:int32?>",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            {
+              "a": 1,
+              "b": 2
+            }
+          ],
+          [
+            {
+              "a": 3,
+              "b": 4
+            }
+          ],
+          [
+            {
+              "a": 5,
+              "b": 6
+            }
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-struct-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "struct-column-null-preserve",
+      "spec_refs": [
+        "docs/design/first-struct-aware-handoff-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-struct-slice.md",
+        "tests/differential/first-struct-slice.md"
+      ],
+      "input_ref": "first-struct-nullable",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "struct<a:int32,b:int32?>",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            {
+              "a": 1,
+              "b": null
+            }
+          ],
+          [
+            null
+          ],
+          [
+            {
+              "a": 2,
+              "b": 3
+            }
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-struct-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "struct-child-null-preserve",
+      "spec_refs": [
+        "docs/design/first-struct-aware-handoff-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-struct-slice.md",
+        "tests/differential/first-struct-slice.md"
+      ],
+      "input_ref": "first-struct-nullable",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "struct<a:int32,b:int32?>",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            {
+              "a": 1,
+              "b": null
+            }
+          ],
+          [
+            {
+              "a": 2,
+              "b": 3
+            }
+          ],
+          [
+            {
+              "a": 4,
+              "b": null
+            }
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-struct-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "struct-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-struct-aware-handoff-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-struct-slice.md",
+        "tests/differential/first-struct-slice.md"
+      ],
+      "input_ref": "first-struct-basic",
+      "projection_ref": "column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'field list'"
+      }
+    },
+    {
+      "slice_id": "first-struct-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "unsupported-nested-family-error",
+      "spec_refs": [
+        "docs/design/first-struct-aware-handoff-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-struct-slice.md",
+        "tests/differential/first-struct-slice.md"
+      ],
+      "input_ref": "first-map-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_nested_family",
+        "engine_code": "1105",
+        "engine_message": "unsupported nested expression input at column 0"
+      }
+    }
+  ]
+}
