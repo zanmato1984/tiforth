@@ -1,12 +1,13 @@
 # First Differential Collation-Sensitive String Slice
 
-Status: issue #233 design checkpoint, issue #342 artifact-carrier checkpoint
+Status: issue #233 design checkpoint, issue #342 artifact-carrier checkpoint, issue #358 executable differential checkpoint
 
 Related issues:
 
 - #143 `docs: define initial collation scope and ownership boundary`
 - #233 `design: define first string collation semantic slice`
 - #342 `docs: define first-collation-string-slice differential artifact carriers`
+- #358 `harness: execute first-collation-string-slice differential artifacts`
 
 ## Question
 
@@ -23,6 +24,7 @@ comparison intent, and ordering intent explicit?
 - `tests/differential/README.md`
 - issue #233
 - issue #342
+- issue #358
 
 ## First Slice Decision
 
@@ -206,20 +208,17 @@ target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-collation-string-slice.md`.
 
-Stable artifact-carrier fields and planned checked-in filenames for this slice
+Stable artifact-carrier fields and checked-in filenames for this slice
 now live in `tests/differential/first-collation-string-slice-artifacts.md`.
 
 ## Follow-On Boundary
 
+Issue #358 now executes this slice through `crates/tiforth-adapter-tidb/src/first_collation_string_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_collation_string_slice.rs`, and `crates/tiforth-harness-differential/src/first_collation_string_slice.rs`, with checked-in artifacts under `inventory/first-collation-string-slice-*`.
+
 Later issues may extend this slice to cover:
 
-- executable adapter and harness wiring for this slice
-- checked-in inventory refresh against the carrier contract in
-  `tests/differential/first-collation-string-slice-artifacts.md`
 - locale-specific collation families and capability normalization
 - broader string/binary semantic families beyond this comparison boundary
 - TiKV participation
 
-Until then, this checkpoint fixes only the first collation-sensitive string
-differential semantics, request IDs, adapter-boundary shape, normalized
-comparison rules, and planned artifact-carrier contract.
+This checkpoint now fixes the first collation-sensitive string differential semantics, request IDs, adapter-boundary shape, normalized comparison rules, and artifact-carrier contract.
