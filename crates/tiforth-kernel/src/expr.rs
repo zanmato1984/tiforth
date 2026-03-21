@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use arrow_schema::{DataType, Field, Fields, Schema, TimeUnit};
 
 use crate::error::TiforthError;
@@ -142,10 +144,12 @@ fn validate_column_input_type(index: usize, data_type: &DataType) -> Result<(), 
         }),
         DataType::Timestamp(_, _) => validate_timestamp_tz_us(index, data_type, "expression"),
         DataType::Struct(fields) => validate_struct_passthrough_input(index, fields),
+        DataType::Map(field, ordered) => {
+            validate_map_passthrough_input(index, field.as_ref(), *ordered)
+        }
         DataType::List(_)
         | DataType::LargeList(_)
         | DataType::FixedSizeList(_, _)
-        | DataType::Map(_, _)
         | DataType::Union(_, _) => Err(unsupported_nested_expression_input(index, data_type)),
         DataType::Date64
         | DataType::Time32(_)
@@ -178,10 +182,36 @@ fn validate_struct_passthrough_input(index: usize, fields: &Fields) -> Result<()
     }
 }
 
+fn validate_map_passthrough_input(
+    index: usize,
+    field: &Field,
+    ordered: bool,
+) -> Result<(), TiforthError> {
+    match field.data_type() {
+        DataType::Struct(fields)
+            if field.name() == "entries"
+                && !field.is_nullable()
+                && fields.len() == 2
+                && fields[0].name() == "keys"
+                && fields[0].data_type() == &DataType::Int32
+                && !fields[0].is_nullable()
+                && fields[1].name() == "values"
+                && fields[1].data_type() == &DataType::Int32
+                && fields[1].is_nullable() =>
+        {
+            Ok(())
+        }
+        _ => Err(unsupported_nested_expression_input(
+            index,
+            &DataType::Map(Arc::new(field.clone()), ordered),
+        )),
+    }
+}
+
 fn unsupported_nested_expression_input(index: usize, data_type: &DataType) -> TiforthError {
     TiforthError::UnsupportedDataType {
         detail: format!(
-            "unsupported nested expression input at column {index}, got {data_type:?}; first executable nested slice supports struct<a:int32, b:int32?> only"
+            "unsupported nested expression input at column {index}, got {data_type:?}; first executable nested slices support struct<a:int32, b:int32?> and map<int32, int32?> only"
         ),
     }
 }

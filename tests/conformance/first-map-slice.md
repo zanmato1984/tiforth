@@ -1,6 +1,6 @@
 # First Map Slice Cases
 
-Status: issue #230 docs checkpoint
+Status: issue #230 docs checkpoint, issue #334 executable kernel checkpoint
 
 Spec source: `docs/design/first-map-aware-handoff-slice.md`
 
@@ -27,5 +27,7 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. Local executable kernel conformance for
-`map` remains follow-on scope.
+Local executable kernel conformance for this checkpoint now exists in
+`crates/tiforth-kernel/tests/map_slice.rs`.
+
+Differential harness and adapter coverage for `map` remain follow-on scope.
