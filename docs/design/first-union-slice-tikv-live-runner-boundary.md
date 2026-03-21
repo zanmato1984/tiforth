@@ -1,6 +1,6 @@
 # First Union Slice TiKV Live Runner Boundary
 
-Status: issue #372 design checkpoint
+Status: issue #372 design checkpoint, issue #374 executable checkpoint
 
 Verified: 2026-03-21
 
@@ -10,6 +10,7 @@ Related issues:
 - #368 `harness: add TiKV first-union-slice executable checkpoints`
 - #370 `inventory: add first-union-slice TiKV compatibility notes checkpoint`
 - #372 `design: define live TiKV runner boundary for first-union-slice`
+- #374 `harness: implement first-union-slice live TiKV runner and refresh workflow`
 
 ## Question
 
@@ -29,10 +30,11 @@ artifact carriers?
 - `inventory/first-union-slice-tidb-vs-tikv-drift-report.md`
 - `inventory/first-union-slice-tiflash-vs-tikv-drift-report.md`
 - issue #372
+- issue #374
 
 ## Design Summary
 
-`first-union-slice` now has a docs-first live TiKV runner boundary that keeps
+`first-union-slice` has a docs-first live TiKV runner boundary that keeps
 semantics and artifact carriers stable while defining three scoped areas:
 
 - environment configuration required to contact TiDB, TiFlash, and TiKV for
@@ -46,9 +48,8 @@ existing shared docs and adapter boundary.
 
 ## Configuration Boundary
 
-Live `first-union-slice` execution should remain environment-driven and
-adapter-local, consistent with
-`docs/design/adapter-runtime-orchestration-boundary.md`.
+Live `first-union-slice` execution remains environment-driven and adapter-local,
+consistent with `docs/design/adapter-runtime-orchestration-boundary.md`.
 
 For a live run that compares TiKV against both existing engines, orchestration
 must be able to configure these engine families:
@@ -57,15 +58,15 @@ must be able to configure these engine families:
 - TiFlash connection settings
 - TiKV connection settings
 
-Per-engine host, port, user, and database settings are required inputs for
-live execution. Password and client-binary overrides remain optional.
+Per-engine host, port, user, and database settings are required inputs for live
+execution. Password and client-binary overrides remain optional.
 
 This boundary does not freeze one DSN format, one SQL client binary, or one
 deployment topology; those stay adapter-local implementation details.
 
 ## Execution Boundary
 
-Live runner behavior for this slice should remain narrow:
+Live runner behavior for this slice stays narrow:
 
 1. execute the existing documented `first-union-slice` case IDs
 2. capture one normalized TiKV single-engine `case result` artifact
@@ -81,7 +82,7 @@ error-class vocabulary.
 
 ## Artifact Refresh Boundary
 
-Live execution should support two explicit modes:
+Live execution supports two explicit modes:
 
 - inspect mode: run and print generated normalized artifacts without mutating
   checked-in files
@@ -110,17 +111,24 @@ manual. Live runner refresh does not auto-regenerate compatibility notes.
 - keep inventory refresh behavior explicit in PR metadata per
   `docs/process/inventory-refresh.md`
 
-## Deferred Follow-On
+## Executable Checkpoint
 
-This checkpoint does not itself add executable live runner code or scripts.
-Follow-on implementation issues may add those mechanics while staying inside
-this boundary.
+Issue #374 lands the first executable live-runner wiring inside this boundary:
 
-It also does not broaden live runner scope to temporal, decimal, or other slice
-families.
+- `crates/tiforth-harness-differential/src/first_union_slice_tikv_live.rs`
+- `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_live.rs`
+- `scripts/refresh-first-union-tikv-live-artifacts.sh`
+
+That executable checkpoint keeps the existing first-union semantic IDs,
+normalized carrier schema, and TiKV artifact family unchanged.
+
+## Follow-On
+
+This boundary still does not broaden live runner scope to temporal, decimal, or
+other slice families.
 
 ## Result
 
-`tiforth` now has a durable docs-first boundary for live TiKV
-`first-union-slice` orchestration and artifact refresh, with stable semantics
-and stable artifact carriers preserved.
+`tiforth` now has both a durable docs-first boundary and executable live-runner
+wiring for TiKV `first-union-slice` orchestration and artifact refresh, with
+stable semantics and stable artifact carriers preserved.
