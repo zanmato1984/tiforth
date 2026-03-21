@@ -1,6 +1,6 @@
 # First Union Slice Cases
 
-Status: issue #241 docs checkpoint, issue #336 local executable kernel checkpoint
+Status: issue #241 docs checkpoint, issue #336 local executable kernel checkpoint, issue #366 executable differential checkpoint
 
 Spec source: `docs/design/first-union-aware-handoff-slice.md`
 
@@ -28,7 +28,7 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-Issue #336 adds the first executable local kernel conformance coverage for this
-checkpoint in:
+Local executable kernel conformance for this checkpoint now exists in
+`crates/tiforth-kernel/tests/union_slice.rs`.
 
-- `crates/tiforth-kernel/tests/union_slice.rs`
+Issue #366 adds executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in `crates/tiforth-adapter-tidb/src/first_union_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_union_slice.rs`, and `crates/tiforth-harness-differential/src/first_union_slice.rs`, with checked-in artifacts under `inventory/first-union-slice-*`
