@@ -405,6 +405,10 @@ Issue #224 also adds the first docs-first JSON coverage anchors in:
 - `tests/differential/first-json-slice.md`
 - `adapters/first-json-slice.md`
 
+Issue #354 adds the first executable local conformance coverage for this checkpoint in:
+
+- `crates/tiforth-kernel/tests/json_slice.rs`
+
 For current shared contracts:
 
 - the first admitted JSON logical type beyond milestone 1 is `json`
@@ -416,8 +420,10 @@ For current shared contracts:
   normalization for differential comparison
 - this checkpoint does not define JSON path extraction, containment,
   mutation, ordering, or implicit cast expansion
-- local executable kernel and adapter coverage for this JSON checkpoint remains
-  follow-on scope
+- local executable kernel coverage for this JSON checkpoint now exists in
+  `crates/tiforth-kernel/tests/json_slice.rs`
+- adapter and differential harness executable coverage for this JSON checkpoint remains follow-on
+  scope
 
 ## First Collation-Sensitive String Checkpoint
 
