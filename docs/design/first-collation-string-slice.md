@@ -2,7 +2,7 @@
 
 Status: issue #233 design checkpoint
 
-Verified: 2026-03-19
+Verified: 2026-03-21
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #143 `docs: define initial collation scope and ownership boundary`
 - #233 `design: define first string collation semantic slice`
+- #352 `kernel: add first-collation-string-slice local executable checkpoint`
 
 ## Question
 
@@ -27,6 +28,7 @@ freezing broad string, binary, or locale policy?
 - `tests/differential/first-collation-string-slice.md`
 - `adapters/first-collation-string-slice.md`
 - issue #233
+- issue #352
 
 ## Design Summary
 
@@ -99,7 +101,9 @@ runtime carriers.
 ## Coverage Anchor Docs
 
 Issue #233 defines the first docs-first coverage-anchor set for this
-checkpoint:
+checkpoint. Issue #352 adds first executable local shared-kernel coverage
+through `crates/tiforth-kernel/tests/collation_string_slice.rs` while
+adapter and differential wiring remain follow-on scope:
 
 - conformance checkpoint doc:
   `tests/conformance/first-collation-string-slice.md`
@@ -117,13 +121,10 @@ issues should preserve these anchors or replace them explicitly.
 - `binary` logical-type (`bytes`) collation semantics
 - string function families beyond the comparison and ordering probes above
 - new runtime states, scheduler behavior, or batch-carried collation metadata
-- executable kernel coverage and live differential artifact refresh for this
-  slice
+- live differential artifact refresh for this slice
 
 ## Result
 
 The first collation-sensitive string checkpoint is now explicit and narrow:
 `utf8` passthrough plus `is_not_null` predicate coverage, with shared
-`binary` and `unicode_ci` comparison and ordering intent fixed for docs-first
-conformance and differential coverage. Broader collation and string-family
-behavior remains follow-on work.
+`binary` and `unicode_ci` comparison and ordering intent fixed for conformance and differential coverage, and first local executable shared-kernel coverage now exists in `crates/tiforth-kernel/tests/collation_string_slice.rs`. Broader adapter wiring, differential harness execution, and wider collation or string-family behavior remain follow-on work.

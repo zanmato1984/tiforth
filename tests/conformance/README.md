@@ -36,4 +36,4 @@ Issue #230 adds the first map passthrough conformance checkpoint in `tests/confo
 
 Issue #241 adds the first union passthrough conformance checkpoint in `tests/conformance/first-union-slice.md`. Issue #336 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/union_slice.rs`.
 
-Issue #233 adds the first collation-sensitive string conformance checkpoint in `tests/conformance/first-collation-string-slice.md`.
+Issue #233 adds the first collation-sensitive string conformance checkpoint in `tests/conformance/first-collation-string-slice.md`. Issue #352 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/collation_string_slice.rs`.

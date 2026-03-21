@@ -1,4 +1,5 @@
 pub mod admission;
+pub mod collation;
 pub mod error;
 pub mod expr;
 pub mod filter;
@@ -12,6 +13,10 @@ pub use admission::{
     NoopAdmissionController, RecordingAdmissionController,
 };
 pub use broken_pipeline::traits::arrow::{ArrowTypes, Batch};
+pub use collation::{
+    collation_eq_column_literal, collation_lt_column_literal, order_by_column_asc_indices,
+    CollationRef,
+};
 pub use error::TiforthError;
 pub use expr::Expr;
 pub use filter::{filter_batch, FilterPredicate};

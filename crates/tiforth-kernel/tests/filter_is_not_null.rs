@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, StringArray};
+use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
 use arrow_schema::{DataType, Field, Schema};
 use broken_pipeline::{
     compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator,
@@ -145,7 +145,7 @@ fn filter_pipe_reports_missing_column_error() {
 
 #[test]
 fn filter_pipe_reports_unsupported_predicate_type_error() {
-    let input = make_utf8_batch(vec![Some("x"), Some("y"), Some("z")], false);
+    let input = make_boolean_batch(vec![Some(true), Some(false), Some(true)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
     let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
@@ -163,11 +163,11 @@ fn filter_pipe_reports_unsupported_predicate_type_error() {
         Arc::clone(&sink),
         runtime_context,
     )
-    .expect_err("utf8 predicate input should fail");
+    .expect_err("boolean predicate input should fail");
 
     assert!(error
         .to_string()
-        .contains("unsupported data type: expected Int32, UInt64, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column 0, got Utf8"));
+        .contains("unsupported data type: expected Int32, UInt64, Utf8, Date32, Decimal128, Float64, or timezone-aware Timestamp(Microsecond, <tz>) predicate input at column 0, got Boolean"));
     assert!(sink.batches().is_empty());
 }
 
@@ -218,9 +218,13 @@ fn make_two_int32_batch(
     Arc::new(RecordBatch::try_new(schema, vec![lhs, rhs]).unwrap())
 }
 
-fn make_utf8_batch(values: Vec<Option<&str>>, nullable: bool) -> Batch {
-    let schema = Arc::new(Schema::new(vec![Field::new("s", DataType::Utf8, nullable)]));
-    let values: ArrayRef = Arc::new(StringArray::from(values));
+fn make_boolean_batch(values: Vec<Option<bool>>, nullable: bool) -> Batch {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "b",
+        DataType::Boolean,
+        nullable,
+    )]));
+    let values: ArrayRef = Arc::new(BooleanArray::from(values));
     Arc::new(RecordBatch::try_new(schema, vec![values]).unwrap())
 }
 
