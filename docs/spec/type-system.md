@@ -221,8 +221,8 @@ For current shared contracts:
 - broader nested logical types (nested combinations beyond current list,
   struct, map, and union checkpoints) remain out of scope until follow-on
   issues
-- local executable kernel coverage for this map checkpoint remains
-  follow-on scope
+- local executable kernel coverage for this map checkpoint now exists in
+  `crates/tiforth-kernel/tests/map_slice.rs`
 
 ## First Union Nested Follow-On Checkpoint
 

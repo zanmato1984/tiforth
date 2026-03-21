@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use arrow_array::builder::{Int32Builder, MapBuilder, StructBuilder};
+use arrow_array::builder::{Int32Builder, ListBuilder, StructBuilder};
 use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, StructArray};
 use arrow_schema::{DataType, Field, Schema};
 use tiforth_kernel::admission::RecordingAdmissionController;
@@ -102,21 +102,23 @@ fn struct_projection_reports_missing_column_error() {
 
 #[test]
 fn unsupported_nested_family_projection_reports_execution_error() {
-    let input = make_single_map_batch();
+    let input = make_single_list_batch();
     let admission = RecordingAdmissionController::unbounded();
 
     let error = project_batch(
         &input,
-        &[ProjectionExpr::new("m_copy", Expr::column(0))],
+        &[ProjectionExpr::new("list_copy", Expr::column(0))],
         &admission,
         "Projection",
     )
-    .expect_err("map projection should fail in first struct slice");
+    .expect_err("list projection should fail outside the current nested checkpoints");
 
     assert!(error
         .to_string()
         .contains("unsupported nested expression input at column 0"));
-    assert!(error.to_string().contains("struct<a:int32, b:int32?> only"));
+    assert!(error
+        .to_string()
+        .contains("struct<a:int32, b:int32?> and map<int32, int32?> only"));
 }
 
 fn make_single_struct_batch(rows: Vec<Option<(i32, Option<i32>)>>) -> RecordBatch {
@@ -165,27 +167,24 @@ fn make_single_struct_batch(rows: Vec<Option<(i32, Option<i32>)>>) -> RecordBatc
         .expect("struct batch should be valid")
 }
 
-fn make_single_map_batch() -> RecordBatch {
-    let mut builder = MapBuilder::new(None, Int32Builder::new(), Int32Builder::new());
+fn make_single_list_batch() -> RecordBatch {
+    let mut builder = ListBuilder::new(Int32Builder::new());
 
-    builder.keys().append_value(1);
+    builder.values().append_value(1);
     builder.values().append_value(2);
-    builder.append(true).expect("first map row should be valid");
+    builder.append(true);
 
-    builder.keys().append_value(3);
-    builder.values().append_null();
-    builder
-        .append(true)
-        .expect("second map row should be valid");
+    builder.values().append_value(3);
+    builder.append(true);
 
-    let map_array = builder.finish();
+    let list_array = builder.finish();
     let schema = Arc::new(Schema::new(vec![Field::new(
-        "m",
-        map_array.data_type().clone(),
-        map_array.null_count() > 0,
+        "l",
+        list_array.data_type().clone(),
+        list_array.null_count() > 0,
     )]));
-    RecordBatch::try_new(schema, vec![Arc::new(map_array) as ArrayRef])
-        .expect("map batch should be valid")
+    RecordBatch::try_new(schema, vec![Arc::new(list_array) as ArrayRef])
+        .expect("list batch should be valid")
 }
 
 fn collect_struct_rows(array: &ArrayRef) -> Vec<Option<(i32, Option<i32>)>> {

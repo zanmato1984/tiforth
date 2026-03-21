@@ -18,7 +18,7 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 - executable differential coverage exists for `first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, and `first-unsigned-arithmetic-slice`
 - checked-in `inventory/` evidence now includes normalized per-engine `case-results`, compatibility notes, pairwise drift reports, and the first baseline-versus-exchange parity drift reports for the executable slices that have landed
 - TiKV executable coverage currently extends through the first expression, filter, temporal, decimal, float64-ordering, and unsigned-arithmetic checkpoints, with pairwise drift artifacts recorded against TiDB and TiFlash where those slices are implemented
-- local shared-kernel executable coverage now includes the first `struct<a:int32, b:int32?>` passthrough checkpoint, while JSON, collation-sensitive string, and nested map/union slices remain docs-first follow-on boundaries
+- local shared-kernel executable coverage now includes the first `struct<a:int32, b:int32?>` and `map<int32, int32?>` passthrough checkpoints, while JSON, collation-sensitive string, and nested union slices remain docs-first follow-on boundaries
 
 ## Local Rust Setup
 
