@@ -74,11 +74,12 @@ It also keeps the reboot honest:
 - the first live TiKV decimal runner path now exists through `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_live.rs`, and `scripts/refresh-first-decimal128-tikv-live-artifacts.sh` for env-backed execution and optional first-decimal128 TiKV artifact refresh
 - the first live TiKV temporal date32 runner path now exists through `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_temporal_date32_slice_tikv_live.rs`, and `scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh` for env-backed execution and optional first-temporal-date32 TiKV artifact refresh
 - the first live TiKV temporal timestamp-timezone runner path now exists through `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_temporal_timestamp_tz_slice_tikv_live.rs`, and `scripts/refresh-first-temporal-timestamp-tz-tikv-live-artifacts.sh` for env-backed execution and optional first-temporal-timestamp-tz TiKV artifact refresh
+- the first consolidated TiKV live refresh cadence helper now exists through `scripts/refresh-first-tikv-live-artifacts.sh` for orchestrated first-union, first-decimal128, first-temporal-date32, and first-temporal-timestamp-tz artifact refresh runs
 - the first Go-host off-heap interop checkpoint is now documented in `docs/design/first-go-host-off-heap-interop-boundary.md`, including host-driven `compile` -> `pipe_exec` -> step control flow and input/output ownership boundaries
 
 ## Next Checkpoint
 
-- the next checkpoint is to refresh checked-in first-union, first-decimal128, first-temporal-date32, and first-temporal-timestamp-tz TiKV artifacts from live runner output when shared review environments are available
+- the next checkpoint is to refresh checked-in first-union, first-decimal128, first-temporal-date32, and first-temporal-timestamp-tz TiKV artifacts from live runner output via `scripts/refresh-first-tikv-live-artifacts.sh` when shared review environments are available
 - after that refresh cadence is stable, broaden live TiKV temporal coverage beyond `first-temporal-date32-slice` and `first-temporal-timestamp-tz-slice` using docs-first accepted boundaries
 
 ## Kernel Expansion Gate

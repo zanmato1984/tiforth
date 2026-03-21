@@ -71,10 +71,11 @@ Current checkpoint:
 - `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_live.rs`, and `scripts/refresh-first-decimal128-tikv-live-artifacts.sh` now provide env-configured live TiDB/TiFlash/TiKV execution and optional first-decimal128 TiKV artifact refresh wiring
 - `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_temporal_date32_slice_tikv_live.rs`, and `scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh` now provide env-configured live TiDB/TiFlash/TiKV execution and optional first-temporal-date32 TiKV artifact refresh wiring
 - `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_temporal_timestamp_tz_slice_tikv_live.rs`, and `scripts/refresh-first-temporal-timestamp-tz-tikv-live-artifacts.sh` now provide env-configured live TiDB/TiFlash/TiKV execution and optional first-temporal-timestamp-tz TiKV artifact refresh wiring
+- `scripts/refresh-first-tikv-live-artifacts.sh` now provides a consolidated TiKV live-refresh cadence entrypoint for first-union, first-decimal128, first-temporal-date32, and first-temporal-timestamp-tz artifact families
 
 Next checkpoint:
 
-- refresh checked-in first-union, first-decimal128, first-temporal-date32, and first-temporal-timestamp-tz TiKV artifacts from live runner output via `scripts/refresh-first-union-tikv-live-artifacts.sh`, `scripts/refresh-first-decimal128-tikv-live-artifacts.sh`, `scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh`, and `scripts/refresh-first-temporal-timestamp-tz-tikv-live-artifacts.sh` when shared environments are available
+- refresh checked-in first-union, first-decimal128, first-temporal-date32, and first-temporal-timestamp-tz TiKV artifacts from live runner output via `scripts/refresh-first-tikv-live-artifacts.sh` when shared environments are available
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, first-float64-ordering, first-unsigned-arithmetic, or first-union case-results evidence changes
 - broaden TiKV executable temporal coverage beyond the current first-temporal-date32 and first-temporal-timestamp-tz checkpoints once follow-on semantic slices are accepted
 
