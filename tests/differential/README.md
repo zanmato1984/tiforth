@@ -43,6 +43,7 @@ Current checkpoint:
 - `adapters/first-struct-slice.md` defines the minimal request and response surface for the first differential struct passthrough slice
 - `adapters/first-map-slice.md` defines the minimal request and response surface for the first differential map passthrough slice
 - `adapters/first-union-slice.md` defines the minimal request and response surface for the first differential union passthrough slice
+- `adapters/first-union-slice-tikv.md` defines the TiKV-specific request and response surface for first-union single-engine and pairwise checkpoints
 - `crates/tiforth-harness-differential` executes first-expression, first-unsigned-arithmetic, first-filter-is-not-null, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, first-json, first-collation-string, first-struct, first-map, and first-union slices through TiDB/TiFlash checkpoints, carries the documented TiKV single-engine and pairwise checkpoints for the supported slices that already have them, validates checked-in paired and single-engine artifacts under `inventory/`, and executes first-exchange-slice parity checks through `src/first_exchange_slice.rs`
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs` wires a live-runner path for `first-filter-is-not-null-slice` that can emit normalized artifacts using TiDB and TiFlash MySQL endpoints from environment configuration
 - `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-filter drift reports
@@ -54,6 +55,7 @@ Current checkpoint:
 - `crates/tiforth-harness-differential/src/bin/first_struct_slice.rs` wires a fixture-based artifact refresh path for first-struct-slice TiDB-versus-TiFlash artifacts
 - `crates/tiforth-harness-differential/src/bin/first_map_slice.rs` wires a fixture-based artifact refresh path for first-map-slice TiDB-versus-TiFlash artifacts
 - `crates/tiforth-harness-differential/src/bin/first_union_slice.rs` wires a fixture-based artifact refresh path for first-union-slice TiDB-versus-TiFlash artifacts
+- `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_pairwise.rs` wires a fixture-based pairwise artifact refresh path for TiDB-vs-TiKV and TiFlash-vs-TiKV first-union drift reports
 - `scripts/refresh-first-filter-live-artifacts.sh` provides the canonical local command for env-validated dry runs and checked-in first-filter artifact refresh
 - `docs/design/next-thin-end-to-end-slice.md` defines the next thin end-to-end checkpoint as executing that documented slice through adapters and into checked-in differential evidence
 - `docs/design/adapter-milestone-breakdown.md` breaks that executable path into TiDB, TiFlash, and pairwise harness checkpoints so future issues stay reviewable

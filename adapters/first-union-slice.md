@@ -1,6 +1,6 @@
 # First Differential Union Adapter Boundary
 
-Status: issue #241 design checkpoint
+Status: issue #241 design checkpoint, issue #368 TiKV follow-on checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #226 `design: define first struct nested handoff slice checkpoint`
 - #230 `docs: define first map nested handoff slice checkpoint`
 - #241 `docs: define first union nested handoff slice checkpoint`
+- #368 `harness: add TiKV first-union-slice executable checkpoints`
 
 ## Purpose
 
@@ -19,19 +20,20 @@ The goal is to give future harness work one explicit contract between:
 - the shared differential union slice in `tests/differential/first-union-slice.md`
 - the shared conformance anchor in `tests/conformance/first-union-slice.md`
 - TiDB and TiFlash execution plumbing that should stay adapter-local
+- TiKV-specific execution details, which are handled separately in `adapters/first-union-slice-tikv.md`
 
 ## Scope
 
 This boundary applies only to the first union differential slice:
 
 - `slice_id = first-union-slice`
-- engines: `TiDB` and `TiFlash`
+- engines: `TiDB` and `TiFlash` for this shared boundary; TiKV details live in `adapters/first-union-slice-tikv.md`
 - case family:
   - passthrough `column(index)` over `dense_union<i:int32, n:int32?>`
 
 It does **not** yet define:
 
-- TiKV participation in this slice
+- TiKV-specific execution details for this slice, handled in `adapters/first-union-slice-tikv.md`
 - nested predicate behavior over `union`
 - nested compute behavior beyond passthrough `column(index)`
 - broader nested families (including `sparse_union` and nested combinations)

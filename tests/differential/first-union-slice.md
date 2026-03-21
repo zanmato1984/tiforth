@@ -1,6 +1,6 @@
 # First Differential Union Slice
 
-Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint, issue #366 executable differential checkpoint
+Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint, issue #366 executable differential checkpoint, issue #368 TiKV executable checkpoint
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #241 `docs: define first union nested handoff slice checkpoint`
 - #340 `docs: define first-union-slice differential artifact carriers`
 - #366 `harness: execute first-union-slice differential artifacts`
+- #368 `harness: add TiKV first-union-slice executable checkpoints`
 
 ## Question
 
@@ -29,6 +30,7 @@ passthrough boundaries?
 - issue #241
 - issue #340
 - issue #366
+- issue #368
 
 ## First Slice Decision
 
@@ -61,7 +63,7 @@ Defer these cases from the first union differential checkpoint:
 - broader union modes (`sparse_union`) and wider nested combinations
 - runtime and ownership traces (claim handoff, shrink, release, cancellation)
 - memory-admission deny or spill-and-retry behavior
-- non-TiDB/TiFlash engines
+- engines beyond TiDB/TiFlash/TiKV
 
 ### 2a. Shared Slice ID
 
@@ -104,8 +106,9 @@ Use these stable `case_id` assignments for this first union slice:
 - `unsupported-nested-family-error`:
   `input_ref = first-map-basic`, `projection_ref = column-0`
 
-The adapter-facing request and response boundary for these identifiers is
-defined in `adapters/first-union-slice.md`.
+The shared adapter-facing request and response boundary for these identifiers is
+defined in `adapters/first-union-slice.md`, and TiKV-specific execution
+details now live in `adapters/first-union-slice-tikv.md`.
 
 ### 2e. Shared Spec References
 
@@ -182,6 +185,6 @@ Later issues may extend this slice to cover:
 - nested predicate and compute behavior beyond passthrough `column(index)`
 - broader nested-family logical types (`sparse_union`, wider unions, and nested
   combinations)
-- TiKV participation
+- live TiKV runner orchestration and compatibility-note checkpoints
 
-Until then, this checkpoint fixes the first union differential semantics, request IDs, adapter-boundary shape, normalized comparison rules, and checked-in artifact-carrier evidence for the TiDB-versus-TiFlash checkpoint.
+This checkpoint now fixes the first union differential semantics, request IDs, adapter-boundary shape, normalized comparison rules, and checked-in artifact-carrier evidence for TiDB-versus-TiFlash, and issue #368 extends the same shared case set to executable TiKV single-engine and pairwise evidence.

@@ -1,6 +1,6 @@
 # First Union Slice Artifact Carriers
 
-Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint, issue #366 executable artifact checkpoint
+Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint, issue #366 executable artifact checkpoint, issue #368 TiKV artifact checkpoint
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #241 `docs: define first union nested handoff slice checkpoint`
 - #340 `docs: define first-union-slice differential artifact carriers`
 - #366 `harness: execute first-union-slice differential artifacts`
+- #368 `harness: add TiKV first-union-slice executable checkpoints`
 
 ## Purpose
 
@@ -21,27 +22,37 @@ The goal is to keep artifact shape under source-of-truth harness docs while
 checked-in `inventory/` files remain reviewable evidence instead of schema
 authority.
 
-The minimal adapter request and response boundary that feeds these artifacts is
-defined in `adapters/first-union-slice.md`.
+The minimal shared adapter request and response boundary that feeds these artifacts is
+defined in `adapters/first-union-slice.md`, and the TiKV-specific follow-on
+boundary is defined in `adapters/first-union-slice-tikv.md`.
 
 ## Artifact Set
 
-The first executable union differential checkpoint should produce four
-checked-in artifacts:
+The current executable union checkpoint now produces nine checked-in artifacts:
 
 1. one normalized TiDB `case-results` artifact
 2. one normalized TiFlash `case-results` artifact
-3. one aggregated TiDB-versus-TiFlash `drift-report`
-4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+3. one normalized TiKV `case-results` artifact
+4. one aggregated TiDB-versus-TiFlash `drift-report`
+5. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
+6. one aggregated TiDB-versus-TiKV `drift-report`
+7. one machine-readable TiDB-versus-TiKV `drift-report` sidecar
+8. one aggregated TiFlash-versus-TiKV `drift-report`
+9. one machine-readable TiFlash-versus-TiKV `drift-report` sidecar
 
 Artifact filenames for this slice:
 
 - `inventory/first-union-slice-tidb-case-results.json`
 - `inventory/first-union-slice-tiflash-case-results.json`
+- `inventory/first-union-slice-tikv-case-results.json`
 - `inventory/first-union-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-union-slice-tidb-vs-tiflash-drift-report.json`
+- `inventory/first-union-slice-tidb-vs-tikv-drift-report.md`
+- `inventory/first-union-slice-tidb-vs-tikv-drift-report.json`
+- `inventory/first-union-slice-tiflash-vs-tikv-drift-report.md`
+- `inventory/first-union-slice-tiflash-vs-tikv-drift-report.json`
 
-Issue #366 refreshes those four checked-in `inventory/first-union-slice-*` files.
+Issue #366 refreshes the TiDB/TiFlash artifact set, and issue #368 adds and refreshes the TiKV single-engine plus pairwise first-union artifacts.
 
 ## `case-results` Artifact Shape
 
@@ -113,7 +124,7 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-Issue #366 now lands executable runner wiring for this slice through `crates/tiforth-adapter-tidb/src/first_union_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_union_slice.rs`, `crates/tiforth-harness-differential/src/first_union_slice.rs`, and `crates/tiforth-harness-differential/src/bin/first_union_slice.rs`, and refreshes the four checked-in `inventory/first-union-slice-*` artifacts listed above.
+Issue #366 lands executable runner wiring for this slice through `crates/tiforth-adapter-tidb/src/first_union_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_union_slice.rs`, `crates/tiforth-harness-differential/src/first_union_slice.rs`, and `crates/tiforth-harness-differential/src/bin/first_union_slice.rs` for the TiDB-versus-TiFlash checkpoint. Issue #368 extends executable wiring through `crates/tiforth-adapter-tikv/src/first_union_slice.rs`, `crates/tiforth-harness-differential/src/first_union_slice_tikv.rs`, `crates/tiforth-harness-differential/src/first_union_slice_tikv_pairwise.rs`, and `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_pairwise.rs`, and refreshes the TiKV `inventory/first-union-slice-*` artifacts listed above.
 
 Follow-on PRs that change first-union semantics, case identifiers, adapter normalization, or drift-comparison policy should refresh those artifacts and declare `Inventory-Impact: updated`.
 
@@ -124,9 +135,9 @@ The first union artifact carriers are intentionally narrow.
 They do not yet define:
 
 - performance result formats
-- merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
+- merged multi-engine summaries beyond the current pairwise reports
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - nested predicate or compute semantics beyond passthrough `column(index)`
 - broader union-family artifact sets for `sparse_union` or nested combinations
-- TiKV single-engine or pairwise union artifacts
+- TiKV compatibility-note artifacts for this slice
