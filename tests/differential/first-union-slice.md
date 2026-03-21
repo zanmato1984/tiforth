@@ -1,6 +1,6 @@
 # First Differential Union Slice
 
-Status: issue #241 design checkpoint
+Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint
 
 Related issues:
 
@@ -9,6 +9,7 @@ Related issues:
 - #226 `design: define first struct nested handoff slice checkpoint`
 - #230 `docs: define first map nested handoff slice checkpoint`
 - #241 `docs: define first union nested handoff slice checkpoint`
+- #340 `docs: define first-union-slice differential artifact carriers`
 
 ## Question
 
@@ -22,8 +23,10 @@ passthrough boundaries?
 - `docs/design/first-union-aware-handoff-slice.md`
 - `docs/spec/type-system.md`
 - `tests/conformance/first-union-slice.md`
+- `tests/differential/first-union-slice-artifacts.md`
 - `tests/differential/README.md`
 - issue #241
+- issue #340
 
 ## First Slice Decision
 
@@ -167,6 +170,9 @@ target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-union-slice.md`.
 
+Stable artifact-carrier fields and planned checked-in filenames for this slice
+now live in `tests/differential/first-union-slice-artifacts.md`.
+
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
@@ -174,8 +180,11 @@ Later issues may extend this slice to cover:
 - nested predicate and compute behavior beyond passthrough `column(index)`
 - broader nested-family logical types (`sparse_union`, wider unions, and nested
   combinations)
-- checked-in artifact carriers and live-runner wiring for this slice
+- executable adapter and harness wiring for this slice
+- checked-in inventory refresh against the carrier contract in
+  `tests/differential/first-union-slice-artifacts.md`
 - TiKV participation
 
 Until then, this checkpoint fixes only the first union differential semantics,
-request IDs, adapter-boundary shape, and normalized comparison rules.
+request IDs, adapter-boundary shape, normalized comparison rules, and planned
+artifact-carrier contract.
