@@ -27,6 +27,7 @@ Current checkpoint:
 - `tests/differential/first-float64-ordering-slice-artifacts.md` defines the stable `case-results` and `drift-report` carriers for the first differential float64 ordering slice
 - `tests/differential/first-json-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential JSON slice
 - `tests/differential/first-struct-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential struct slice
+- `tests/differential/first-map-slice-artifacts.md` defines the stable planned `case-results` and `drift-report` carriers for the first differential map slice
 - `tests/differential/first-exchange-slice-artifacts.md` defines the stable baseline-versus-exchange `drift-report` carriers for the first differential exchange parity slice
 - `adapters/first-expression-slice.md` defines the minimal request and response surface for that TiDB-versus-TiFlash slice
 - `adapters/first-unsigned-arithmetic-slice.md` defines the minimal request and response surface for the first differential unsigned arithmetic slice
