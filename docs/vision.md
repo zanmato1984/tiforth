@@ -70,12 +70,13 @@ It also keeps the reboot honest:
 - the first exchange parity artifact-carrier checkpoint now defines baseline-versus-exchange markdown and JSON drift-report carriers through `tests/differential/first-exchange-slice-artifacts.md`
 - the first live-runner orchestration path for `first-filter-is-not-null-slice` now exists through `crates/tiforth-harness-differential/src/first_filter_is_not_null_live.rs` and `crates/tiforth-harness-differential/src/bin/first_filter_is_not_null_live.rs`
 - the first live TiKV union runner path now exists through `crates/tiforth-harness-differential/src/first_union_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_live.rs`, and `scripts/refresh-first-union-tikv-live-artifacts.sh` for env-backed execution and optional first-union TiKV artifact refresh
+- the docs-first live TiKV temporal/decimal runner boundary for `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, and `first-decimal128-slice` is now fixed in `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md`
 - the first Go-host off-heap interop checkpoint is now documented in `docs/design/first-go-host-off-heap-interop-boundary.md`, including host-driven `compile` -> `pipe_exec` -> step control flow and input/output ownership boundaries
 
 ## Next Checkpoint
 
 - the next checkpoint is to refresh checked-in first-union TiKV artifacts from live runner output when shared review environments are available
-- that refresh checkpoint should keep current first-union identifiers and checked-in artifact carriers stable while declaring inventory impact explicitly
+- after that refresh cadence is stable, implement live TiKV temporal/decimal runner wiring for `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, and `first-decimal128-slice` under `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md` without changing existing identifiers or artifact carriers
 
 ## Kernel Expansion Gate
 
