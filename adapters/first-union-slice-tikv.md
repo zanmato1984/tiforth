@@ -1,6 +1,6 @@
 # First TiKV Union Adapter Boundary
 
-Status: issue #368 executable checkpoint
+Status: issue #368 executable checkpoint, issue #370 compatibility-notes checkpoint
 
 Verified: 2026-03-21
 
@@ -10,6 +10,7 @@ Related issues:
 - #340 `docs: define first-union-slice differential artifact carriers`
 - #366 `harness: execute first-union-slice differential artifacts`
 - #368 `harness: add TiKV first-union-slice executable checkpoints`
+- #370 `inventory: add first-union-slice TiKV compatibility notes checkpoint`
 
 ## Purpose
 
@@ -115,6 +116,8 @@ unchanged:
   - `inventory/first-union-slice-tidb-vs-tikv-drift-report.json`
   - `inventory/first-union-slice-tiflash-vs-tikv-drift-report.md`
   - `inventory/first-union-slice-tiflash-vs-tikv-drift-report.json`
+- issue #370 lands the first TiKV union compatibility notes artifact at
+  `inventory/first-union-slice-tikv-compat-notes.md`
 - normalized field meanings stay aligned with
   `tests/differential/first-union-slice-artifacts.md`
 
@@ -124,7 +127,6 @@ After this request/response plus single-engine and pairwise executable
 checkpoint, follow-on issues may separately define:
 
 - live TiKV runner wiring and refresh workflow for this slice
-- TiKV compatibility-note checkpoints for this slice
 
 ## Result
 

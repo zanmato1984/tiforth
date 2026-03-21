@@ -48,6 +48,7 @@ Current checkpoint:
 - `inventory/first-temporal-timestamp-tz-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-temporal-timestamp-tz-slice`
 - `inventory/first-temporal-timestamp-tz-slice-tikv-case-results.json` now captures the first checked-in TiKV single-engine normalized `case-results` evidence for `first-temporal-timestamp-tz-slice`
 - `inventory/first-union-slice-tikv-case-results.json` now captures the first checked-in TiKV single-engine normalized `case-results` evidence for `first-union-slice`
+- `inventory/first-union-slice-tikv-compat-notes.md` now captures the first TiKV-side compatibility notes checkpoint for `first-union-slice`
 - `inventory/first-expression-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
 - `inventory/first-expression-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-expression-slice`
 - `inventory/first-filter-is-not-null-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-filter-is-not-null-slice`
