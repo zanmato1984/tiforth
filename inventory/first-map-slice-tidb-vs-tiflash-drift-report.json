@@ -1,0 +1,87 @@
+{
+  "slice_id": "first-map-slice",
+  "engines": [
+    "tidb",
+    "tiflash"
+  ],
+  "spec_refs": [
+    "docs/design/first-map-aware-handoff-slice.md",
+    "docs/spec/type-system.md",
+    "tests/conformance/first-map-slice.md",
+    "tests/differential/first-map-slice.md"
+  ],
+  "cases": [
+    {
+      "case_id": "map-column-passthrough",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiFlash both returned 3 row(s) for `map-column-passthrough` with field `m` normalized as `map<int32,int32?>`.",
+      "evidence_refs": [
+        "inventory/first-map-slice-tidb-case-results.json#map-column-passthrough",
+        "inventory/first-map-slice-tiflash-case-results.json#map-column-passthrough"
+      ]
+    },
+    {
+      "case_id": "map-column-null-preserve",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiFlash both returned 3 row(s) for `map-column-null-preserve` with field `m` normalized as `map<int32,int32?>`.",
+      "evidence_refs": [
+        "inventory/first-map-slice-tidb-case-results.json#map-column-null-preserve",
+        "inventory/first-map-slice-tiflash-case-results.json#map-column-null-preserve"
+      ]
+    },
+    {
+      "case_id": "map-value-null-preserve",
+      "status": "match",
+      "comparison_dimensions": [
+        "field_name",
+        "field_nullability",
+        "logical_type",
+        "row_count",
+        "row_values"
+      ],
+      "summary": "TiDB and TiFlash both returned 3 row(s) for `map-value-null-preserve` with field `m` normalized as `map<int32,int32?>`.",
+      "evidence_refs": [
+        "inventory/first-map-slice-tidb-case-results.json#map-value-null-preserve",
+        "inventory/first-map-slice-tiflash-case-results.json#map-value-null-preserve"
+      ]
+    },
+    {
+      "case_id": "map-missing-column-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "TiDB and TiFlash both normalized `map-missing-column-error` as `missing_column`.",
+      "evidence_refs": [
+        "inventory/first-map-slice-tidb-case-results.json#map-missing-column-error",
+        "inventory/first-map-slice-tiflash-case-results.json#map-missing-column-error"
+      ]
+    },
+    {
+      "case_id": "unsupported-nested-family-error",
+      "status": "match",
+      "comparison_dimensions": [
+        "error_class"
+      ],
+      "summary": "TiDB and TiFlash both normalized `unsupported-nested-family-error` as `unsupported_nested_family`.",
+      "evidence_refs": [
+        "inventory/first-map-slice-tidb-case-results.json#unsupported-nested-family-error",
+        "inventory/first-map-slice-tiflash-case-results.json#unsupported-nested-family-error"
+      ]
+    }
+  ]
+}

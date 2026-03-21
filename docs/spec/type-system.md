@@ -217,6 +217,14 @@ Issue #230 also adds the first docs-first map coverage anchors in:
 - `tests/differential/first-map-slice.md`
 - `adapters/first-map-slice.md`
 
+Issue #362 adds the first executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tidb/src/first_map_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/first_map_slice.rs`
+- `crates/tiforth-harness-differential/src/first_map_slice.rs`
+
+with checked-in artifacts under `inventory/first-map-slice-*`.
+
 For current shared contracts:
 
 - the first admitted map nested logical type beyond milestone 1 is
@@ -233,6 +241,8 @@ For current shared contracts:
   issues
 - local executable kernel coverage for this map checkpoint now exists in
   `crates/tiforth-kernel/tests/map_slice.rs`
+- executable TiDB-versus-TiFlash adapter and differential harness coverage for this map checkpoint now exists in `crates/tiforth-adapter-tidb/src/first_map_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_map_slice.rs`, and `crates/tiforth-harness-differential/src/first_map_slice.rs`, with checked-in artifacts under `inventory/first-map-slice-*`
+- TiKV executable map coverage remains follow-on scope
 
 ## First Union Nested Follow-On Checkpoint
 

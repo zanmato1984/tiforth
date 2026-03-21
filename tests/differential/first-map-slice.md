@@ -1,6 +1,6 @@
 # First Differential Map Slice
 
-Status: issue #230 design checkpoint, issue #338 artifact-carrier checkpoint
+Status: issue #230 design checkpoint, issue #338 artifact-carrier checkpoint, issue #362 executable differential checkpoint
 
 Related issues:
 
@@ -9,6 +9,7 @@ Related issues:
 - #226 `design: define first struct nested handoff slice checkpoint`
 - #230 `docs: define first map nested handoff slice checkpoint`
 - #338 `docs: define first-map-slice differential artifact carriers`
+- #362 `harness: execute first-map-slice differential artifacts`
 
 ## Question
 
@@ -25,6 +26,7 @@ Which cross-engine comparison should `tiforth` define first for a narrow
 - `tests/differential/first-map-slice-artifacts.md`
 - issue #230
 - issue #338
+- issue #362
 
 ## First Slice Decision
 
@@ -164,7 +166,7 @@ real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-map-slice.md`.
 
-Stable artifact-carrier fields and planned checked-in filenames for this slice
+Stable artifact-carrier fields and checked-in filenames for this slice
 now live in `tests/differential/first-map-slice-artifacts.md`.
 
 ## Follow-On Boundary
@@ -173,8 +175,7 @@ Later issues may extend this slice to cover:
 
 - nested predicate and compute behavior beyond passthrough `column(index)`
 - broader nested-family logical types (`union`, nested combinations)
-- live-runner wiring and checked-in artifact refresh for this slice
 - TiKV participation
 
 Until then, this checkpoint fixes the first map differential semantics,
-request IDs, adapter-boundary shape, normalized comparison rules, and planned artifact carriers.
+request IDs, adapter-boundary shape, normalized comparison rules, and checked-in artifact-carrier evidence for the TiDB-versus-TiFlash checkpoint.
