@@ -4,12 +4,13 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/refresh-first-tikv-live-artifacts.sh [--write-artifacts]
+  scripts/refresh-first-tikv-live-artifacts.sh [--write-artifacts] [--dry-run]
 
 Modes:
   default            run live TiKV refresh scripts for first-union, first-decimal128, first-temporal-date32,
                      and first-temporal-timestamp-tz; print artifacts without rewriting checked-in files
   --write-artifacts  run the same sequence and overwrite checked-in TiKV artifacts after successful runs
+  --dry-run          print the per-slice commands that would run; skip env checks and execution
 
 Runs in order:
   1. scripts/refresh-first-union-tikv-live-artifacts.sh
@@ -45,7 +46,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # shellcheck source=scripts/lib/tikv-live-refresh-common.sh
 source "$repo_root/scripts/lib/tikv-live-refresh-common.sh"
 
-if tiforth_live_refresh_parse_write_artifacts_flag "$@"; then
+if tiforth_live_refresh_parse_mode_flags "$@"; then
   :
 else
   parse_status=$?
@@ -56,8 +57,12 @@ else
 fi
 
 write_artifacts=$TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS
+dry_run=$TIFORTH_LIVE_REFRESH_DRY_RUN
 cd "$repo_root"
-tiforth_live_refresh_require_mysql_env "consolidated TiKV live artifact refresh"
+
+if [[ $dry_run -ne 1 ]]; then
+  tiforth_live_refresh_require_mysql_env "consolidated TiKV live artifact refresh"
+fi
 
 refresh_scripts=(
   scripts/refresh-first-union-tikv-live-artifacts.sh
@@ -77,12 +82,15 @@ refresh_args=()
 if [[ $write_artifacts -eq 1 ]]; then
   refresh_args+=(--write-artifacts)
 fi
+if [[ $dry_run -eq 1 ]]; then
+  refresh_args+=(--dry-run)
+fi
 
 for refresh_script in "${refresh_scripts[@]}"; do
   if [[ ${#refresh_args[@]} -eq 0 ]]; then
     echo "Running $refresh_script"
   else
-    echo "Running $refresh_script --write-artifacts"
+    echo "Running $refresh_script ${refresh_args[*]}"
   fi
   bash "$refresh_script" "${refresh_args[@]}"
 done
