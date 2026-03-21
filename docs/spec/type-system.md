@@ -173,6 +173,14 @@ checkpoint in:
 
 - `crates/tiforth-kernel/tests/struct_slice.rs`
 
+Issue #360 adds the first executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tidb/src/first_struct_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/first_struct_slice.rs`
+- `crates/tiforth-harness-differential/src/first_struct_slice.rs`
+
+with checked-in artifacts under `inventory/first-struct-slice-*`.
+
 Issue #226 also adds the first docs-first struct coverage anchors in:
 
 - `tests/conformance/first-struct-slice.md`
@@ -195,6 +203,8 @@ For current shared contracts:
   remain out of scope until follow-on issues
 - local executable kernel coverage for this struct checkpoint now exists in
   `crates/tiforth-kernel/tests/struct_slice.rs`
+- executable TiDB-versus-TiFlash adapter and differential harness coverage for this struct checkpoint now exists in `crates/tiforth-adapter-tidb/src/first_struct_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_struct_slice.rs`, and `crates/tiforth-harness-differential/src/first_struct_slice.rs`, with checked-in artifacts under `inventory/first-struct-slice-*`
+- TiKV executable struct coverage remains follow-on scope
 
 ## First Map Nested Follow-On Checkpoint
 

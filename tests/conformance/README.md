@@ -30,7 +30,7 @@ Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint i
 
 Issue #224 adds the first JSON conformance checkpoint in `tests/conformance/first-json-slice.md`. Issue #354 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/json_slice.rs`. Issue #356 adds first executable TiDB-versus-TiFlash differential adapter and harness coverage for that checkpoint in `crates/tiforth-adapter-tidb/src/first_json_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`, and `crates/tiforth-harness-differential/src/first_json_slice.rs`, with checked-in `inventory/first-json-slice-*` artifacts.
 
-Issue #226 adds the first struct passthrough conformance checkpoint in `tests/conformance/first-struct-slice.md`. Issue #329 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/struct_slice.rs`.
+Issue #226 adds the first struct passthrough conformance checkpoint in `tests/conformance/first-struct-slice.md`. Issue #329 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/struct_slice.rs`. Issue #360 adds first executable TiDB-versus-TiFlash differential adapter and harness coverage for that checkpoint in `crates/tiforth-adapter-tidb/src/first_struct_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_struct_slice.rs`, and `crates/tiforth-harness-differential/src/first_struct_slice.rs`, with checked-in `inventory/first-struct-slice-*` artifacts.
 
 Issue #230 adds the first map passthrough conformance checkpoint in `tests/conformance/first-map-slice.md`. Issue #334 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/map_slice.rs`.
 

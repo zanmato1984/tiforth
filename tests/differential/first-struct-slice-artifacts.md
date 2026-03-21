@@ -1,6 +1,6 @@
 # First Struct Slice Artifact Carriers
 
-Status: issue #226 design checkpoint, issue #331 artifact-carrier checkpoint
+Status: issue #226 design checkpoint, issue #331 artifact-carrier checkpoint, issue #360 executable artifact checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #151 `design: define first nested-family shared handoff slice and claim-ownership boundary`
 - #226 `design: define first struct nested handoff slice checkpoint`
 - #331 `docs: define first-struct-slice differential artifact carriers`
+- #360 `harness: execute first-struct-slice differential artifacts`
 
 ## Purpose
 
@@ -31,15 +32,14 @@ checked-in artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Planned artifact filenames for this slice:
+Artifact filenames for this slice:
 
 - `inventory/first-struct-slice-tidb-case-results.json`
 - `inventory/first-struct-slice-tiflash-case-results.json`
 - `inventory/first-struct-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-struct-slice-tidb-vs-tiflash-drift-report.json`
 
-Issue #331 is docs-first only and does not add or refresh those `inventory/`
-files.
+Issue #360 refreshes those four checked-in `inventory/first-struct-slice-*` files.
 
 ## `case-results` Artifact Shape
 
@@ -111,15 +111,9 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-This checkpoint documents carriers only.
+Issue #360 now lands executable runner wiring for this slice through `crates/tiforth-adapter-tidb/src/first_struct_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_struct_slice.rs`, `crates/tiforth-harness-differential/src/first_struct_slice.rs`, and `crates/tiforth-harness-differential/src/bin/first_struct_slice.rs`, and refreshes the four checked-in `inventory/first-struct-slice-*` artifacts listed above.
 
-Follow-on harness work should add executable runner wiring for this slice and
-then refresh or check in the planned `inventory/` files using the same carrier
-shape defined here.
-
-Until that executable checkpoint lands, PRs that touch this note may declare:
-
-- `Inventory-Impact: none - struct artifact carriers documented but no executable artifact refresh performed`
+Follow-on PRs that change first-struct semantics, case identifiers, adapter normalization, or drift-comparison policy should refresh those artifacts and declare `Inventory-Impact: updated`.
 
 ## Boundary For Now
 
@@ -131,7 +125,6 @@ They do not yet define:
 - merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
-- executable struct adapter or differential harness wiring
 - nested predicate or compute semantics beyond passthrough `column(index)`
 - broader nested-family artifact sets for `map`, `union`, or nested combinations
 - TiKV single-engine or pairwise struct artifacts

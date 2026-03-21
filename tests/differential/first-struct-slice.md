@@ -1,6 +1,6 @@
 # First Differential Struct Slice
 
-Status: issue #226 design checkpoint, issue #331 artifact-carrier checkpoint
+Status: issue #226 design checkpoint, issue #331 artifact-carrier checkpoint, issue #360 executable differential checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #151 `design: define first nested-family shared handoff slice and claim-ownership boundary`
 - #226 `design: define first struct nested handoff slice checkpoint`
 - #331 `docs: define first-struct-slice differential artifact carriers`
+- #360 `harness: execute first-struct-slice differential artifacts`
 
 ## Question
 
@@ -24,6 +25,7 @@ Which cross-engine comparison should `tiforth` define first for a narrow
 - `tests/differential/first-struct-slice-artifacts.md`
 - issue #226
 - issue #331
+- issue #360
 
 ## First Slice Decision
 
@@ -163,20 +165,17 @@ target real engine behavior.
 The minimal shared adapter request and response boundary for this slice lives
 in `adapters/first-struct-slice.md`.
 
-Stable artifact-carrier fields and planned checked-in filenames for this slice
+Stable artifact-carrier fields and checked-in filenames for this slice
 now live in `tests/differential/first-struct-slice-artifacts.md`.
 
 ## Follow-On Boundary
 
 Later issues may extend this slice to cover:
 
-- executable adapter and harness wiring for this slice
-- checked-in inventory refresh against the carrier contract in
-  `tests/differential/first-struct-slice-artifacts.md`
 - nested predicate and compute behavior beyond passthrough `column(index)`
 - broader nested-family logical types (`map`, `union`, nested combinations)
 - TiKV participation
 
 Until then, this checkpoint fixes only the first struct differential
 semantics, request IDs, adapter-boundary shape, normalized comparison rules,
-and planned artifact-carrier contract for the TiDB-versus-TiFlash checkpoint.
+and checked-in artifact-carrier evidence for the TiDB-versus-TiFlash checkpoint.
