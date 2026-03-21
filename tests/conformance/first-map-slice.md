@@ -1,6 +1,6 @@
 # First Map Slice Cases
 
-Status: issue #230 docs checkpoint, issue #334 executable kernel checkpoint
+Status: issue #230 docs checkpoint, issue #334 executable kernel checkpoint, issue #362 executable differential checkpoint
 
 Spec source: `docs/design/first-map-aware-handoff-slice.md`
 
@@ -30,4 +30,4 @@ Cross-engine comparison for these cases is defined in:
 Local executable kernel conformance for this checkpoint now exists in
 `crates/tiforth-kernel/tests/map_slice.rs`.
 
-Differential harness and adapter coverage for `map` remain follow-on scope.
+Issue #362 adds executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in `crates/tiforth-adapter-tidb/src/first_map_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_map_slice.rs`, and `crates/tiforth-harness-differential/src/first_map_slice.rs`, with checked-in artifacts under `inventory/first-map-slice-*`
