@@ -62,6 +62,7 @@ It also keeps the reboot honest:
 - the first nested map handoff checkpoint now has docs-first semantic, conformance, differential, adapter, and artifact-carrier anchors through `docs/design/first-map-aware-handoff-slice.md`, `tests/conformance/first-map-slice.md`, `tests/differential/first-map-slice.md`, `tests/differential/first-map-slice-artifacts.md`, and `adapters/first-map-slice.md`, plus local executable shared-kernel conformance coverage in `crates/tiforth-kernel/tests/map_slice.rs`, executable TiDB-versus-TiFlash adapter and harness coverage in `crates/tiforth-adapter-tidb/src/first_map_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_map_slice.rs`, and `crates/tiforth-harness-differential/src/first_map_slice.rs`, with checked-in artifacts under `inventory/first-map-slice-*`
 - the first nested union handoff checkpoint now has docs-first semantic, conformance, differential, adapter, and artifact-carrier anchors through `docs/design/first-union-aware-handoff-slice.md`, `tests/conformance/first-union-slice.md`, `tests/differential/first-union-slice.md`, `tests/differential/first-union-slice-artifacts.md`, `adapters/first-union-slice.md`, and `adapters/first-union-slice-tikv.md`, plus local executable shared-kernel conformance coverage in `crates/tiforth-kernel/tests/union_slice.rs`, executable TiDB-versus-TiFlash adapter and harness coverage in `crates/tiforth-adapter-tidb/src/first_union_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_union_slice.rs`, and `crates/tiforth-harness-differential/src/first_union_slice.rs`, and executable TiKV single-engine plus pairwise harness coverage in `crates/tiforth-adapter-tikv/src/first_union_slice.rs`, `crates/tiforth-harness-differential/src/first_union_slice_tikv.rs`, and `crates/tiforth-harness-differential/src/first_union_slice_tikv_pairwise.rs`, with checked-in artifacts under `inventory/first-union-slice-*`
 - the first checked-in union TiKV compatibility notes checkpoint now exists at `inventory/first-union-slice-tikv-compat-notes.md` alongside the union TiKV single-engine and pairwise drift-report artifacts
+- the docs-first live TiKV runner orchestration and artifact refresh boundary for `first-union-slice` is now fixed in `docs/design/first-union-slice-tikv-live-runner-boundary.md`
 - the first executable differential temporal date32 checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired first-temporal artifacts under `inventory/`
 - the first executable post-gate filter checkpoint now exists through `crates/tiforth-kernel` via `FilterPipe` and executable coverage in `crates/tiforth-kernel/tests/filter_is_not_null.rs`
 - the first executable differential filter checkpoint now exists through `crates/tiforth-harness-differential` and checked-in paired first-filter artifacts under `inventory/`
@@ -72,8 +73,8 @@ It also keeps the reboot honest:
 
 ## Next Checkpoint
 
-- the next checkpoint is to define live TiKV runner orchestration and refresh workflow for first-union-slice evidence
-- that follow-on checkpoint should keep current first-union identifiers and checked-in artifact carriers stable while adding live-runner capture boundaries
+- the next checkpoint is to implement live TiKV runner orchestration and refresh workflow for `first-union-slice` under `docs/design/first-union-slice-tikv-live-runner-boundary.md`
+- that implementation checkpoint should keep current first-union identifiers and checked-in artifact carriers stable while adding environment-backed live capture wiring
 
 ## Kernel Expansion Gate
 

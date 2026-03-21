@@ -1,6 +1,6 @@
 # First TiKV Union Adapter Boundary
 
-Status: issue #368 executable checkpoint, issue #370 compatibility-notes checkpoint
+Status: issue #368 executable checkpoint, issue #370 compatibility-notes checkpoint, issue #372 live-runner-boundary checkpoint
 
 Verified: 2026-03-21
 
@@ -11,6 +11,7 @@ Related issues:
 - #366 `harness: execute first-union-slice differential artifacts`
 - #368 `harness: add TiKV first-union-slice executable checkpoints`
 - #370 `inventory: add first-union-slice TiKV compatibility notes checkpoint`
+- #372 `design: define live TiKV runner boundary for first-union-slice`
 
 ## Purpose
 
@@ -123,10 +124,12 @@ unchanged:
 
 ## Follow-On Boundary
 
-After this request/response plus single-engine and pairwise executable
-checkpoint, follow-on issues may separately define:
+Issue #372 now defines docs-first live TiKV runner orchestration and refresh
+scope for this slice in
+`docs/design/first-union-slice-tikv-live-runner-boundary.md`.
 
-- live TiKV runner wiring and refresh workflow for this slice
+Follow-on implementation issues may add executable live runner wiring and
+artifact refresh mechanics while staying inside that boundary.
 
 ## Result
 

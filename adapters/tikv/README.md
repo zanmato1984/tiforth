@@ -65,11 +65,13 @@ Current checkpoint:
 - `inventory/first-temporal-timestamp-tz-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-temporal-timestamp-tz-slice`
 - `inventory/first-union-slice-tidb-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiDB-versus-TiKV drift classification and machine-readable sidecar for `first-union-slice`
 - `inventory/first-union-slice-tiflash-vs-tikv-drift-report.md` plus `.json` now capture the first executable TiFlash-versus-TiKV drift classification and machine-readable sidecar for `first-union-slice`
+- `docs/design/first-union-slice-tikv-live-runner-boundary.md` now defines the docs-first live TiKV runner configuration, execution, and artifact-refresh boundary for `first-union-slice` while keeping existing case IDs and artifact carriers stable
 
 Next checkpoint:
 
+- implement live TiKV runner wiring and refresh workflow for `first-union-slice` following `docs/design/first-union-slice-tikv-live-runner-boundary.md` when shared environments are available
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, first-float64-ordering, first-unsigned-arithmetic, or first-union case-results evidence changes
-- define live TiKV temporal and decimal runner wiring plus refresh workflow when shared environments are available
+- after the first-union live-runner checkpoint, define live TiKV temporal and decimal runner wiring plus refresh workflow when shared environments are available
 - broaden TiKV executable temporal coverage beyond the current first-temporal-date32 and first-temporal-timestamp-tz checkpoints once follow-on semantic slices are accepted
 
 ## TODOs
