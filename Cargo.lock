@@ -500,6 +500,7 @@ name = "tiforth-kernel"
 version = "0.1.0"
 dependencies = [
  "arrow-array",
+ "arrow-buffer",
  "arrow-schema",
  "arrow-select",
  "broken-pipeline",

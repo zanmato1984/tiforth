@@ -12,5 +12,6 @@ broken-pipeline = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
+arrow-buffer = "50.0.0"
 broken-pipeline-schedule = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "174e6cd07c41210158ae1d805b568968cf71f898" }
 serde_json = "1.0"

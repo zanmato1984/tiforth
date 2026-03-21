@@ -116,9 +116,9 @@ fn unsupported_nested_family_projection_reports_execution_error() {
     assert!(error
         .to_string()
         .contains("unsupported nested expression input at column 0"));
-    assert!(error
-        .to_string()
-        .contains("struct<a:int32, b:int32?> and map<int32, int32?> only"));
+    assert!(error.to_string().contains(
+        "struct<a:int32, b:int32?>, map<int32, int32?>, and dense_union<i:int32, n:int32?> only"
+    ));
 }
 
 fn make_single_struct_batch(rows: Vec<Option<(i32, Option<i32>)>>) -> RecordBatch {

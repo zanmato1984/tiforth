@@ -1,6 +1,6 @@
 # First Union Slice Cases
 
-Status: issue #241 docs checkpoint
+Status: issue #241 docs checkpoint, issue #336 local executable kernel checkpoint
 
 Spec source: `docs/design/first-union-aware-handoff-slice.md`
 
@@ -16,8 +16,8 @@ Spec source: `docs/design/first-union-aware-handoff-slice.md`
 - `missing column`: out-of-range `column(index)` in projection paths fails as
   an execution error
 - `unsupported nested family`: nested inputs outside this checkpoint (for
-  example `map<int32, int32?>` or wider and sparse union modes) fail as
-  execution errors in this slice
+  example `sparse_union` or wider child sets) fail as execution errors in this
+  slice
 
 ## Differential Anchor
 
@@ -28,5 +28,7 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only. Local executable kernel conformance for
-`union` remains follow-on scope.
+Issue #336 adds the first executable local kernel conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/union_slice.rs`
