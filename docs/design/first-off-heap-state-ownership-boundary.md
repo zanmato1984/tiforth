@@ -60,6 +60,12 @@ This checkpoint does not define:
 - spill file formats, storage engines, or transport protocols
 - direct host-allocator-backed Arrow buffer requirements
 
+## First Go Host Interop Follow-On
+
+Issue #363 now documents one design-only host interop checkpoint in `docs/design/first-go-host-off-heap-interop-boundary.md`.
+
+That follow-on keeps this off-heap ownership boundary intact while clarifying host-driven `compile` -> `pipe_exec` -> step control flow and host release responsibilities for `tiforth`-created output batches.
+
 ## Result
 
 Off-heap ownership is now explicit in shared contracts: resident non-batch state is governed and attributable, batch claims remain batch-reachability-only, and spill plus rehydration continue to use existing reserve-first ownership rules.
