@@ -68,12 +68,13 @@ Current checkpoint:
 - `docs/design/first-union-slice-tikv-live-runner-boundary.md` now defines the docs-first live TiKV runner configuration, execution, and artifact-refresh boundary for `first-union-slice` while keeping existing case IDs and artifact carriers stable
 - `crates/tiforth-harness-differential/src/first_union_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_live.rs`, and `scripts/refresh-first-union-tikv-live-artifacts.sh` now provide env-configured live TiDB/TiFlash/TiKV execution and optional first-union TiKV artifact refresh wiring
 - `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md` now defines docs-first live TiKV temporal/decimal runner configuration, execution, and artifact-refresh boundaries for `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, and `first-decimal128-slice` while preserving existing identifiers and carrier schemas
+- `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_live.rs`, and `scripts/refresh-first-decimal128-tikv-live-artifacts.sh` now provide env-configured live TiDB/TiFlash/TiKV execution and optional first-decimal128 TiKV artifact refresh wiring
 
 Next checkpoint:
 
-- refresh checked-in first-union TiKV artifacts from live runner output via `scripts/refresh-first-union-tikv-live-artifacts.sh` when shared environments are available
+- refresh checked-in first-union and first-decimal128 TiKV artifacts from live runner output via `scripts/refresh-first-union-tikv-live-artifacts.sh` and `scripts/refresh-first-decimal128-tikv-live-artifacts.sh` when shared environments are available
 - refresh TiKV pairwise drift artifacts for `tidb-vs-tikv` and `tiflash-vs-tikv` whenever first-expression, first-filter, first-temporal-date32, first-temporal-timestamp-tz, first-decimal128, first-float64-ordering, first-unsigned-arithmetic, or first-union case-results evidence changes
-- after first-union live-runner refresh stabilizes, implement live TiKV temporal/decimal runner wiring and refresh workflow following `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md` when shared environments are available
+- after first-union and first-decimal128 live-runner refresh cadence stabilizes, implement live TiKV temporal runner wiring and refresh workflow for `first-temporal-date32-slice` and `first-temporal-timestamp-tz-slice` following `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md` when shared environments are available
 - broaden TiKV executable temporal coverage beyond the current first-temporal-date32 and first-temporal-timestamp-tz checkpoints once follow-on semantic slices are accepted
 
 ## TODOs
