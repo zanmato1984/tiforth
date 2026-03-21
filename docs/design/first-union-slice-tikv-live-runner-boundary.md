@@ -113,13 +113,14 @@ manual. Live runner refresh does not auto-regenerate compatibility notes.
 
 ## Executable Checkpoint
 
-Issue #374 lands the first executable live-runner wiring inside this boundary:
+Issue #374 and issue #384 land executable live-runner wiring inside this boundary:
 
 - `crates/tiforth-harness-differential/src/first_union_slice_tikv_live.rs`
 - `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_live.rs`
 - `scripts/refresh-first-union-tikv-live-artifacts.sh`
+- `scripts/refresh-first-tikv-live-artifacts.sh`
 
-That executable checkpoint keeps the existing first-union semantic IDs,
+Those executable checkpoints keep the existing first-union semantic IDs,
 normalized carrier schema, and TiKV artifact family unchanged.
 
 ## Follow-On

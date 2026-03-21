@@ -140,7 +140,7 @@ by live runner refresh.
 
 ## Executable Checkpoint
 
-Issue #378, issue #380, and issue #382 land executable temporal/decimal
+Issue #378, issue #380, issue #382, and issue #384 land executable temporal/decimal
 live-runner wiring inside this boundary:
 
 - `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`
@@ -152,6 +152,7 @@ live-runner wiring inside this boundary:
 - `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_live.rs`
 - `crates/tiforth-harness-differential/src/bin/first_temporal_timestamp_tz_slice_tikv_live.rs`
 - `scripts/refresh-first-temporal-timestamp-tz-tikv-live-artifacts.sh`
+- `scripts/refresh-first-tikv-live-artifacts.sh`
 
 Those executable checkpoints preserve existing decimal/temporal semantic IDs,
 normalized carrier schema, and checked-in artifact filenames.
