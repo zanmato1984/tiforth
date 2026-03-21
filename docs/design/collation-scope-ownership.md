@@ -69,11 +69,11 @@ The current shared boundary remains collation-light:
 
 Later issues may extend this checkpoint to define:
 
-- executable adapter and kernel coverage for `first-collation-string-slice`
+- executable adapter and differential-harness coverage for `first-collation-string-slice` beyond the first local kernel checkpoint
 - broader shared collation identifier vocabulary beyond `binary` and `unicode_ci`
 - cross-adapter normalization rules when engines expose different collation names or capabilities
 - required conformance and differential case coverage for collation-sensitive behavior
 
 ## Result
 
-Collation ownership is now explicit: milestone-1 shared slices stay collation-insensitive, adapter session-level collation choices remain local orchestration concerns, and the first post-milestone docs-first collation slice is fixed in `docs/design/first-collation-string-slice.md` before executable adoption.
+Collation ownership is now explicit: milestone-1 shared slices stay collation-insensitive, adapter session-level collation choices remain local orchestration concerns, the first post-milestone collation slice is fixed in `docs/design/first-collation-string-slice.md`, and first local executable kernel coverage now exists in `crates/tiforth-kernel/tests/collation_string_slice.rs`.

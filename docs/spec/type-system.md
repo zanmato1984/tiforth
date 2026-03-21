@@ -151,17 +151,17 @@ This fixes the current milestone-1 arithmetic typing rule without claiming it as
 Issue #139 adds the first docs-first filter semantic checkpoint in
 `docs/spec/first-filter-is-not-null.md`.
 
-Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, issue #196 adds executable float64 predicate coverage, issue #288 adds executable `timestamp_tz(us)` predicate coverage, and issue #308 adds executable `uint64` predicate coverage.
+Issue #149 makes that predicate checkpoint executable in the local shared-kernel filter path. Issue #178 then extends executable predicate input to include `date32` for the first temporal slice. Issue #189 adds docs-first decimal predicate coverage for `decimal128`, issue #196 adds executable float64 predicate coverage, issue #288 adds executable `timestamp_tz(us)` predicate coverage, issue #308 adds executable `uint64` predicate coverage, and issue #352 adds executable `utf8` predicate coverage through the first collation string slice.
 
 ### `is_not_null(column(index))`
 
-- requires one `column(index)` operand that resolves to logical type `int32`, `uint64`, `date32`, `decimal128`, `float64`, `json`, or `timestamp_tz(us)` in current shared checkpoints
+- requires one `column(index)` operand that resolves to logical type `int32`, `uint64`, `utf8`, `date32`, `decimal128`, `float64`, `json`, or `timestamp_tz(us)` in current shared checkpoints
 - derives logical result type `boolean`
 - derives `nullable = false` for predicate evaluation
 - evaluates row-wise as `true` for non-null input values and `false` for null input values
 - reports an execution error when `index` is out of range
 - reports an execution error rather than applying an implicit cast when the operand is outside the currently admitted checkpoint set
-- local executable kernel coverage for this predicate now includes `int32`, `uint64`, `date32`, `decimal128`, `float64`, and `timestamp_tz(us)` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, `crates/tiforth-kernel/tests/float64_slice.rs`, and `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
+- local executable kernel coverage for this predicate now includes `int32`, `uint64`, `utf8`, `date32`, `decimal128`, `float64`, and `timestamp_tz(us)` in shared-kernel conformance slices through `crates/tiforth-kernel/tests/filter_is_not_null.rs`, `crates/tiforth-kernel/tests/collation_string_slice.rs`, `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`, `crates/tiforth-kernel/tests/temporal_date32_slice.rs`, `crates/tiforth-kernel/tests/decimal128_slice.rs`, `crates/tiforth-kernel/tests/float64_slice.rs`, and `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`
 
 ## First Struct Nested Follow-On Checkpoint
 
@@ -430,18 +430,23 @@ Issue #233 also adds the first docs-first collation coverage anchors in:
 - `tests/differential/first-collation-string-slice.md`
 - `adapters/first-collation-string-slice.md`
 
+Issue #352 adds the first executable local conformance coverage for this checkpoint in:
+
+- `crates/tiforth-kernel/tests/collation_string_slice.rs`
+
 For current shared contracts:
 
 - the first admitted collation-sensitive string logical type beyond milestone 1
   is `utf8`
 - the first shared collation identifiers are `binary` and `unicode_ci`
 - this checkpoint admits passthrough `column(index)`,
-  `is_not_null(column(index))`, and docs-first collation-tagged comparison and
+  `is_not_null(column(index))`, and collation-tagged comparison and
   ordering probes under explicit `collation_ref`
 - this checkpoint does not add implicit collation derivation, collation
   coercion, or shared runtime collation negotiation state
-- local executable kernel and adapter coverage for this collation checkpoint
-  remains follow-on scope
+- local executable kernel coverage for this collation checkpoint now exists in
+  `crates/tiforth-kernel/tests/collation_string_slice.rs`
+- adapter coverage for this collation checkpoint remains follow-on scope
 
 ## First Overflow Follow-On Checkpoint
 
