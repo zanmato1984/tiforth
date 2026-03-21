@@ -1,12 +1,13 @@
 # First Differential JSON Slice
 
-Status: issue #224 design checkpoint, issue #272 artifact-carrier checkpoint
+Status: issue #224 design checkpoint, issue #272 artifact-carrier checkpoint, issue #356 executable differential checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #224 `design: define first JSON semantic slice boundary`
 - #272 `docs: define first-json-slice differential artifact carriers`
+- #356 `harness: execute first-json-slice differential artifacts`
 
 ## Question
 
@@ -194,16 +195,12 @@ in `adapters/first-json-slice.md`.
 
 ## Follow-On Boundary
 
+Issue #356 now executes this slice through `crates/tiforth-adapter-tidb/src/first_json_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`, and `crates/tiforth-harness-differential/src/first_json_slice.rs`, with checked-in artifacts under `inventory/first-json-slice-*`.
+
 Later issues may extend this slice to cover:
 
-- executable adapter and harness wiring for this slice
-- checked-in inventory refresh against the carrier contract in
-  `tests/differential/first-json-slice-artifacts.md`
-- successful JSON cast semantics and parse-error normalization
-- JSON comparison and operator families beyond this unsupported-ordering
-  boundary
+- successful JSON cast semantics and parse-error normalization beyond the current unsupported-cast boundary
+- JSON comparison and operator families beyond this unsupported-ordering boundary
 - TiKV participation
 
-Until then, this checkpoint fixes only the first JSON differential semantics,
-request IDs, adapter-boundary shape, normalized comparison rules, and
-unsupported-ordering or cast error boundaries.
+This checkpoint now fixes the first JSON differential semantics, request IDs, adapter-boundary shape, normalized comparison rules, and unsupported-ordering or cast error boundaries.

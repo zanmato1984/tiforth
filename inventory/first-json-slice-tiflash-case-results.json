@@ -1,0 +1,332 @@
+{
+  "slice_id": "first-json-slice",
+  "engine": "tiflash",
+  "adapter": "tiflash-sql",
+  "cases": [
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-basic",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "{\"a\":1}"
+          ],
+          [
+            "[1,2]"
+          ],
+          [
+            "true"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-column-null-preserve",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-nullable",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            "{\"a\":1}"
+          ],
+          [
+            null
+          ],
+          [
+            "null"
+          ],
+          [
+            "{\"a\":1,\"b\":2}"
+          ]
+        ],
+        "row_count": 4
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-object-canonicalization",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-nullable",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            "{\"a\":1}"
+          ],
+          [
+            null
+          ],
+          [
+            "null"
+          ],
+          [
+            "{\"a\":1,\"b\":2}"
+          ]
+        ],
+        "row_count": 4
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-array-order-preserved",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-array-order",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "[1,2]"
+          ],
+          [
+            "[2,1]"
+          ]
+        ],
+        "row_count": 2
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-is-not-null-all-kept",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-basic",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "{\"a\":1}"
+          ],
+          [
+            "[1,2]"
+          ],
+          [
+            "true"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-is-not-null-all-dropped",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-all-null",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": true
+          }
+        ],
+        "rows": [],
+        "row_count": 0
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-is-not-null-mixed-keep-drop",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-nullable",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "j",
+            "logical_type": "json",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            "{\"a\":1}"
+          ],
+          [
+            "null"
+          ],
+          [
+            "{\"a\":1,\"b\":2}"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "json-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-basic",
+      "filter_ref": "is-not-null-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'where clause'"
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-json-ordering-comparison-error",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-basic",
+      "comparison_ref": "less-than-column-0-column-0",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_json_comparison",
+        "engine_code": "1105",
+        "engine_message": "unsupported json comparison: ordering probe is out of scope for first-json-slice"
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-json-cast-error",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-json-basic",
+      "cast_ref": "json-column-0-to-int32",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_json_cast",
+        "engine_code": "1105",
+        "engine_message": "unsupported json cast: explicit cast is out of scope for first-json-slice"
+      }
+    },
+    {
+      "slice_id": "first-json-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-cast-to-json-error",
+      "spec_refs": [
+        "docs/design/first-json-semantic-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-json-slice.md",
+        "tests/differential/first-json-slice.md"
+      ],
+      "input_ref": "first-utf8-json-text",
+      "cast_ref": "utf8-column-0-to-json",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_json_cast",
+        "engine_code": "1105",
+        "engine_message": "unsupported json cast: explicit cast is out of scope for first-json-slice"
+      }
+    }
+  ]
+}

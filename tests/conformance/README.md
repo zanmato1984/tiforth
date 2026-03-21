@@ -28,7 +28,7 @@ Issue #189 adds the first decimal `decimal128` conformance checkpoint in `tests/
 
 Issue #194 adds the first float64 NaN/infinity ordering conformance checkpoint in `tests/conformance/first-float64-ordering-slice.md`. Issue #196 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/float64_slice.rs`.
 
-Issue #224 adds the first JSON conformance checkpoint in `tests/conformance/first-json-slice.md`. Issue #354 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/json_slice.rs`.
+Issue #224 adds the first JSON conformance checkpoint in `tests/conformance/first-json-slice.md`. Issue #354 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/json_slice.rs`. Issue #356 adds first executable TiDB-versus-TiFlash differential adapter and harness coverage for that checkpoint in `crates/tiforth-adapter-tidb/src/first_json_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`, and `crates/tiforth-harness-differential/src/first_json_slice.rs`, with checked-in `inventory/first-json-slice-*` artifacts.
 
 Issue #226 adds the first struct passthrough conformance checkpoint in `tests/conformance/first-struct-slice.md`. Issue #329 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/struct_slice.rs`.
 
