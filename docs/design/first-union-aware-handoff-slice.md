@@ -1,8 +1,8 @@
 # First Union-Aware Handoff Slice
 
-Status: issue #241 design checkpoint
+Status: issue #241 design checkpoint, issue #336 local executable kernel checkpoint
 
-Verified: 2026-03-19
+Verified: 2026-03-20
 
 Related issues:
 
@@ -11,6 +11,7 @@ Related issues:
 - #226 `design: define first struct nested handoff slice checkpoint`
 - #230 `docs: define first map nested handoff slice checkpoint`
 - #241 `docs: define first union nested handoff slice checkpoint`
+- #336 `milestone-1: implement first executable union slice in local kernel`
 
 ## Question
 
@@ -37,6 +38,7 @@ directly, and how should ownership claims attach in that slice?
 - issue #226
 - issue #230
 - issue #241
+- issue #336
 
 ## Design Summary
 
@@ -102,6 +104,11 @@ handoff checkpoint:
 - differential checkpoint doc: `tests/differential/first-union-slice.md`
 - adapter boundary doc: `adapters/first-union-slice.md`
 
+Issue #336 adds the first executable local shared-kernel coverage for the same
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/union_slice.rs`
+
 ## Out Of Scope For This Checkpoint
 
 - union modes beyond this checkpoint (`sparse_union` and wider child sets)
@@ -116,4 +123,6 @@ handoff checkpoint:
 The shared data contract now has one additional post-milestone nested-aware
 handoff checkpoint: passthrough of `dense_union<i:int32, n:int32?>` through
 `column(index)` while keeping ownership claims split across type-id, dense
-offset, and per-child payload domains.
+offset, and per-child payload domains. Local executable shared-kernel
+conformance coverage for this checkpoint now exists in
+`crates/tiforth-kernel/tests/union_slice.rs`.

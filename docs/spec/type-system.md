@@ -235,6 +235,11 @@ Issue #241 also adds the first docs-first union coverage anchors in:
 - `tests/differential/first-union-slice.md`
 - `adapters/first-union-slice.md`
 
+Issue #336 adds the first executable local conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/union_slice.rs`
+
 For current shared contracts:
 
 - the first admitted union nested logical type beyond milestone 1 is
@@ -250,8 +255,8 @@ For current shared contracts:
 - broader nested logical types (nested combinations and wider union-mode
   expansion beyond current list, struct, map, and dense-union checkpoints)
   remain out of scope until follow-on issues
-- local executable kernel coverage for this union checkpoint remains
-  follow-on scope
+- local executable kernel coverage for this union checkpoint now exists in
+  `crates/tiforth-kernel/tests/union_slice.rs`
 
 ## First Temporal Follow-On Checkpoint
 
