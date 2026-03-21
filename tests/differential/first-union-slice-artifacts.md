@@ -1,6 +1,6 @@
 # First Union Slice Artifact Carriers
 
-Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint, issue #366 executable artifact checkpoint, issue #368 TiKV artifact checkpoint
+Status: issue #241 design checkpoint, issue #340 artifact-carrier checkpoint, issue #366 executable artifact checkpoint, issue #368 TiKV artifact checkpoint, issue #370 TiKV compatibility-notes checkpoint
 
 Related issues:
 
@@ -12,6 +12,7 @@ Related issues:
 - #340 `docs: define first-union-slice differential artifact carriers`
 - #366 `harness: execute first-union-slice differential artifacts`
 - #368 `harness: add TiKV first-union-slice executable checkpoints`
+- #370 `inventory: add first-union-slice TiKV compatibility notes checkpoint`
 
 ## Purpose
 
@@ -140,4 +141,4 @@ They do not yet define:
 - live engine orchestration metadata beyond the normalized first-slice carriers
 - nested predicate or compute semantics beyond passthrough `column(index)`
 - broader union-family artifact sets for `sparse_union` or nested combinations
-- TiKV compatibility-note artifacts for this slice
+- compatibility-note artifact schema for this slice (current TiKV note evidence lives in `inventory/first-union-slice-tikv-compat-notes.md`)
