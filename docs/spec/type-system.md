@@ -268,6 +268,14 @@ Issue #366 adds the first executable TiDB-versus-TiFlash adapter and differentia
 
 with checked-in artifacts under `inventory/first-union-slice-*`.
 
+Issue #368 adds first executable TiKV single-engine and pairwise harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tikv/src/first_union_slice.rs`
+- `crates/tiforth-harness-differential/src/first_union_slice_tikv.rs`
+- `crates/tiforth-harness-differential/src/first_union_slice_tikv_pairwise.rs`
+
+with checked-in artifacts under `inventory/first-union-slice-*`.
+
 For current shared contracts:
 
 - the first admitted union nested logical type beyond milestone 1 is
@@ -286,7 +294,7 @@ For current shared contracts:
 - local executable kernel coverage for this union checkpoint now exists in
   `crates/tiforth-kernel/tests/union_slice.rs`
 - executable TiDB-versus-TiFlash adapter and differential harness coverage for this union checkpoint now exists in `crates/tiforth-adapter-tidb/src/first_union_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_union_slice.rs`, and `crates/tiforth-harness-differential/src/first_union_slice.rs`, with checked-in artifacts under `inventory/first-union-slice-*`
-- TiKV executable union coverage remains follow-on scope
+- executable TiKV single-engine and pairwise harness coverage for this union checkpoint now exists in `crates/tiforth-adapter-tikv/src/first_union_slice.rs`, `crates/tiforth-harness-differential/src/first_union_slice_tikv.rs`, and `crates/tiforth-harness-differential/src/first_union_slice_tikv_pairwise.rs`, with checked-in artifacts under `inventory/first-union-slice-*`
 
 ## First Temporal Follow-On Checkpoint
 
