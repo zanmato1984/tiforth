@@ -1,6 +1,6 @@
 # First TiKV Union Adapter Boundary
 
-Status: issue #368 executable checkpoint, issue #370 compatibility-notes checkpoint, issue #372 live-runner-boundary checkpoint
+Status: issue #368 executable checkpoint, issue #370 compatibility-notes checkpoint, issue #372 live-runner-boundary checkpoint, issue #374 live-runner executable checkpoint
 
 Verified: 2026-03-21
 
@@ -12,6 +12,7 @@ Related issues:
 - #368 `harness: add TiKV first-union-slice executable checkpoints`
 - #370 `inventory: add first-union-slice TiKV compatibility notes checkpoint`
 - #372 `design: define live TiKV runner boundary for first-union-slice`
+- #374 `harness: implement first-union-slice live TiKV runner and refresh workflow`
 
 ## Purpose
 
@@ -119,20 +120,26 @@ unchanged:
   - `inventory/first-union-slice-tiflash-vs-tikv-drift-report.json`
 - issue #370 lands the first TiKV union compatibility notes artifact at
   `inventory/first-union-slice-tikv-compat-notes.md`
+- issue #372 defines the docs-first live TiKV runner boundary in
+  `docs/design/first-union-slice-tikv-live-runner-boundary.md`
+- issue #374 lands executable live-runner wiring in
+  `crates/tiforth-harness-differential/src/first_union_slice_tikv_live.rs`,
+  `crates/tiforth-harness-differential/src/bin/first_union_slice_tikv_live.rs`,
+  and `scripts/refresh-first-union-tikv-live-artifacts.sh`
 - normalized field meanings stay aligned with
   `tests/differential/first-union-slice-artifacts.md`
 
 ## Follow-On Boundary
 
-Issue #372 now defines docs-first live TiKV runner orchestration and refresh
-scope for this slice in
-`docs/design/first-union-slice-tikv-live-runner-boundary.md`.
+After issue #374, follow-on issues may separately define:
 
-Follow-on implementation issues may add executable live runner wiring and
-artifact refresh mechanics while staying inside that boundary.
+- shared-review environment refresh cadence for checked-in first-union TiKV
+  artifacts
+- live-runner expansion to temporal, decimal, or later accepted slice families
 
 ## Result
 
-TiKV now has a concrete docs-first request and response boundary plus
-executable single-engine and pairwise first-union checkpoints while preserving
-the shared first differential union checkpoint semantics.
+TiKV now has a concrete docs-first request and response boundary, executable
+single-engine and pairwise first-union checkpoints, and executable live-runner
+wiring while preserving the shared first differential union checkpoint
+semantics.
