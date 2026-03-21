@@ -4,11 +4,12 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh [--write-artifacts]
+  scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh [--write-artifacts] [--dry-run]
 
 Modes:
   default            run live first-temporal-date32 TiKV execution and print artifacts
   --write-artifacts  overwrite checked-in first-temporal-date32 TiKV artifacts after a successful run
+  --dry-run          print the cargo command that would run; skip env checks and execution
 
 Required env vars (per prefix):
   TIFORTH_TIDB_MYSQL_HOST
@@ -38,7 +39,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # shellcheck source=scripts/lib/tikv-live-refresh-common.sh
 source "$repo_root/scripts/lib/tikv-live-refresh-common.sh"
 
-if tiforth_live_refresh_parse_write_artifacts_flag "$@"; then
+if tiforth_live_refresh_parse_mode_flags "$@"; then
   :
 else
   parse_status=$?
@@ -49,12 +50,18 @@ else
 fi
 
 write_artifacts=$TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS
+dry_run=$TIFORTH_LIVE_REFRESH_DRY_RUN
 cd "$repo_root"
-tiforth_live_refresh_require_mysql_env "first-temporal-date32 TiKV live artifact refresh"
 
 command=(cargo run -p tiforth-harness-differential --bin first_temporal_date32_slice_tikv_live --)
 if [[ $write_artifacts -eq 1 ]]; then
   command+=(--write-artifacts)
 fi
 
+if [[ $dry_run -eq 1 ]]; then
+  tiforth_live_refresh_print_command "${command[@]}"
+  exit 0
+fi
+
+tiforth_live_refresh_require_mysql_env "first-temporal-date32 TiKV live artifact refresh"
 "${command[@]}"

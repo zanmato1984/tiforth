@@ -1,33 +1,63 @@
 #!/usr/bin/env bash
 
-# Parse optional --write-artifacts flag shared by TiKV live-refresh scripts.
-# Sets TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS=0 (inspect mode) or 1 (write mode).
+# Shared mode flags for TiKV live-refresh scripts.
+# TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS=0 (inspect) or 1 (write).
+# TIFORTH_LIVE_REFRESH_DRY_RUN=0 (execute) or 1 (print commands only).
 # Returns:
 #   0  parse success
 #   2  invalid arguments
 #  10  help rendered
 TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS=0
+TIFORTH_LIVE_REFRESH_DRY_RUN=0
 
-tiforth_live_refresh_parse_write_artifacts_flag() {
-  if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+tiforth_live_refresh_parse_mode_flags() {
+  local write_artifacts=0
+  local dry_run=0
+
+  if [[ $# -eq 1 && ( ${1:-} == "-h" || ${1:-} == "--help" ) ]]; then
     usage
     return 10
   fi
 
-  local write_artifacts=0
-  if [[ $# -gt 1 ]]; then
+  if [[ $# -gt 2 ]]; then
     usage >&2
     return 2
-  elif [[ $# -eq 1 ]]; then
-    if [[ $1 != "--write-artifacts" ]]; then
-      echo "Unknown argument: $1" >&2
-      usage >&2
-      return 2
-    fi
-    write_artifacts=1
   fi
 
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --write-artifacts)
+        if [[ $write_artifacts -eq 1 ]]; then
+          echo "Duplicate argument: $arg" >&2
+          usage >&2
+          return 2
+        fi
+        write_artifacts=1
+        ;;
+      --dry-run)
+        if [[ $dry_run -eq 1 ]]; then
+          echo "Duplicate argument: $arg" >&2
+          usage >&2
+          return 2
+        fi
+        dry_run=1
+        ;;
+      -h|--help)
+        echo "Unknown argument: $arg" >&2
+        usage >&2
+        return 2
+        ;;
+      *)
+        echo "Unknown argument: $arg" >&2
+        usage >&2
+        return 2
+        ;;
+    esac
+  done
+
   TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS=$write_artifacts
+  TIFORTH_LIVE_REFRESH_DRY_RUN=$dry_run
 }
 
 # Validate shared TiDB/TiFlash/TiKV MySQL env vars used by TiKV live-refresh scripts.
@@ -52,4 +82,13 @@ tiforth_live_refresh_require_mysql_env() {
     echo "Set them and rerun this script." >&2
     return 1
   fi
+}
+
+tiforth_live_refresh_print_command() {
+  printf 'DRY-RUN:'
+  local arg
+  for arg in "$@"; do
+    printf ' %q' "$arg"
+  done
+  printf '\n'
 }
