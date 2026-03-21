@@ -1,6 +1,6 @@
 # First Temporal `date32` Slice Artifact Carriers
 
-Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #266 TiKV single-engine checkpoint, issue #270 TiKV pairwise drift-artifact checkpoint
+Status: issue #176 design checkpoint, issue #185 artifact-carrier checkpoint, issue #187 harness checkpoint, issue #266 TiKV single-engine checkpoint, issue #270 TiKV pairwise drift-artifact checkpoint, issue #380 live-runner refresh checkpoint
 
 Related issues:
 
@@ -11,6 +11,8 @@ Related issues:
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
 - #266 `adapter: execute first-temporal-date32-slice through TiKV`
 - #270 `harness: add first-temporal-date32-slice TiKV pairwise drift artifacts`
+- #376 `design: define live TiKV temporal and decimal runner refresh boundary`
+- #380 `harness: implement first-temporal-date32-slice TiKV live runner refresh workflow`
 
 ## Purpose
 
@@ -158,6 +160,8 @@ for this same slice.
 
 Issue #270 adds the first checked-in TiKV pairwise temporal `drift-report`
 artifacts for this same slice.
+
+Issue #380 adds env-backed date32 live-runner refresh wiring in `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_live.rs`, `crates/tiforth-harness-differential/src/bin/first_temporal_date32_slice_tikv_live.rs`, and `scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh` while preserving these filenames and carrier fields.
 
 Follow-on PRs should refresh those artifacts when slice semantics, case IDs,
 normalized fields, or drift conclusions change under
