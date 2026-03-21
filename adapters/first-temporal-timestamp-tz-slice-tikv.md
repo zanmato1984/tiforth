@@ -1,8 +1,8 @@
 # First TiKV Temporal `timestamp_tz(us)` Adapter Boundary
 
-Status: issue #290 design checkpoint, issue #306 executable checkpoint
+Status: issue #290 design checkpoint, issue #306 executable checkpoint, issue #382 live-runner executable checkpoint
 
-Verified: 2026-03-20
+Verified: 2026-03-21
 
 Related issues:
 
@@ -12,12 +12,14 @@ Related issues:
 - #288 `kernel: execute first timestamp_tz(us) local conformance slice`
 - #290 `design: define TiKV adapter boundary for first-temporal-timestamp-tz-slice`
 - #306 `checkpoint: implement TiKV first-temporal-timestamp-tz executable differential slice`
+- #376 `design: define live TiKV temporal and decimal runner refresh boundary`
+- #382 `harness: implement first-temporal-timestamp-tz-slice TiKV live runner refresh workflow`
 
 ## Purpose
 
 This note defines the TiKV-specific adapter boundary for the
-`first-temporal-timestamp-tz-slice` semantic checkpoint and records the first
-executable TiKV checkpoint that conforms to that boundary.
+`first-temporal-timestamp-tz-slice` semantic checkpoint and records executable
+TiKV checkpoints that conform to that boundary.
 
 The goal is to keep shared slice semantics stable while making TiKV request,
 normalization, and artifact expectations explicit.
@@ -37,7 +39,6 @@ It does not define:
 - planner, coprocessor, or pushdown strategy details
 - temporal arithmetic, cast, extraction, truncation, or interval behavior
 - timezone-name canonicalization or timezone-database negotiation
-- live-runner orchestration for environment-backed refresh
 
 ## Shared Ownership
 
@@ -129,17 +130,23 @@ Issue #306 adds deterministic TiKV executable coverage on top of this boundary:
   - `inventory/first-temporal-timestamp-tz-slice-tiflash-vs-tikv-drift-report.json`
   - `inventory/first-temporal-timestamp-tz-slice-tikv-compat-notes.md`
 
+Issue #382 adds executable live-runner wiring for the same artifact family:
+
+- `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_live.rs`
+- `crates/tiforth-harness-differential/src/bin/first_temporal_timestamp_tz_slice_tikv_live.rs`
+- `scripts/refresh-first-temporal-timestamp-tz-tikv-live-artifacts.sh`
+
 ## Follow-On Boundary
 
-Follow-on issues may still separately define:
+After issue #382, follow-on issues may separately define:
 
-- live TiKV timestamp-timezone runner wiring and environment-backed refresh
-  workflow
+- shared-review environment refresh cadence for checked-in
+  first-temporal-timestamp-tz TiKV artifacts
 - broader temporal-family semantics beyond `timestamp_tz(us)`
 
 ## Result
 
-TiKV now has both a stable docs-defined request/response boundary and the first
-executable single-engine plus pairwise differential checkpoint for
-`first-temporal-timestamp-tz-slice`, while broader temporal-family expansion
-remains follow-on scope.
+TiKV now has both a stable docs-defined request/response boundary and
+executable single-engine plus pairwise differential checkpoints for
+`first-temporal-timestamp-tz-slice`, plus executable live-runner wiring for the
+same artifact family.

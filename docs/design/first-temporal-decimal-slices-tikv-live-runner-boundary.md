@@ -1,6 +1,6 @@
 # First Temporal And Decimal TiKV Live Runner Boundary
 
-Status: issue #376 design checkpoint, issue #378 decimal executable checkpoint, issue #380 date32 executable checkpoint
+Status: issue #376 design checkpoint, issue #378 decimal executable checkpoint, issue #380 date32 executable checkpoint, issue #382 timestamp-timezone executable checkpoint
 
 Verified: 2026-03-21
 
@@ -17,6 +17,7 @@ Related issues:
 - #376 `design: define live TiKV temporal and decimal runner refresh boundary`
 - #378 `harness: implement first-decimal128-slice TiKV live runner refresh workflow`
 - #380 `harness: implement first-temporal-date32-slice TiKV live runner refresh workflow`
+- #382 `harness: implement first-temporal-timestamp-tz-slice TiKV live runner refresh workflow`
 
 ## Question
 
@@ -39,6 +40,7 @@ slices while keeping stable semantic IDs and carrier schemas unchanged?
 - issue #376
 - issue #378
 - issue #380
+- issue #382
 
 ## Design Summary
 
@@ -50,10 +52,9 @@ carrier-stable:
 - define one explicit inspect/write refresh mode boundary for live execution
 - keep connection/session/retry/cancellation policy adapter-local
 
-Issue #378 adds executable live wiring under this boundary for
-`first-decimal128-slice`, and issue #380 adds executable live wiring for
-`first-temporal-date32-slice`. Live-runner wiring for
-`first-temporal-timestamp-tz-slice` remains follow-on scope.
+Issue #378, issue #380, and issue #382 now land executable live-runner wiring
+for all in-scope first temporal/decimal slices while preserving existing
+identifiers and carrier contracts.
 
 ## Slice Scope
 
@@ -139,8 +140,8 @@ by live runner refresh.
 
 ## Executable Checkpoint
 
-Issue #378 and issue #380 land executable temporal/decimal live-runner wiring
-inside this boundary:
+Issue #378, issue #380, and issue #382 land executable temporal/decimal
+live-runner wiring inside this boundary:
 
 - `crates/tiforth-harness-differential/src/first_decimal128_slice_tikv_live.rs`
 - `crates/tiforth-harness-differential/src/bin/first_decimal128_slice_tikv_live.rs`
@@ -148,23 +149,21 @@ inside this boundary:
 - `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_live.rs`
 - `crates/tiforth-harness-differential/src/bin/first_temporal_date32_slice_tikv_live.rs`
 - `scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh`
+- `crates/tiforth-harness-differential/src/first_temporal_timestamp_tz_slice_tikv_live.rs`
+- `crates/tiforth-harness-differential/src/bin/first_temporal_timestamp_tz_slice_tikv_live.rs`
+- `scripts/refresh-first-temporal-timestamp-tz-tikv-live-artifacts.sh`
 
-Those executable checkpoints preserve existing decimal/date32 semantic IDs,
+Those executable checkpoints preserve existing decimal/temporal semantic IDs,
 normalized carrier schema, and checked-in artifact filenames.
 
 ## Deferred Follow-On
 
-Follow-on implementation issues may add executable live-runner modules and
-refresh scripts for:
-
-- `first-temporal-timestamp-tz-slice`
-
-Broader temporal-family semantics and decimal-family expansion remain separate
-follow-on scope.
+Follow-on implementation issues may broaden temporal or decimal slice coverage
+beyond these first checkpoints under new accepted docs-defined boundaries.
 
 ## Result
 
 `tiforth` now has a durable docs-first live-runner configuration/execution/
 refresh boundary for first temporal (`date32`, `timestamp_tz(us)`) and decimal
-(`decimal128`) TiKV checkpoints, plus executable decimal and date32 live-runner
-wiring, while preserving stable semantics and carrier schemas.
+(`decimal128`) TiKV checkpoints, plus executable live-runner wiring for all
+three in-scope slices while preserving stable semantics and carrier schemas.

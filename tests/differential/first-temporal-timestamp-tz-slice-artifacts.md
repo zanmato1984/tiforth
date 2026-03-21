@@ -12,6 +12,8 @@ Related issues:
 - #298 `docs: define first-temporal-timestamp-tz differential artifact carriers`
 - #304 `harness: execute first timestamp_tz(us) differential artifacts`
 - #306 `checkpoint: implement TiKV first-temporal-timestamp-tz executable differential slice`
+- #376 `design: define live TiKV temporal and decimal runner refresh boundary`
+- #382 `harness: implement first-temporal-timestamp-tz-slice TiKV live runner refresh workflow`
 
 ## Purpose
 
