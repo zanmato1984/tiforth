@@ -31,6 +31,7 @@ Current checkpoint:
 - `tests/differential/first-temporal-timestamp-tz-slice-artifacts.md` defines the stable carrier for first-temporal timezone-aware `timestamp_tz(us)` case-results artifacts plus first-temporal timestamp-timezone constraints on the shared `drift-report` carrier
 - `tests/differential/first-decimal128-slice-artifacts.md` defines the stable carrier for first-decimal `decimal128` case-results artifacts plus first-decimal constraints on the shared `drift-report` carrier
 - `tests/differential/first-float64-ordering-slice-artifacts.md` defines the stable carrier for first-float64 ordering case-results artifacts plus first-float64 constraints on the shared `drift-report` carrier
+- `tests/differential/first-unsigned-arithmetic-slice-artifacts.md` defines the stable carrier for first unsigned arithmetic `uint64` case-results artifacts plus first-unsigned constraints on the shared `drift-report` carrier
 - `tests/differential/first-exchange-slice-artifacts.md` defines the stable carrier for the first baseline-versus-exchange parity `drift-report` artifacts
 - `inventory/first-expression-slice-tidb-case-results.json` records the current TiDB-side case results for the executable first-slice harness checkpoint
 - `inventory/first-expression-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same checkpoint
@@ -73,6 +74,15 @@ Current checkpoint:
 - `inventory/first-float64-ordering-slice-tikv-case-results.json` records the current TiKV-side single-engine case results for the same first float64 ordering checkpoint
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first float64 ordering checkpoint
 - `inventory/first-float64-ordering-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first float64 ordering checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tidb-case-results.json` records the current TiDB-side case results for the first unsigned arithmetic `uint64` harness checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tiflash-case-results.json` records the current TiFlash-side case results for the same first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tikv-case-results.json` records the current TiKV-side single-engine case results for the same first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.md` records the current paired TiDB-versus-TiFlash classification summary for the first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tiflash-drift-report.json` records the paired machine-readable TiDB-versus-TiFlash drift-report sidecar for the same first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tikv-drift-report.md` records the current paired TiDB-versus-TiKV classification summary for the same first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tidb-vs-tikv-drift-report.json` records the paired machine-readable TiDB-versus-TiKV drift-report sidecar for that first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tiflash-vs-tikv-drift-report.md` records the current paired TiFlash-versus-TiKV classification summary for the same first unsigned arithmetic checkpoint
+- `inventory/first-unsigned-arithmetic-slice-tiflash-vs-tikv-drift-report.json` records the paired machine-readable TiFlash-versus-TiKV drift-report sidecar for that first unsigned arithmetic checkpoint
 - `inventory/first-filter-is-not-null-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first-filter predicate slice
 - `inventory/first-filter-is-not-null-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first-filter predicate slice
 - `inventory/first-temporal-date32-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first temporal `date32` differential slice
@@ -88,6 +98,7 @@ Current checkpoint:
 - `inventory/first-float64-ordering-slice-tikv-compat-notes.md` records TiKV-side compatibility notes for the same first float64 ordering differential slice
 - `inventory/first-unsigned-arithmetic-slice-tidb-compat-notes.md` records TiDB-side compatibility notes for the first unsigned arithmetic `uint64` differential slice
 - `inventory/first-unsigned-arithmetic-slice-tiflash-compat-notes.md` records TiFlash-side compatibility notes for the same first unsigned arithmetic differential slice
+- `inventory/first-unsigned-arithmetic-slice-tikv-compat-notes.md` records TiKV-side compatibility notes for the same first unsigned arithmetic differential slice
 - `inventory/first-expression-slice-coverage-gap.md` records the current deferred and unsupported first-slice coverage edges that still need explicit follow-on decisions
 - `inventory/first-expression-slice-legacy-function-catalog.md` records the first donor function catalog for `literal<int32>(value)` and `add<int32>(lhs, rhs)` within the `first-expression-slice`
 - `inventory/first-expression-slice-legacy-operator-catalog.md` records the matching donor operator catalog for the single-input projection family, including direct passthrough ordering and row-count preservation evidence within the `first-expression-slice`
@@ -111,6 +122,7 @@ Current checkpoint:
 - issue #235 adds the first checked-in TiKV single-engine `case-results` artifact for `first-expression-slice`
 - issue #245 adds the first checked-in TiKV pairwise `drift-report` artifacts for `first-expression-slice` (`tidb-vs-tikv` and `tiflash-vs-tikv`)
 - issue #249 follow-on checkpoint adds the first checked-in TiKV pairwise `drift-report` artifacts for `first-filter-is-not-null-slice` (`tidb-vs-tikv` and `tiflash-vs-tikv`)
+- issue #328 adds the first checked-in TiKV unsigned arithmetic single-engine `case-results`, compatibility notes, and pairwise `drift-report` artifacts
 
 Current inventory priority:
 
