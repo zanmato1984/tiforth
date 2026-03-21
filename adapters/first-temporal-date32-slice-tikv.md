@@ -1,8 +1,8 @@
 # First TiKV Temporal `date32` Adapter Boundary
 
-Status: issue #264 design checkpoint, issue #266 executable checkpoint, issue #270 pairwise checkpoint
+Status: issue #264 design checkpoint, issue #266 executable checkpoint, issue #270 pairwise checkpoint, issue #380 live-runner executable checkpoint
 
-Verified: 2026-03-20
+Verified: 2026-03-21
 
 Related issues:
 
@@ -11,6 +11,8 @@ Related issues:
 - #264 `design: define first TiKV temporal date32 adapter request/response surface`
 - #266 `adapter: execute first-temporal-date32-slice through TiKV`
 - #270 `harness: add first-temporal-date32-slice TiKV pairwise drift artifacts`
+- #376 `design: define live TiKV temporal and decimal runner refresh boundary`
+- #380 `harness: implement first-temporal-date32-slice TiKV live runner refresh workflow`
 
 ## Purpose
 
@@ -117,19 +119,26 @@ unchanged:
   `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_pairwise.rs`
 - issue #270 lands paired TiDB-versus-TiKV and TiFlash-versus-TiKV temporal
   drift-report artifacts under `inventory/`
+- issue #380 lands executable live-runner wiring in
+  `crates/tiforth-harness-differential/src/first_temporal_date32_slice_tikv_live.rs`,
+  `crates/tiforth-harness-differential/src/bin/first_temporal_date32_slice_tikv_live.rs`,
+  and `scripts/refresh-first-temporal-date32-tikv-live-artifacts.sh`
 - normalized field meanings stay aligned with
   `tests/differential/first-temporal-date32-slice-artifacts.md`
 
 ## Follow-On Boundary
 
-After this request/response plus single-engine and pairwise executable
-checkpoint, follow-on issues may separately define:
+After issue #380, follow-on issues may separately define:
 
-- live TiKV runner wiring and refresh workflow for this slice
+- shared-review environment refresh cadence for checked-in first-temporal-date32
+  TiKV artifacts
+- live-runner expansion to first-temporal-timestamp-tz checkpoints under
+  `docs/design/first-temporal-decimal-slices-tikv-live-runner-boundary.md`
+- broader temporal-family adapter coverage beyond first `date32` checkpoints
 
 ## Result
 
 TiKV now has a concrete docs-first request and response boundary plus
-executable single-engine and pairwise first-temporal checkpoints while
-preserving the shared first differential temporal checkpoint as
-TiDB-versus-TiFlash.
+executable single-engine and pairwise first-temporal checkpoints, and
+executable live-runner wiring while preserving the shared first differential
+temporal checkpoint semantics.
