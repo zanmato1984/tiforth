@@ -37,4 +37,4 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint now has local executable shared-kernel conformance coverage in `crates/tiforth-kernel/tests/json_slice.rs` for passthrough `column(index)`, `is_not_null(column(index))`, and missing-column error cases. Unsupported JSON ordering-comparison and explicit non-identity cast probes remain differential adapter and harness scope for follow-on checkpoints.
+This checkpoint now has local executable shared-kernel conformance coverage in `crates/tiforth-kernel/tests/json_slice.rs` for passthrough `column(index)`, `is_not_null(column(index))`, and missing-column error cases. Unsupported JSON ordering-comparison and explicit non-identity cast probes are now exercised in executable TiDB-versus-TiFlash adapter and harness coverage through `crates/tiforth-adapter-tidb/src/first_json_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`, and `crates/tiforth-harness-differential/src/first_json_slice.rs`, with checked-in artifacts under `inventory/first-json-slice-*`.

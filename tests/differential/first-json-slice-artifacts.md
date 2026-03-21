@@ -1,12 +1,13 @@
 # First JSON Slice Artifact Carriers
 
-Status: issue #224 design checkpoint, issue #272 artifact-carrier checkpoint
+Status: issue #224 design checkpoint, issue #272 artifact-carrier checkpoint, issue #356 executable artifact checkpoint
 
 Related issues:
 
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #224 `design: define first JSON semantic slice boundary`
 - #272 `docs: define first-json-slice differential artifact carriers`
+- #356 `harness: execute first-json-slice differential artifacts`
 
 ## Purpose
 
@@ -30,7 +31,7 @@ artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Planned artifact filenames for this slice:
+Artifact filenames for this slice:
 
 - `inventory/first-json-slice-tidb-case-results.json`
 - `inventory/first-json-slice-tiflash-case-results.json`
@@ -112,15 +113,9 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-This checkpoint documents carriers only.
+Issue #356 now lands executable runner wiring for this slice through `crates/tiforth-adapter-tidb/src/first_json_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`, `crates/tiforth-harness-differential/src/first_json_slice.rs`, and `crates/tiforth-harness-differential/src/bin/first_json_slice.rs`, and refreshes the four checked-in `inventory/first-json-slice-*` artifacts listed above.
 
-Follow-on harness work should add executable runner wiring for this slice and
-then refresh or check in the planned `inventory/` files using the same carrier
-shape defined here.
-
-Until that executable checkpoint lands, PRs that touch this note may declare:
-
-- `Inventory-Impact: none - JSON artifact carriers documented but no executable artifact refresh performed`
+Follow-on PRs that change first-json semantics, case identifiers, adapter normalization, or drift-comparison policy should refresh those artifacts and declare `Inventory-Impact: updated`.
 
 ## Boundary For Now
 
@@ -132,5 +127,4 @@ They do not yet define:
 - merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
-- executable JSON adapter or differential harness wiring
 - successful explicit JSON cast semantics, JSON ordering semantics, or JSON path/operator artifact families

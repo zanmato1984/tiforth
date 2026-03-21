@@ -15,11 +15,11 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 
 ## Current Checkpoints
 
-- executable differential coverage exists for `first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, and `first-unsigned-arithmetic-slice`, and baseline-versus-exchange parity coverage exists for `first-exchange-slice`
+- executable differential coverage exists for `first-expression-slice`, `first-filter-is-not-null-slice`, `first-temporal-date32-slice`, `first-temporal-timestamp-tz-slice`, `first-decimal128-slice`, `first-float64-ordering-slice`, and `first-unsigned-arithmetic-slice`, and `first-json-slice`, and baseline-versus-exchange parity coverage exists for `first-exchange-slice`
 - checked-in `inventory/` evidence now includes normalized per-engine `case-results`, compatibility notes, pairwise drift reports, and baseline-versus-exchange parity drift reports for the executable slices that have landed
 - TiKV executable coverage currently extends through the first expression, filter, temporal, decimal, float64-ordering, and unsigned-arithmetic checkpoints, with pairwise drift artifacts recorded against TiDB and TiFlash where those slices are implemented
-- local shared-kernel executable coverage now includes the first JSON and collation-sensitive string checkpoints plus the first `struct<a:int32, b:int32?>`, `map<int32, int32?>`, and `dense_union<i:int32, n:int32?>` passthrough checkpoints, while differential JSON adapter and artifact refresh work remain follow-on scope
-- docs-first checkpoint anchors and planned differential artifact carriers now exist for `first-json-slice`, `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, `first-union-slice`, and `first-exchange-slice`
+- local shared-kernel executable coverage now includes the first JSON and collation-sensitive string checkpoints plus the first `struct<a:int32, b:int32?>`, `map<int32, int32?>`, and `dense_union<i:int32, n:int32?>` passthrough checkpoints
+- docs-first checkpoint anchors and planned differential artifact carriers now exist for `first-collation-string-slice`, `first-struct-slice`, `first-map-slice`, `first-union-slice`, and `first-exchange-slice`
 
 ## Local Rust Setup
 

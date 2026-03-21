@@ -409,6 +409,14 @@ Issue #354 adds the first executable local conformance coverage for this checkpo
 
 - `crates/tiforth-kernel/tests/json_slice.rs`
 
+Issue #356 adds the first executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tidb/src/first_json_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`
+- `crates/tiforth-harness-differential/src/first_json_slice.rs`
+
+with checked-in artifacts under `inventory/first-json-slice-*`.
+
 For current shared contracts:
 
 - the first admitted JSON logical type beyond milestone 1 is `json`
@@ -422,8 +430,8 @@ For current shared contracts:
   mutation, ordering, or implicit cast expansion
 - local executable kernel coverage for this JSON checkpoint now exists in
   `crates/tiforth-kernel/tests/json_slice.rs`
-- adapter and differential harness executable coverage for this JSON checkpoint remains follow-on
-  scope
+- executable TiDB-versus-TiFlash adapter and differential harness coverage for this JSON checkpoint now exists in `crates/tiforth-adapter-tidb/src/first_json_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_json_slice.rs`, and `crates/tiforth-harness-differential/src/first_json_slice.rs`, with checked-in artifacts under `inventory/first-json-slice-*`
+- TiKV executable JSON coverage remains follow-on scope
 
 ## First Collation-Sensitive String Checkpoint
 
