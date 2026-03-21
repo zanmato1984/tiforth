@@ -1,3 +1,4 @@
+pub mod first_collation_string_slice;
 pub mod first_decimal128_slice;
 pub mod first_decimal128_slice_tikv;
 pub mod first_decimal128_slice_tikv_pairwise;

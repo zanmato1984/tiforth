@@ -1,0 +1,329 @@
+{
+  "slice_id": "first-collation-string-slice",
+  "engine": "tiflash",
+  "adapter": "tiflash-sql",
+  "cases": [
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-column-passthrough-binary",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "binary",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "utf8",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "Alpha"
+          ],
+          [
+            "alpha"
+          ],
+          [
+            "beta"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-column-passthrough-unicode-ci",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "unicode_ci",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "utf8",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "Alpha"
+          ],
+          [
+            "alpha"
+          ],
+          [
+            "beta"
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-is-not-null-mixed-keep-drop",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-nullable",
+      "collation_ref": "binary",
+      "filter_ref": "is-not-null-column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "utf8",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            "Alpha"
+          ],
+          [
+            "beta"
+          ]
+        ],
+        "row_count": 2
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-binary-eq-literal-alpha",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "binary",
+      "comparison_ref": "eq-column-0-literal-alpha",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "cmp",
+            "logical_type": "boolean",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            false
+          ],
+          [
+            true
+          ],
+          [
+            false
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-unicode-ci-eq-literal-alpha",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "unicode_ci",
+      "comparison_ref": "eq-column-0-literal-alpha",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "cmp",
+            "logical_type": "boolean",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            false
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-binary-lt-literal-beta",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "binary",
+      "comparison_ref": "lt-column-0-literal-beta",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "cmp",
+            "logical_type": "boolean",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            true
+          ],
+          [
+            true
+          ],
+          [
+            false
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-unicode-ci-ordering-normalization",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-ordering",
+      "collation_ref": "unicode_ci",
+      "ordering_ref": "order-by-column-0-asc",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s",
+            "logical_type": "utf8",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            "A"
+          ],
+          [
+            "a"
+          ],
+          [
+            "B"
+          ],
+          [
+            "b"
+          ]
+        ],
+        "row_count": 4
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "utf8-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "binary",
+      "filter_ref": "is-not-null-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'where clause'"
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unknown-collation-error",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-utf8-basic",
+      "collation_ref": "unknown-collation",
+      "comparison_ref": "eq-column-0-literal-alpha",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unknown_collation",
+        "engine_code": "1273",
+        "engine_message": "Unknown collation: 'unknown-collation'"
+      }
+    },
+    {
+      "slice_id": "first-collation-string-slice",
+      "engine": "tiflash",
+      "adapter": "tiflash-sql",
+      "case_id": "unsupported-collation-type-error",
+      "spec_refs": [
+        "docs/design/first-collation-string-slice.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-collation-string-slice.md",
+        "tests/differential/first-collation-string-slice.md"
+      ],
+      "input_ref": "first-int32-basic",
+      "collation_ref": "binary",
+      "comparison_ref": "eq-column-0-literal-alpha",
+      "outcome": {
+        "kind": "error",
+        "error_class": "unsupported_collation_type",
+        "engine_code": "1105",
+        "engine_message": "unsupported collation comparison input at column 0, got Int32"
+      }
+    }
+  ]
+}

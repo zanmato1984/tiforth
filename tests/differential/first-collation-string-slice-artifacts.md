@@ -1,12 +1,13 @@
 # First Collation-Sensitive String Slice Artifact Carriers
 
-Status: issue #233 design checkpoint, issue #342 artifact-carrier checkpoint
+Status: issue #233 design checkpoint, issue #342 artifact-carrier checkpoint, issue #358 executable artifact checkpoint
 
 Related issues:
 
 - #143 `docs: define initial collation scope and ownership boundary`
 - #233 `design: define first string collation semantic slice`
 - #342 `docs: define first-collation-string-slice differential artifact carriers`
+- #358 `harness: execute first-collation-string-slice differential artifacts`
 
 ## Purpose
 
@@ -31,15 +32,14 @@ checked-in artifacts:
 3. one aggregated TiDB-versus-TiFlash `drift-report`
 4. one machine-readable TiDB-versus-TiFlash `drift-report` sidecar
 
-Planned artifact filenames for this slice:
+Artifact filenames for this slice:
 
 - `inventory/first-collation-string-slice-tidb-case-results.json`
 - `inventory/first-collation-string-slice-tiflash-case-results.json`
 - `inventory/first-collation-string-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-collation-string-slice-tidb-vs-tiflash-drift-report.json`
 
-Issue #342 is docs-first only and does not add or refresh those `inventory/`
-files.
+Issue #358 refreshes those four checked-in `inventory/first-collation-string-slice-*` files.
 
 ## `case-results` Artifact Shape
 
@@ -113,15 +113,9 @@ Markdown report.
 
 ## Inventory Refresh Boundary
 
-This checkpoint documents carriers only.
+Issue #358 now lands executable runner wiring for this slice through `crates/tiforth-adapter-tidb/src/first_collation_string_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_collation_string_slice.rs`, `crates/tiforth-harness-differential/src/first_collation_string_slice.rs`, and `crates/tiforth-harness-differential/src/bin/first_collation_string_slice.rs`, and refreshes the four checked-in `inventory/first-collation-string-slice-*` artifacts listed above.
 
-Follow-on harness work should add executable runner wiring for this slice and
-then refresh or check in the planned `inventory/` files using the same carrier
-shape defined here.
-
-Until that executable checkpoint lands, PRs that touch this note may declare:
-
-- `Inventory-Impact: none - collation artifact carriers documented but no executable artifact refresh performed`
+Follow-on PRs that change first-collation semantics, case identifiers, adapter normalization, or drift-comparison policy should refresh those artifacts and declare `Inventory-Impact: updated`.
 
 ## Boundary For Now
 
@@ -133,7 +127,6 @@ They do not yet define:
 - merged multi-engine summaries beyond the first TiDB-versus-TiFlash pair
 - adapter-internal traces or engine plan captures
 - live engine orchestration metadata beyond the normalized first-slice carriers
-- executable collation adapter or differential harness wiring
 - locale-specific collation families beyond `binary` and `unicode_ci`
 - string-function or binary-family artifact sets beyond the first comparison
   and ordering probes

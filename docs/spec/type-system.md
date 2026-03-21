@@ -448,6 +448,14 @@ Issue #352 adds the first executable local conformance coverage for this checkpo
 
 - `crates/tiforth-kernel/tests/collation_string_slice.rs`
 
+Issue #358 adds the first executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tidb/src/first_collation_string_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/first_collation_string_slice.rs`
+- `crates/tiforth-harness-differential/src/first_collation_string_slice.rs`
+
+with checked-in artifacts under `inventory/first-collation-string-slice-*`.
+
 For current shared contracts:
 
 - the first admitted collation-sensitive string logical type beyond milestone 1
@@ -460,7 +468,8 @@ For current shared contracts:
   coercion, or shared runtime collation negotiation state
 - local executable kernel coverage for this collation checkpoint now exists in
   `crates/tiforth-kernel/tests/collation_string_slice.rs`
-- adapter coverage for this collation checkpoint remains follow-on scope
+- executable TiDB-versus-TiFlash adapter and differential harness coverage for this collation checkpoint now exists in `crates/tiforth-adapter-tidb/src/first_collation_string_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_collation_string_slice.rs`, and `crates/tiforth-harness-differential/src/first_collation_string_slice.rs`, with checked-in artifacts under `inventory/first-collation-string-slice-*`
+- TiKV executable collation coverage remains follow-on scope
 
 ## First Overflow Follow-On Checkpoint
 

@@ -1,6 +1,6 @@
 # First Collation-Sensitive String Slice Cases
 
-Status: issue #233 docs checkpoint, issue #352 executable local checkpoint
+Status: issue #233 docs checkpoint, issue #352 executable local checkpoint, issue #358 executable differential checkpoint
 
 Spec source: `docs/design/first-collation-string-slice.md`
 
@@ -41,7 +41,4 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-Issue #352 adds first executable local shared-kernel coverage for this
-checkpoint in `crates/tiforth-kernel/tests/collation_string_slice.rs`.
-Adapter and differential-harness wiring for this collation slice remains
-follow-on scope.
+Issue #352 adds first executable local shared-kernel coverage for this checkpoint in `crates/tiforth-kernel/tests/collation_string_slice.rs`. Issue #358 adds executable TiDB-versus-TiFlash adapter and differential harness coverage for this checkpoint in `crates/tiforth-adapter-tidb/src/first_collation_string_slice.rs`, `crates/tiforth-adapter-tiflash/src/first_collation_string_slice.rs`, and `crates/tiforth-harness-differential/src/first_collation_string_slice.rs`, with checked-in artifacts under `inventory/first-collation-string-slice-*`.
