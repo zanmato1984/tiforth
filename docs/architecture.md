@@ -34,15 +34,15 @@ The first documented differential checkpoint is the TiDB-versus-TiFlash expressi
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
 
-The next end-to-end checkpoint should still grow layers 5 and 6 before it widens layer 3 further: `docs/design/next-thin-end-to-end-slice.md` fixes the follow-on slice as the first executable differential harness over the already-documented expression family.
+That bias first landed as the executable expression differential harness fixed by `docs/design/next-thin-end-to-end-slice.md` and its issue-scoped breakdown in `docs/design/adapter-milestone-breakdown.md`.
 
-`docs/design/adapter-milestone-breakdown.md` fixes how that differential slice should break into issue-scoped adapter and harness checkpoints.
+`docs/design/kernel-expansion-acceptance.md` then fixed the gate for later layer-3 growth after that differential checkpoint existed.
 
-`docs/design/kernel-expansion-acceptance.md` now defines the gate for any later layer-3 growth after that differential checkpoint exists.
+Since then, later issue-scoped checkpoints have widened the current repository shape through the first post-gate filter boundary, the first temporal `date32` and `timestamp_tz(us)` slices, the first `decimal128` and float64-ordering slices, the first `uint64` unsigned arithmetic slice, and the first nested struct, map, and union passthrough checkpoints while keeping the shared kernel intentionally narrow and docs-first.
 
-`docs/design/first-post-gate-kernel-boundary.md` fixed the first post-gate layer-3 expansion as one narrow filter boundary, and issue #149 implements its first executable local kernel path.
+`docs/design/first-post-gate-kernel-boundary.md` fixed the first post-gate layer-3 expansion as one narrow filter boundary, and later accepted follow-on docs extended that same checkpoint style without widening into a general shared-kernel API.
 
-`docs/design/first-in-contract-exchange-slice.md` now fixes the first post-milestone in-contract runtime exchange checkpoint as one narrow single-producer and single-consumer local queue boundary with required conformance and differential coverage, without widening current shared-kernel semantics.
+`docs/design/first-in-contract-exchange-slice.md` now fixes the first post-milestone in-contract runtime exchange checkpoint as one narrow single-producer and single-consumer local queue boundary with required conformance and differential coverage, again without widening current shared-kernel semantics.
 
 ## Current Minimal Kernel Boundaries
 
@@ -51,20 +51,26 @@ The currently useful shared-kernel boundaries under `crates/tiforth-kernel` are:
 - the milestone-1 expression-projection slice
 - the first post-gate filter slice for `is_not_null(column(index))`
 - the first temporal `date32` executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
+- the first temporal `timestamp_tz(us)` executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
 - the first decimal `decimal128` executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
 - the first float64 NaN and infinity ordering executable conformance extension for `column(index)` passthrough and `is_not_null(column(index))`
+- the first unsigned arithmetic `uint64` executable conformance extension for passthrough `column(index)`, `literal<uint64>(value)`, `add<uint64>(lhs, rhs)`, and `is_not_null(column(index))`
+- the first nested struct passthrough checkpoint for `struct<a:int32, b:int32?>`
+- the first nested map passthrough checkpoint for `map<int32, int32?>`
+- the first nested union passthrough checkpoint for `dense_union<i:int32, n:int32?>`
 
 Those boundaries are intentionally narrow:
 
 - one static Arrow batch source, one projection or filter pipe, and one collecting sink for the local executable slices
-- expression evaluation only for `column(index)`, `literal<int32>(value)`, and `add<int32>(lhs, rhs)`
-- filter predicate evaluation for `is_not_null(column(index))` with `int32` predicate input in the first filter slice, `date32` predicate input in the first temporal slice, `decimal128` predicate input in the first decimal slice, and `float64` predicate input in the first float64 slice
+- expression evaluation only for `column(index)`, `literal<int32>(value)`, and `add<int32>(lhs, rhs)` in the milestone-1 slice, plus narrow `uint64` follow-on coverage for `literal<uint64>(value)` and `add<uint64>(lhs, rhs)`
+- filter predicate evaluation for `is_not_null(column(index))` with `int32` predicate input in the first filter slice, `date32` and `timestamp_tz(us)` predicate input in the temporal slices, `decimal128` predicate input in the first decimal slice, `float64` predicate input in the first float64 slice, and `uint64` predicate input in the first unsigned slice
+- nested follow-on coverage reuses existing expression family scope through passthrough `column(index)` over `struct<a:int32, b:int32?>`, `map<int32, int32?>`, and `dense_union<i:int32, n:int32?>`; nested predicates, casts, and ordering remain out of scope
 - direct attachment to the adopted upstream `SourceOperator`, `PipeOperator`, and `SinkOperator` traits, with expressions and filter predicates kept as operator-local evaluators and schema helpers
 - reserve-first admission around operator-owned output materialization
 - governed-batch handoff and live-claim tracking through the source -> projection or filter -> sink paths
 - local execution snapshots and checked-in fixtures that keep rows, errors, and ownership outcomes reviewable
 
-These boundaries are justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/first-filter-is-not-null.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, `tests/conformance/expression-projection-slice.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `docs/design/first-temporal-semantic-slice.md`, `tests/conformance/first-temporal-date32-slice.md`, `docs/design/first-decimal-semantic-slice.md`, `tests/conformance/first-decimal128-slice.md`, `docs/design/first-float64-ordering-slice.md`, and `tests/conformance/first-float64-ordering-slice.md`.
+These boundaries are justified by `docs/spec/milestone-1-expression-projection.md`, `docs/spec/first-filter-is-not-null.md`, `docs/spec/type-system.md`, `docs/contracts/data.md`, `docs/contracts/runtime.md`, `tests/conformance/expression-projection-slice.md`, `tests/conformance/first-filter-is-not-null-slice.md`, `docs/design/first-temporal-semantic-slice.md`, `tests/conformance/first-temporal-date32-slice.md`, `docs/design/first-temporal-timestamp-tz-slice.md`, `tests/conformance/first-temporal-timestamp-tz-slice.md`, `docs/design/first-decimal-semantic-slice.md`, `tests/conformance/first-decimal128-slice.md`, `docs/design/first-float64-ordering-slice.md`, `tests/conformance/first-float64-ordering-slice.md`, `docs/design/first-unsigned-arithmetic-slice.md`, `tests/conformance/first-unsigned-arithmetic-slice.md`, `docs/design/first-struct-aware-handoff-slice.md`, `tests/conformance/first-struct-slice.md`, `docs/design/first-map-aware-handoff-slice.md`, `tests/conformance/first-map-slice.md`, `docs/design/first-union-aware-handoff-slice.md`, and `tests/conformance/first-union-slice.md`.
 
 They are not yet a general shared kernel API. They exist to prove end-to-end paths where shared specs, admission rules, handoff ownership, and local harness evidence all line up before broader operators or adapter-driven execution are introduced.
 
@@ -79,7 +85,7 @@ They are not yet a general shared kernel API. They exist to prove end-to-end pat
 
 After the current milestone-1 slices, layer 3 should grow only when:
 
-- the next thin end-to-end differential slice already exists as reviewable evidence
+- the first thin end-to-end differential slice already exists as reviewable evidence
 - the proposed kernel growth is one narrow boundary with docs and harness coverage already named
 - the resulting issue can show which shared surfaces change and which stay out of scope
 
