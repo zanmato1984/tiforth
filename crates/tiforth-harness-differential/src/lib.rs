@@ -23,6 +23,7 @@ pub mod first_temporal_date32_slice_tikv_live;
 pub mod first_temporal_date32_slice_tikv_pairwise;
 pub mod first_temporal_timestamp_tz_slice;
 pub mod first_temporal_timestamp_tz_slice_tikv;
+pub mod first_temporal_timestamp_tz_slice_tikv_live;
 pub mod first_temporal_timestamp_tz_slice_tikv_pairwise;
 pub mod first_union_slice;
 pub mod first_union_slice_tikv;
