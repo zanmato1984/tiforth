@@ -41,46 +41,23 @@ Optional env vars:
 USAGE
 }
 
-if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
-  usage
-  exit 0
-fi
-
-write_artifacts=0
-if [[ $# -gt 1 ]]; then
-  usage >&2
-  exit 2
-elif [[ $# -eq 1 ]]; then
-  if [[ $1 != "--write-artifacts" ]]; then
-    echo "Unknown argument: $1" >&2
-    usage >&2
-    exit 2
-  fi
-  write_artifacts=1
-fi
-
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-cd "$repo_root"
+# shellcheck source=scripts/lib/tikv-live-refresh-common.sh
+source "$repo_root/scripts/lib/tikv-live-refresh-common.sh"
 
-required_suffixes=(HOST PORT USER DATABASE)
-prefixes=(TIFORTH_TIDB_MYSQL TIFORTH_TIFLASH_MYSQL TIFORTH_TIKV_MYSQL)
-missing=()
-
-for prefix in "${prefixes[@]}"; do
-  for suffix in "${required_suffixes[@]}"; do
-    key="${prefix}_${suffix}"
-    if [[ -z "${!key:-}" ]]; then
-      missing+=("$key")
-    fi
-  done
-done
-
-if [[ ${#missing[@]} -gt 0 ]]; then
-  echo "Missing required env vars for consolidated TiKV live artifact refresh:" >&2
-  printf '  - %s\n' "${missing[@]}" >&2
-  echo "Set them and rerun this script." >&2
-  exit 1
+if tiforth_live_refresh_parse_write_artifacts_flag "$@"; then
+  :
+else
+  parse_status=$?
+  if [[ $parse_status -eq 10 ]]; then
+    exit 0
+  fi
+  exit "$parse_status"
 fi
+
+write_artifacts=$TIFORTH_LIVE_REFRESH_WRITE_ARTIFACTS
+cd "$repo_root"
+tiforth_live_refresh_require_mysql_env "consolidated TiKV live artifact refresh"
 
 refresh_scripts=(
   scripts/refresh-first-union-tikv-live-artifacts.sh
