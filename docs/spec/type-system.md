@@ -645,6 +645,11 @@ Issue #426 also adds the first docs-first signed add coverage anchors in:
 - `tests/differential/first-signed-widening-add-int64-slice.md`
 - `adapters/first-signed-widening-add-int64-slice.md`
 
+Issue #429 adds the first executable local conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/signed_widening_add_int64_slice.rs`
+
 For current shared contracts:
 
 - the first admitted signed add slice beyond milestone 1 selects `add<int64>`
@@ -661,9 +666,8 @@ For current shared contracts:
 - this checkpoint does not add `literal<int64>`,
   `is_not_null(column(index))` over `int64`, broader signed widths, or
   `float64` and decimal add coverage
-- executable local kernel coverage, executable TiDB-versus-TiFlash harness
-  coverage, and checked-in `inventory/` artifacts for this slice remain
-  follow-on scope
+- executable TiDB-versus-TiFlash harness coverage and checked-in `inventory/`
+  artifacts for this slice remain follow-on scope
 
 ## First Unsigned Arithmetic Follow-On Checkpoint
 
