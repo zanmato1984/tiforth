@@ -13,11 +13,9 @@ use tiforth_kernel::admission::{
     AdmissionController, AdmissionEvent, ConsumerKind, RecordingAdmissionController,
 };
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::operators::{
-    CollectSink, ProjectionPipe, RuntimeContext, StaticRecordBatchSource,
-};
+use tiforth_kernel::operators::{CollectSink, ProjectionPipe, StaticRecordBatchSource};
 use tiforth_kernel::projection::ProjectionExpr;
-use tiforth_kernel::{Batch, LocalExecutionFixture, TiforthTypes};
+use tiforth_kernel::{Batch, LocalExecutionFixture, RuntimeContext, TiforthTypes};
 
 const PROJECTION_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-computed-before-terminal.json",

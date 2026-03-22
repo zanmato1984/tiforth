@@ -1,5 +1,5 @@
 use crate::admission::{AdmissionEvent, ConsumerKind, RecordingAdmissionController};
-use crate::handoff::{BatchOrigin, RuntimeEvent};
+use crate::runtime::{BatchOrigin, RuntimeEvent};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]

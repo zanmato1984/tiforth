@@ -14,10 +14,10 @@ use tiforth_kernel::admission::{
 };
 use tiforth_kernel::expr::Expr;
 use tiforth_kernel::operators::{
-    CollectSink, ExchangePipe, ProjectionPipe, RuntimeContext, StaticRecordBatchSource,
+    CollectSink, ExchangePipe, ProjectionPipe, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::ProjectionExpr;
-use tiforth_kernel::{Batch, TiforthTypes};
+use tiforth_kernel::{Batch, RuntimeContext, TiforthTypes};
 
 #[test]
 fn exchange_passthrough_single_batch_preserves_schema_and_values() {

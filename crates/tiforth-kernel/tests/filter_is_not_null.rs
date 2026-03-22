@@ -7,8 +7,8 @@ use broken_pipeline::{
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{AdmissionController, RecordingAdmissionController};
-use tiforth_kernel::operators::{CollectSink, FilterPipe, RuntimeContext, StaticRecordBatchSource};
-use tiforth_kernel::{Batch, FilterPredicate, TiforthTypes};
+use tiforth_kernel::operators::{CollectSink, FilterPipe, StaticRecordBatchSource};
+use tiforth_kernel::{Batch, FilterPredicate, RuntimeContext, TiforthTypes};
 
 #[test]
 fn filter_pipe_keeps_all_rows_when_predicate_column_has_no_nulls() {

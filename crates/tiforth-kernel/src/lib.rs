@@ -1,11 +1,12 @@
 pub mod admission;
+pub mod batch;
 pub mod collation;
 pub mod error;
 pub mod expr;
 pub mod filter;
-pub mod handoff;
 pub mod operators;
 pub mod projection;
+pub mod runtime;
 pub mod snapshot;
 
 use arrow_schema::ArrowError;
@@ -16,6 +17,7 @@ pub use admission::{
     AdmissionConsumer, AdmissionController, AdmissionEvent, ConsumerKind, ConsumerSpec,
     NoopAdmissionController, RecordingAdmissionController,
 };
+pub use batch::{BatchClaim, TiforthBatch};
 pub use broken_pipeline::traits::arrow::Batch;
 pub use collation::{
     collation_eq_column_literal, collation_lt_column_literal, order_by_column_asc_indices,
@@ -24,11 +26,11 @@ pub use collation::{
 pub use error::TiforthError;
 pub use expr::Expr;
 pub use filter::{filter_batch, FilterPredicate};
-pub use handoff::{BatchClaim, BatchOrigin, RuntimeEvent, TiforthBatch};
 pub use operators::{
-    CollectSink, ExchangePipe, FilterPipe, ProjectionPipe, RuntimeContext, StaticRecordBatchSource,
+    CollectSink, ExchangePipe, FilterPipe, ProjectionPipe, StaticRecordBatchSource,
 };
 pub use projection::{project_batch, ProjectionExpr};
+pub use runtime::{BatchOrigin, RuntimeContext, RuntimeEvent};
 pub use snapshot::{
     AdmissionFixtureEvent, FixtureBatchOrigin, LocalExecutionFixture, LocalExecutionSnapshot,
     RuntimeFixtureEvent,

@@ -6,9 +6,9 @@ use arrow_schema::{DataType, TimeUnit};
 use arrow_select::filter::filter_record_batch;
 
 use crate::admission::{AdmissionConsumer, AdmissionController, ConsumerKind, ConsumerSpec};
+use crate::batch::{BatchClaim, TiforthBatch};
 use crate::error::TiforthError;
-use crate::handoff::{BatchClaim, TiforthBatch};
-use crate::operators::RuntimeContext;
+use crate::runtime::RuntimeContext;
 use crate::Batch;
 
 #[derive(Clone, Debug)]

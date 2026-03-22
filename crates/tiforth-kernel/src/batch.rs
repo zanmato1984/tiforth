@@ -1,75 +1,13 @@
 use std::collections::HashSet;
 use std::fmt;
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use broken_pipeline::traits::arrow::Batch as ArrowBatch;
 
 use crate::admission::AdmissionConsumer;
 use crate::error::TiforthError;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BatchOrigin {
-    pub query: String,
-    pub stage: String,
-    pub operator: String,
-}
-
-impl BatchOrigin {
-    pub fn local(operator: impl Into<String>) -> Self {
-        let operator = operator.into();
-        Self {
-            query: "local-query".into(),
-            stage: operator.clone(),
-            operator,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RuntimeEvent {
-    BatchEmitted {
-        batch_id: u64,
-        origin: BatchOrigin,
-        claim_count: usize,
-    },
-    BatchHandedOff {
-        batch_id: u64,
-        to_operator: String,
-        claim_count: usize,
-    },
-    BatchReleased {
-        batch_id: u64,
-        origin: BatchOrigin,
-        claim_count: usize,
-    },
-    TerminalFinished,
-    TerminalCancelled,
-    TerminalError {
-        message: String,
-    },
-}
-
-#[derive(Clone, Default)]
-pub struct RuntimeEventRecorder {
-    events: Arc<Mutex<Vec<RuntimeEvent>>>,
-}
-
-impl RuntimeEventRecorder {
-    pub fn record(&self, event: RuntimeEvent) {
-        self.events
-            .lock()
-            .expect("runtime events mutex poisoned")
-            .push(event);
-    }
-
-    pub fn events(&self) -> Vec<RuntimeEvent> {
-        self.events
-            .lock()
-            .expect("runtime events mutex poisoned")
-            .clone()
-    }
-}
+use crate::runtime::{BatchOrigin, RuntimeEvent, RuntimeEventRecorder};
 
 #[derive(Clone)]
 pub struct BatchClaim {

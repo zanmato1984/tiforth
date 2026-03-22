@@ -5,10 +5,10 @@ use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, UInt64Array};
 use arrow_schema::Schema;
 
 use crate::admission::{AdmissionController, ConsumerKind, ConsumerSpec};
+use crate::batch::{BatchClaim, TiforthBatch};
 use crate::error::TiforthError;
 use crate::expr::Expr;
-use crate::handoff::{BatchClaim, TiforthBatch};
-use crate::operators::RuntimeContext;
+use crate::runtime::RuntimeContext;
 use crate::Batch;
 
 #[derive(Clone, Debug)]
