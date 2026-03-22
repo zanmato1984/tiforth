@@ -132,9 +132,12 @@ For current shared planning:
   `int32 < int64 < float64`
 - `uint64` remains exact-match-only; there is no implicit rescue between
   signed and unsigned families
-- decimal add remains a required family member, but it is not admitted until a
-  same-epic checkpoint fixes decimal precision/scale result derivation plus
-  overflow or rescale policy explicitly
+- exact decimal add now has an admitted same-epic boundary in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`:
+  `result.scale = max(s1, s2)`,
+  `result.precision = max(p1 - s1, p2 - s2) + max(s1, s2) + 1`, mixed-scale
+  alignment is limited to exact zero-extension, and derived precision `> 38`
+  stays deferred to `decimal256`
 - selected add overloads derive result nullability as
   `lhs.nullable OR rhs.nullable`
 - integer add overloads keep overflow-as-error semantics after signature
@@ -435,10 +438,16 @@ For current shared contracts:
   families: passthrough `column(index)` plus `is_not_null(column(index))`
 - this checkpoint preserves decimal precision and scale metadata and compares
   row outcomes through canonical decimal strings
-- this checkpoint does not define decimal arithmetic, cast, coercion, or
+- this checkpoint itself does not admit decimal arithmetic, cast, coercion, or
   rounding semantics
-- broader decimal families remain out of scope until follow-on issues define
-  their semantics and coverage
+- issue #423 now separately fixes exact decimal add result derivation for the
+  numeric add family in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`; that
+  follow-on remains limited to exact `decimal128` results with derived
+  precision `<= 38`
+- broader decimal families, broader decimal arithmetic, and `decimal256`
+  result carriers remain out of scope until follow-on issues define their
+  semantics and coverage
 
 Local executable decimal kernel conformance coverage now exists in
 `crates/tiforth-kernel/tests/decimal128_slice.rs`.
@@ -623,14 +632,17 @@ For current shared contracts:
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
-- TODO: define family-specific overflow semantics for decimal and temporal arithmetic checkpoints when those families become executable
-- TODO: fix decimal add precision/scale result derivation for the active
-  numeric add family before claiming that family complete
+- TODO: define family-specific overflow or rescale semantics for deferred
+  `decimal256` decimal arithmetic and temporal arithmetic checkpoints beyond
+  the admitted exact `decimal128` add boundary
 - TODO: extend collation semantics beyond the first string checkpoint,
   including locale-specific collation families, binary-type collation
   interactions, and executable adapter plus kernel coverage
 - TODO: extend temporal semantics beyond the first `date32` and `timestamp_tz(us)` checkpoints, including arithmetic, cast, extract, truncation, broader unit coverage, and timezone-name canonicalization rules
-- TODO: extend decimal semantics beyond the first `decimal128` checkpoint, including arithmetic, cast/coercion, precision/scale propagation, and rounding behavior
+- TODO: extend decimal semantics beyond the first `decimal128` checkpoint and
+  admitted exact `add<decimal128>` boundary, including cast/coercion,
+  multiplication and division, broader precision/scale propagation, rounding
+  behavior, and `decimal256` families
 - TODO: extend JSON semantics beyond the first checkpoint, including path extraction, containment, ordering, implicit casts, and executable adapter/kernel coverage
 ## Boundary For Now
 

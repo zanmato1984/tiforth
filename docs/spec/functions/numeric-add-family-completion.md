@@ -11,6 +11,7 @@ Related issues:
 - #418 `design: fix TiDB-to-Arrow mapping for the numeric add/plus family`
 - #420 `design: map the numeric add/plus family to tipb/kvproto enums`
 - #422 `spec: complete the numeric add/plus family boundary`
+- #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 
 ## Question
 
@@ -67,6 +68,9 @@ The surrounding doc ownership is:
 - `docs/spec/functions/numeric-add-family.md`: why this family is the first
   one to complete
 - this file: what must be true before that family can be claimed complete
+- `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`:
+  exact decimal add precision, scale, mixed-scale alignment, and deferred
+  `decimal256` boundary
 - `docs/spec/type-system.md`: family-wide signature selection, coercion,
   nullability, overflow, and result-derivation consequences
 - `docs/design/first-tidb-arrow-type-mapping-boundary.md`: Arrow-native versus
@@ -93,8 +97,9 @@ The completion boundary therefore requires these overload groups:
 - exact floating-point add:
   `add<float64>(lhs, rhs)`
 - exact decimal add:
-  `add<decimal128(precision, scale)>(lhs, rhs)` once decimal result-derivation
-  policy is accepted
+  `add<decimal128(precision, scale)>(lhs, rhs)` inside the admitted boundary
+  fixed in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 
 Current repo evidence already anchors two of those groups:
 
@@ -105,7 +110,7 @@ The remaining required groups for a completion claim are:
 
 - signed widening through `add<int64>`
 - floating arithmetic through `add<float64>`
-- decimal arithmetic through `add<decimal128(..., ...)>`
+- decimal arithmetic through admitted `add<decimal128(..., ...)>`
 
 ## Generic-First Overload Reuse Boundary
 
@@ -123,8 +128,9 @@ For the admitted overload groups:
 - exact floating-point overloads reuse that same shape, but follow `float64`
   value semantics and normalized special-value comparison rules instead of
   integer overflow-as-error behavior
-- exact decimal overloads reuse that same shape, but need explicit precision,
-  scale, overflow, and rescale hooks before they are admitted
+- exact decimal overloads reuse that same shape and use the admitted precision,
+  scale, and mixed-scale alignment rules from
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 
 Shared docs, adapters, and harnesses should therefore talk about one numeric
 `add/plus` family whose overload identity is carried by logical operand and
@@ -172,6 +178,10 @@ For the currently admitted or required groups:
 - `add<int64>` derives `int64`
 - `add<uint64>` derives `uint64`
 - `add<float64>` derives `float64`
+- exact decimal add derives `decimal128(result.precision, result.scale)` under
+  the accepted rule in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md` when
+  the derived precision is `<= 38`
 
 Integer-family overflow remains an execution error:
 
@@ -185,22 +195,24 @@ Integer-family overflow remains an execution error:
 `-Infinity`, and signed zero stay ordinary non-null `float64` row outcomes
 when produced by the selected overload.
 
-### Decimal Blocker Boundary
+### Decimal Result-Derivation Boundary
 
-Decimal add is part of the required completion set, but it is not admitted by
-default just because `decimal128` passthrough and predicate checkpoints exist.
+Issue #423 now fixes the previously-blocking decimal add boundary in
+`docs/spec/functions/numeric-add-family-decimal-result-derivation.md`.
 
-Before `add<decimal128(precision, scale)>` is admitted, the same epic still
-needs one accepted checkpoint that fixes all of these together:
+For the current family-completion program, that accepted boundary means:
 
-- decimal precision and scale result derivation
-- whether only same-scale decimal add is admitted first
-- overflow-as-error versus any narrower decimal-specific rescale policy
-- the exact boundary between `decimal128`-in-range add and deferred
-  `decimal256` or wider decimal paths
+- exact decimal add is admitted only for exact `decimal128` operands
+- `result.scale = max(s1, s2)`
+- `result.precision = max(p1 - s1, p2 - s2) + max(s1, s2) + 1`
+- mixed-scale decimal add is admitted only through exact zero-extension of the
+  smaller-scale operand
+- derived precision `> 38` is deferred to a same-family `decimal256`
+  follow-on rather than being rounded or narrowed into `decimal128`
 
-Until that checkpoint exists, decimal add remains a required blocker for a full
-family-completion claim rather than an implicit inherited case.
+Decimal add therefore no longer sits behind an unspecified blocker boundary,
+but the family still cannot be claimed complete until the admitted decimal add
+slice, harness coverage, and checked-in evidence land.
 
 ## Adapter, Harness, And Evidence Expectations
 
@@ -229,8 +241,8 @@ than redefining the harness model:
 
 - one narrow signed-widening or `int64` add slice
 - one narrow `float64` add slice that reuses canonical float normalization
-- one narrow decimal add slice after the decimal blocker boundary above is
-  accepted
+- one narrow decimal add slice that implements the admitted `decimal128`
+  result-derivation boundary above
 
 Normalized evidence for those follow-ons should keep using shared logical type
 tokens and current carrier rules:
@@ -271,5 +283,5 @@ This completion boundary does not include:
 That boundary says the family is complete only when shared docs, type-system
 rules, adapter and harness anchors, and checked-in evidence cover one generic
 `add` family across the admitted `int32`, `int64`, `uint64`, `float64`, and
-decimal add checkpoints, with decimal result derivation called out as an
-explicit same-epic blocker instead of a hidden assumption.
+decimal add checkpoints, with decimal result derivation now fixed as an
+accepted same-epic boundary instead of a hidden assumption.
