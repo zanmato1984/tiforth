@@ -13,6 +13,7 @@ Related issues:
 - #422 `spec: complete the numeric add/plus family boundary`
 - #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 - #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
+- #427 `design: define first widening add/float64 slice for the numeric add/plus family`
 
 ## Question
 
@@ -119,6 +120,14 @@ boundary in `docs/design/first-signed-widening-add-int64-slice.md`.
 That slice admits exact `int64 + int64` plus the minimal widening pairs
 `int32 + int64` and `int64 + int32`, while keeping broader signed widths,
 `float64`, and decimal executable follow-ons separate.
+
+Issue #427 now fixes the docs-first widening `add<float64>` slice boundary in
+`docs/design/first-widening-add-float64-slice.md`.
+
+That slice admits exact `float64 + float64` plus the minimal mixed
+`int32`/`int64` with `float64` pairs, while keeping `float32`, explicit
+near-`2^53` precision-loss probes, and decimal executable follow-ons
+separate.
 
 ## Generic-First Overload Reuse Boundary
 
@@ -242,6 +251,30 @@ That accepted slice boundary closes the family's remaining signed docs gap, but
 the family still cannot be claimed complete until executable signed coverage
 and checked-in evidence land for the admitted engine pair.
 
+### Float64 Slice Boundary
+
+Issue #427 now fixes the first slice-level float add boundary in
+`docs/design/first-widening-add-float64-slice.md`.
+
+For the current family-completion program, that accepted boundary means:
+
+- the first float follow-on slice admits exact `float64 + float64` and the
+  minimal widening pairs `int32 + float64`, `int64 + float64`,
+  `float64 + int32`, and `float64 + int64`
+- result logical type remains `float64` for every case in that slice because
+  signature selection already chose `add<float64>`
+- `add<float64>` reuses the accepted float64 NaN, infinity, and signed-zero
+  boundary from `docs/design/first-float64-ordering-slice.md` instead of the
+  integer overflow-as-error rule
+- the first docs-first widening fixtures keep widened integer inputs inside the
+  exact `float64` integer range; explicit precision-loss probes near `2^53`,
+  `float32`, literal or predicate companions, and decimal/non-decimal mixing
+  remain deferred
+
+That accepted slice boundary closes the family's remaining float docs gap, but
+the family still cannot be claimed complete until executable float64 coverage
+and checked-in evidence land for the admitted engine pair.
+
 ## Adapter, Harness, And Evidence Expectations
 
 Family completion should reuse the repo's existing narrow-slice carrier model.
@@ -265,13 +298,16 @@ Existing anchors already count toward the family:
 - `first-unsigned-arithmetic-slice` for `add<uint64>`
 - `first-signed-widening-add-int64-slice` docs-first anchors for the admitted
   signed `add<int64>` follow-on
+- `first-widening-add-float64-slice` docs-first anchors for the admitted
+  float `add<float64>` follow-on
 
 The remaining admitted overload groups should follow the same pattern rather
 than redefining the harness model:
 
 - executable signed-widening `add<int64>` coverage and checked-in evidence over
   the now-fixed first signed slice
-- one narrow `float64` add slice that reuses canonical float normalization
+- executable widening `add<float64>` coverage and checked-in evidence over the
+  now-fixed first float slice
 - one narrow decimal add slice that implements the admitted `decimal128`
   result-derivation boundary above
 

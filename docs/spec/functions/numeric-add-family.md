@@ -18,6 +18,7 @@ Related issues:
 - #422 `spec: complete the numeric add/plus family boundary`
 - #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 - #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
+- #427 `design: define first widening add/float64 slice for the numeric add/plus family`
 
 ## Question
 
@@ -186,6 +187,24 @@ That boundary makes the first admitted signed follow-on concrete:
   widths, `float64`, and decimal executable follow-ons remain separate
   same-epic checkpoints
 
+## Float64 Slice Boundary
+
+Issue #427 now fixes the first widening `add<float64>` slice boundary in
+`docs/design/first-widening-add-float64-slice.md`.
+
+That boundary makes the first admitted float follow-on concrete:
+
+- exact `float64 + float64` plus `int32 + float64`, `int64 + float64`,
+  `float64 + int32`, and `float64 + int64` are the first slice-level cases
+  that select `add<float64>`
+- selected `add<float64>` reuses the existing `float64` NaN, infinity, and
+  signed-zero rules as ordinary non-null row outcomes instead of integer
+  overflow errors
+- named widening-success fixtures keep integer operands inside the exact
+  `float64` integer range, while near-`2^53` precision-loss probes,
+  `float32`, literal or predicate companions, and decimal executable
+  follow-ons remain separate same-epic checkpoints
+
 ## Completion Boundary
 
 Issue #422 now fixes the family-completion boundary in
@@ -202,5 +221,5 @@ That doc is the canonical shared entry for:
 
 `tiforth` now has one exact first complete function-family target: the scalar
 numeric `add/plus` family. Future family work should stay inside that family
-until its mapping, protocol identity, and completion boundaries are resolved
-through the linked shared docs.
+until its mapping, protocol identity, signed and float slice boundaries, and
+completion boundary are resolved through the linked shared docs.
