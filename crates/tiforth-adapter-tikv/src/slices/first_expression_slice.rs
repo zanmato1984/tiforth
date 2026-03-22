@@ -1,9 +1,10 @@
+use crate::engine;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const FIRST_EXPRESSION_SLICE_ID: &str = "first-expression-slice";
-pub const TIKV_ENGINE: &str = "tikv";
-pub const TIKV_ADAPTER: &str = "tikv-sql";
+pub const TIKV_ENGINE: &str = engine::ENGINE;
+pub const TIKV_ADAPTER: &str = engine::ADAPTER;
 
 const FIRST_EXPRESSION_SLICE_SPEC_REFS: [&str; 4] = [
     "docs/spec/milestone-1-expression-projection.md",
@@ -48,11 +49,8 @@ pub struct AdapterRequest {
     pub projection_ref: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TikvExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TikvExecutionPlan = crate::engine::TikvExecutionPlan<AdapterRequest>;
+pub use crate::engine::{EngineColumn, EngineExecutionError, EngineExecutionResult};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -96,30 +94,6 @@ pub enum ErrorClass {
     ArithmeticOverflow,
     AdapterUnavailable,
     EngineError,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

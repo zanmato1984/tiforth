@@ -1,9 +1,10 @@
+use crate::engine;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const FIRST_FLOAT64_ORDERING_SLICE_ID: &str = "first-float64-ordering-slice";
-pub const TIKV_ENGINE: &str = "tikv";
-pub const TIKV_ADAPTER: &str = "tikv-sql";
+pub const TIKV_ENGINE: &str = engine::ENGINE;
+pub const TIKV_ADAPTER: &str = engine::ADAPTER;
 pub const COMPARISON_MODE_ROW_ORDER_PRESERVED: &str = "row-order-preserved";
 pub const COMPARISON_MODE_FLOAT64_MULTISET_CANONICAL: &str = "float64-multiset-canonical";
 
@@ -81,11 +82,8 @@ pub struct AdapterRequest {
     pub filter_ref: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TikvExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TikvExecutionPlan = crate::engine::TikvExecutionPlan<AdapterRequest>;
+pub use crate::engine::{EngineColumn, EngineExecutionError, EngineExecutionResult};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -134,30 +132,6 @@ pub enum ErrorClass {
     UnsupportedFloatingType,
     AdapterUnavailable,
     EngineError,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -436,7 +410,7 @@ fn normalize_error(error: EngineExecutionError) -> CaseOutcome {
             engine_message: message,
         },
         EngineExecutionError::EngineFailure { code, message } => {
-            let error_class = if is_missing_column(code.as_deref(), &message) {
+            let error_class = if engine::is_missing_column(code.as_deref(), &message) {
                 ErrorClass::MissingColumn
             } else if is_unsupported_floating_type(code.as_deref(), &message) {
                 ErrorClass::UnsupportedFloatingType
@@ -451,14 +425,6 @@ fn normalize_error(error: EngineExecutionError) -> CaseOutcome {
             }
         }
     }
-}
-
-fn is_missing_column(engine_code: Option<&str>, engine_message: &str) -> bool {
-    let normalized_message = engine_message.to_ascii_lowercase();
-
-    engine_code == Some("1054")
-        || normalized_message.contains("unknown column")
-        || normalized_message.contains("no such column")
 }
 
 fn is_unsupported_floating_type(engine_code: Option<&str>, engine_message: &str) -> bool {
