@@ -1,6 +1,6 @@
 # First Signed-Widening `add<int64>` Slice Cases
 
-Status: issue #426 docs checkpoint
+Status: issue #426 docs checkpoint, issue #429 local executable kernel checkpoint
 
 Spec source: `docs/design/first-signed-widening-add-int64-slice.md`
 
@@ -32,8 +32,10 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only.
+Issue #429 adds the first executable local kernel conformance coverage for this
+checkpoint in:
 
-Executable local kernel coverage, executable TiDB/TiFlash differential harness
-coverage, and checked-in `inventory/` artifacts remain follow-on scope for the
-same active epic.
+- `crates/tiforth-kernel/tests/signed_widening_add_int64_slice.rs`
+
+Executable TiDB/TiFlash differential harness coverage and checked-in
+`inventory/` artifacts remain follow-on scope for the same active epic.

@@ -20,7 +20,7 @@ Issue #141 adds the signed/unsigned interaction checkpoint in `tests/conformance
 
 Issue #300 adds the first unsigned arithmetic conformance checkpoint in `tests/conformance/first-unsigned-arithmetic-slice.md`. Issue #308 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`. Issue #310 adds the first executable TiDB/TiFlash differential harness and checked-in artifact coverage for the same slice.
 
-Issue #426 adds the first signed-widening `add<int64>` conformance checkpoint in `tests/conformance/first-signed-widening-add-int64-slice.md`. Executable local kernel coverage for that checkpoint remains follow-on scope.
+Issue #426 adds the first signed-widening `add<int64>` conformance checkpoint in `tests/conformance/first-signed-widening-add-int64-slice.md`. Issue #429 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/signed_widening_add_int64_slice.rs`.
 
 Issue #427 adds the first widening `add<float64>` conformance checkpoint in `tests/conformance/first-widening-add-float64-slice.md`. Executable local kernel coverage for that checkpoint remains follow-on scope.
 

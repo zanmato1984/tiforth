@@ -10,6 +10,7 @@ pub enum Expr {
     LiteralInt32(Option<i32>),
     LiteralUInt64(Option<u64>),
     AddInt32(Box<Expr>, Box<Expr>),
+    AddInt64(Box<Expr>, Box<Expr>),
     AddUInt64(Box<Expr>, Box<Expr>),
 }
 
@@ -24,6 +25,10 @@ impl Expr {
 
     pub fn add(lhs: Expr, rhs: Expr) -> Self {
         Self::AddInt32(Box::new(lhs), Box::new(rhs))
+    }
+
+    pub fn add_int64(lhs: Expr, rhs: Expr) -> Self {
+        Self::AddInt64(Box::new(lhs), Box::new(rhs))
     }
 
     pub fn literal_uint64(value: Option<u64>) -> Self {
@@ -55,6 +60,11 @@ impl Expr {
                 DataType::Int32,
                 lhs.int32_nullable(input_schema)? || rhs.int32_nullable(input_schema)?,
             )),
+            Self::AddInt64(lhs, rhs) => Ok(Field::new(
+                name,
+                DataType::Int64,
+                lhs.int64_nullable(input_schema)? || rhs.int64_nullable(input_schema)?,
+            )),
             Self::AddUInt64(lhs, rhs) => Ok(Field::new(
                 name,
                 DataType::UInt64,
@@ -81,6 +91,11 @@ impl Expr {
                 Ok(field.is_nullable())
             }
             Self::LiteralInt32(value) => Ok(value.is_none()),
+            Self::AddInt64(_, _) => Err(TiforthError::UnsupportedDataType {
+                detail:
+                    "add<int32> operands must resolve to Int32 in the current checkpoint; add<int64> is a separate follow-on slice"
+                        .to_string(),
+            }),
             Self::LiteralUInt64(_) | Self::AddUInt64(_, _) => {
                 Err(TiforthError::UnsupportedDataType {
                     detail:
@@ -90,6 +105,39 @@ impl Expr {
             }
             Self::AddInt32(lhs, rhs) => {
                 Ok(lhs.int32_nullable(input_schema)? || rhs.int32_nullable(input_schema)?)
+            }
+        }
+    }
+
+    fn int64_nullable(&self, input_schema: &Schema) -> Result<bool, TiforthError> {
+        match self {
+            Self::Column(index) => {
+                let field = input_schema
+                    .fields()
+                    .get(*index)
+                    .ok_or(TiforthError::MissingColumn { index: *index })?;
+                validate_int64_arithmetic_input(*index, field.data_type())?;
+                Ok(field.is_nullable())
+            }
+            Self::LiteralInt32(_) => Err(TiforthError::UnsupportedDataType {
+                detail:
+                    "first signed-widening add<int64> slice keeps operand support column-backed; literal<int32> is unsupported"
+                        .to_string(),
+            }),
+            Self::AddInt32(_, _) => Err(TiforthError::UnsupportedDataType {
+                detail:
+                    "first signed-widening add<int64> slice keeps add<int64> operands column-backed; nested add<int32> operands are unsupported"
+                        .to_string(),
+            }),
+            Self::LiteralUInt64(_) | Self::AddUInt64(_, _) => {
+                Err(TiforthError::UnsupportedDataType {
+                    detail:
+                        "mixed signed and unsigned arithmetic is unsupported in the current checkpoint"
+                            .to_string(),
+                })
+            }
+            Self::AddInt64(lhs, rhs) => {
+                Ok(lhs.int64_nullable(input_schema)? || rhs.int64_nullable(input_schema)?)
             }
         }
     }
@@ -104,7 +152,7 @@ impl Expr {
                 validate_uint64_arithmetic_input(*index, field.data_type())?;
                 Ok(field.is_nullable())
             }
-            Self::LiteralInt32(_) | Self::AddInt32(_, _) => {
+            Self::LiteralInt32(_) | Self::AddInt32(_, _) | Self::AddInt64(_, _) => {
                 Err(TiforthError::UnsupportedDataType {
                     detail:
                         "mixed signed and unsigned arithmetic is unsupported in the current checkpoint"
@@ -116,6 +164,29 @@ impl Expr {
                 Ok(lhs.uint64_nullable(input_schema)? || rhs.uint64_nullable(input_schema)?)
             }
         }
+    }
+}
+
+fn validate_int64_arithmetic_input(index: usize, data_type: &DataType) -> Result<(), TiforthError> {
+    match data_type {
+        DataType::Int32 | DataType::Int64 => Ok(()),
+        DataType::Int8 | DataType::Int16 => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "unsupported signed arithmetic input at column {index}, got {data_type:?}; first signed-widening slice supports Int32 and Int64 only"
+            ),
+        }),
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+            Err(TiforthError::UnsupportedDataType {
+                detail: format!(
+                    "mixed signed and unsigned arithmetic is unsupported at column {index}; expected Int32 or Int64 input for signed arithmetic, got {data_type:?}"
+                ),
+            })
+        }
+        _ => Err(TiforthError::UnsupportedDataType {
+            detail: format!(
+                "expected Int32 or Int64 input for signed arithmetic at column {index}, got {data_type:?}"
+            ),
+        }),
     }
 }
 
