@@ -513,6 +513,11 @@ in:
 - `tests/differential/first-widening-add-float64-slice.md`
 - `adapters/first-widening-add-float64-slice.md`
 
+Issue #432 adds the first executable local conformance coverage for this
+checkpoint in:
+
+- `crates/tiforth-kernel/tests/widening_add_float64_slice.rs`
+
 For current shared contracts:
 
 - the first admitted float add slice beyond the float64 ordering checkpoint
@@ -535,9 +540,8 @@ For current shared contracts:
   `is_not_null(column(index))` over `float64` inside the add slice, exact or
   mixed `float32` add, mixed signed/unsigned success semantics, decimal
   rescue, or explicit near-`2^53` precision-loss probes
-- executable local kernel coverage, executable TiDB-versus-TiFlash harness
-  coverage, and checked-in `inventory/` artifacts for this slice remain
-  follow-on scope
+- executable TiDB-versus-TiFlash harness coverage and checked-in `inventory/`
+  artifacts for this slice remain follow-on scope
 
 ## First JSON Comparability/Cast Checkpoint
 
