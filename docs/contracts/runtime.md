@@ -2,7 +2,7 @@
 
 Direction: `tiforth` adopts and exposes the Arrow-backed runtime contract from `broken-pipeline-rs` as its primary shared runtime contract.
 
-`tiforth` does not define an independent runtime protocol for milestone 1. The shared execution vocabulary comes from the upstream `broken-pipeline` crate specialized to `tiforth_kernel::TiforthTypes`, where the runtime batch is `GovernedBatch`, the error surface remains `ArrowError`, and the task context is typed with `ProjectionRuntimeContext`. `tiforth`'s role is to provide operators, expressions, host admission hooks, and higher-level composition on top of that adopted contract.
+`tiforth` does not define an independent runtime protocol for milestone 1. The shared execution vocabulary comes from the upstream `broken-pipeline` crate specialized to `tiforth_kernel::TiforthTypes`, where the runtime batch is `TiforthBatch`, the error surface remains `ArrowError`, and the task context is typed with `RuntimeContext`. `tiforth`'s role is to provide operators, expressions, host admission hooks, and higher-level composition on top of that adopted contract.
 
 `broken-pipeline-schedule` sits outside the shared contract. Within `tiforth`, it is reserved for local testing and harness work only, and this is not expected to change. `broken-pipeline-c` also sits outside the milestone-1 runtime contract and matters only if a later coarse interop issue explicitly calls for it.
 
@@ -26,7 +26,7 @@ As inspected from the public `broken-pipeline-rs` repo on 2026-03-21, the shared
 - `broken_pipeline::{SourceOperator, PipeOperator, SinkOperator}`
 - `broken_pipeline::OpOutput<TiforthTypes::Batch>`
 - `broken_pipeline::{TaskContext, TaskStatus, Awaiter, Resumer, SharedAwaiter, SharedResumer, Task, TaskGroup, TaskHint, TaskHintType}`
-- `tiforth_kernel::{TiforthTypes, GovernedBatch, ProjectionRuntimeContext}`
+- `tiforth_kernel::{TiforthTypes, TiforthBatch, RuntimeContext}`
 
 These names refer to the Rust upstream surface from `broken-pipeline-rs`, not to the original C++ repository.
 
@@ -48,9 +48,9 @@ The runtime state names that `tiforth` adopts by name and meaning are currently:
 For milestone 1, the operator and expression attachment pattern is fixed by `docs/design/operator-expression-runtime-attachment.md`.
 
 - runtime-entered `tiforth` kernels implement the upstream `SourceOperator<TiforthTypes>`, `PipeOperator<TiforthTypes>`, and `SinkOperator<TiforthTypes>` traits directly
-- runtime-visible results stay `OpOutput<GovernedBatch>`, and upstream task-state names stay adopted by name and meaning
+- runtime-visible results stay `OpOutput<TiforthBatch>`, and upstream task-state names stay adopted by name and meaning
 - expression nodes such as `Expr` and `ProjectionExpr` stay operator-internal evaluators and schema helpers instead of runtime participants
-- `ProjectionRuntimeContext`, `GovernedBatch`, `BatchClaim`, and `LocalExecutionSnapshot` add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
+- `RuntimeContext`, `TiforthBatch`, `BatchClaim`, and `LocalExecutionSnapshot` add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
 
 ## Shared Contract Surface
 
@@ -205,7 +205,7 @@ For milestone-1 local Rust tests and harness scaffolding, `tiforth-kernel` now f
 
 - `LocalExecutionSnapshot`
 - `admission_events[]`: ordered `consumer_opened`, `reserve_admitted`, `reserve_denied`, `consumer_shrunk`, and `consumer_released` observations from `RecordingAdmissionController`
-- `runtime_events[]`: ordered `batch_emitted`, `batch_handed_off`, `batch_released`, and terminal outcome observations from `ProjectionRuntimeContext`
+- `runtime_events[]`: ordered `batch_emitted`, `batch_handed_off`, `batch_released`, and terminal outcome observations from `RuntimeContext`
 
 This snapshot is the local Rust-side harness carrier only. It does **not** freeze an adapter-facing callback surface, tracing sink, or FFI wire format.
 

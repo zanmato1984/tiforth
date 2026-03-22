@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::{
     Array, ArrayRef, Int32Array, RecordBatch, TimestampMicrosecondArray, TimestampMillisecondArray,
 };
 use arrow_schema::{DataType, Field, Schema, TimeUnit};
+use support::{filter_batch, project_batch};
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::filter::{filter_batch, FilterPredicate};
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::filter::FilterPredicate;
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[test]
 fn timestamp_tz_us_column_passthrough_preserves_epoch_values_and_non_nullable_field() {

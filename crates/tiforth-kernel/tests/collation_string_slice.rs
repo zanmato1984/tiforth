@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch, StringArray};
 use arrow_schema::{DataType, Field, Schema};
+use support::{filter_batch, project_batch};
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::collation::{
     collation_eq_column_literal, collation_lt_column_literal, order_by_column_asc_indices,
 };
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::filter::{filter_batch, FilterPredicate};
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::filter::FilterPredicate;
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[test]
 fn utf8_column_passthrough_binary_preserves_values_and_non_nullable_field() {

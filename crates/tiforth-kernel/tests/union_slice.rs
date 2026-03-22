@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, UnionArray};
 use arrow_buffer::Buffer;
 use arrow_schema::{DataType, Field, Schema};
+use support::project_batch;
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum UnionRow {

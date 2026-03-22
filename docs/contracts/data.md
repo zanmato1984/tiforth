@@ -256,7 +256,7 @@ reserve-before-allocate plus claim-lifecycle rules already defined above.
 
 For the current Rust kernel slice, local runtime state carries the semantic batch envelope through:
 
-- `GovernedBatch`: the adopted upstream `Batch` payload plus local `batch_id`, `origin`, and per-column live claims while the batch remains reachable
+- `TiforthBatch`: the adopted upstream `Batch` payload plus local `batch_id`, `origin`, and per-column live claims while the batch remains reachable
 - `LocalExecutionSnapshot.runtime_events[]`: batch lifecycle records that let local tests and harness scaffolding correlate `batch_id`, `origin`, and aggregate claim counts across emit, handoff, release, and terminal outcomes
 
 This settles the local Rust-side carrier for milestone 1 without freezing a later adapter or FFI layout.

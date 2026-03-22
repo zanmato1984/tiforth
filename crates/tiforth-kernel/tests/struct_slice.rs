@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::builder::{Int32Builder, ListBuilder, StructBuilder};
 use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, StructArray};
 use arrow_schema::{DataType, Field, Schema};
+use support::project_batch;
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[test]
 fn struct_column_passthrough_preserves_field_order_values_and_non_nullable_field() {

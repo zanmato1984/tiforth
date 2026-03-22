@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::builder::{Int32Builder, ListBuilder, MapBuilder};
 use arrow_array::{Array, ArrayRef, Int32Array, MapArray, RecordBatch};
 use arrow_schema::{Field, Schema};
+use support::project_batch;
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[test]
 fn map_column_passthrough_preserves_entry_order_values_and_non_nullable_field() {

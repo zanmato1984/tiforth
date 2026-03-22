@@ -14,7 +14,7 @@ use tiforth_kernel::admission::{
 };
 use tiforth_kernel::expr::Expr;
 use tiforth_kernel::operators::{
-    CollectSink, ExchangePipe, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
+    CollectSink, ExchangePipe, ProjectionPipe, RuntimeContext, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::ProjectionExpr;
 use tiforth_kernel::{Batch, TiforthTypes};
@@ -24,7 +24,7 @@ fn exchange_passthrough_single_batch_preserves_schema_and_values() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -57,7 +57,7 @@ fn exchange_passthrough_multi_batch_preserves_fifo_order() {
     let second = make_batch(vec![Some(3), Some(4)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -93,7 +93,7 @@ fn exchange_bounded_queue_can_block_then_resume() {
     let second = make_batch(vec![Some(2)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
@@ -160,7 +160,7 @@ fn exchange_reports_finished_only_after_drain_for_buffered_batches() {
     let second = make_batch(vec![Some(2)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
@@ -202,7 +202,7 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let source_consumer = admission.open(ConsumerSpec::new(
@@ -262,7 +262,7 @@ fn run_pipeline(
     source: Arc<dyn SourceOperator<TiforthTypes>>,
     pipes: Vec<Arc<dyn PipeOperator<TiforthTypes>>>,
     sink: Arc<CollectSink>,
-    runtime_context: ProjectionRuntimeContext,
+    runtime_context: RuntimeContext,
 ) -> broken_pipeline::BpResult<TaskStatus, TiforthTypes> {
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
     let pipeline = Pipeline::<TiforthTypes>::new(
@@ -349,7 +349,7 @@ impl Awaiter for RecordedAwaiter {
     }
 }
 
-fn test_task_context(runtime_context: ProjectionRuntimeContext) -> TaskContext<TiforthTypes> {
+fn test_task_context(runtime_context: RuntimeContext) -> TaskContext<TiforthTypes> {
     TaskContext::new(
         runtime_context,
         Arc::new(|| Ok(Arc::new(TestResumer::default()) as SharedResumer)),

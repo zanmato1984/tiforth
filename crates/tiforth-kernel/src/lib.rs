@@ -24,10 +24,9 @@ pub use collation::{
 pub use error::TiforthError;
 pub use expr::Expr;
 pub use filter::{filter_batch, FilterPredicate};
-pub use handoff::{BatchClaim, BatchOrigin, GovernedBatch, RuntimeEvent};
+pub use handoff::{BatchClaim, BatchOrigin, RuntimeEvent, TiforthBatch};
 pub use operators::{
-    CollectSink, ExchangePipe, FilterPipe, ProjectionPipe, ProjectionRuntimeContext,
-    StaticRecordBatchSource,
+    CollectSink, ExchangePipe, FilterPipe, ProjectionPipe, RuntimeContext, StaticRecordBatchSource,
 };
 pub use projection::{project_batch, ProjectionExpr};
 pub use snapshot::{
@@ -39,9 +38,9 @@ pub use snapshot::{
 pub struct TiforthTypes;
 
 impl PipelineTypes for TiforthTypes {
-    type Batch = GovernedBatch;
+    type Batch = TiforthBatch;
     type Error = ArrowError;
-    type Context = ProjectionRuntimeContext;
+    type Context = RuntimeContext;
 }
 
 impl ScheduleTypes for TiforthTypes {

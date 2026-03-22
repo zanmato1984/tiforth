@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::fmt;
+use std::ops::Deref;
 use std::sync::{Arc, Mutex};
 
 use broken_pipeline::traits::arrow::Batch as ArrowBatch;
@@ -107,11 +109,11 @@ impl BatchClaim {
 }
 
 #[derive(Clone)]
-pub struct GovernedBatch {
-    inner: Arc<GovernedBatchInner>,
+pub struct TiforthBatch {
+    inner: Arc<TiforthBatchInner>,
 }
 
-struct GovernedBatchInner {
+struct TiforthBatchInner {
     batch: ArrowBatch,
     batch_id: u64,
     origin: BatchOrigin,
@@ -119,7 +121,7 @@ struct GovernedBatchInner {
     events: RuntimeEventRecorder,
 }
 
-impl Drop for GovernedBatchInner {
+impl Drop for TiforthBatchInner {
     fn drop(&mut self) {
         let claim_count = unique_claim_count(&self.column_claims);
         if claim_count == 0 {
@@ -134,7 +136,7 @@ impl Drop for GovernedBatchInner {
     }
 }
 
-impl GovernedBatch {
+impl TiforthBatch {
     pub(crate) fn new(
         batch: ArrowBatch,
         batch_id: u64,
@@ -144,7 +146,7 @@ impl GovernedBatch {
     ) -> Result<Self, TiforthError> {
         validate_column_claims(batch.num_columns(), &column_claims)?;
         Ok(Self {
-            inner: Arc::new(GovernedBatchInner {
+            inner: Arc::new(TiforthBatchInner {
                 batch,
                 batch_id,
                 origin,
@@ -152,6 +154,18 @@ impl GovernedBatch {
                 events,
             }),
         })
+    }
+
+    pub fn from_arrow(batch: ArrowBatch) -> Self {
+        Self {
+            inner: Arc::new(TiforthBatchInner {
+                batch: Arc::clone(&batch),
+                batch_id: 0,
+                origin: BatchOrigin::local("local-input"),
+                column_claims: empty_column_claims(batch.num_columns()),
+                events: RuntimeEventRecorder::default(),
+            }),
+        }
     }
 
     pub fn batch(&self) -> &ArrowBatch {
@@ -172,6 +186,26 @@ impl GovernedBatch {
 
     pub(crate) fn column_claims(&self) -> &[Vec<BatchClaim>] {
         &self.inner.column_claims
+    }
+}
+
+impl fmt::Debug for TiforthBatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TiforthBatch")
+            .field("batch_id", &self.batch_id())
+            .field("origin", self.origin())
+            .field("num_rows", &self.num_rows())
+            .field("num_columns", &self.num_columns())
+            .field("claim_count", &self.claim_count())
+            .finish()
+    }
+}
+
+impl Deref for TiforthBatch {
+    type Target = ArrowBatch;
+
+    fn deref(&self) -> &Self::Target {
+        self.batch()
     }
 }
 

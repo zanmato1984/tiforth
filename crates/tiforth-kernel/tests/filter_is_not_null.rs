@@ -7,9 +7,7 @@ use broken_pipeline::{
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{AdmissionController, RecordingAdmissionController};
-use tiforth_kernel::operators::{
-    CollectSink, FilterPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
-};
+use tiforth_kernel::operators::{CollectSink, FilterPipe, RuntimeContext, StaticRecordBatchSource};
 use tiforth_kernel::{Batch, FilterPredicate, TiforthTypes};
 
 #[test]
@@ -17,7 +15,7 @@ fn filter_pipe_keeps_all_rows_when_predicate_column_has_no_nulls() {
     let input = make_single_int32_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -50,7 +48,7 @@ fn filter_pipe_drops_all_rows_when_predicate_column_is_all_null() {
     let input = make_single_int32_batch(vec![None, None, None], true);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -85,7 +83,7 @@ fn filter_pipe_preserves_schema_order_and_values_for_mixed_keep_drop() {
     );
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -119,7 +117,7 @@ fn filter_pipe_reports_missing_column_error() {
     let input = make_single_int32_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -147,7 +145,7 @@ fn filter_pipe_reports_unsupported_predicate_type_error() {
     let input = make_boolean_batch(vec![Some(true), Some(false), Some(true)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -174,7 +172,7 @@ fn run_pipeline(
     source: Arc<dyn SourceOperator<TiforthTypes>>,
     pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
-    runtime_context: ProjectionRuntimeContext,
+    runtime_context: RuntimeContext,
 ) -> broken_pipeline::BpResult<broken_pipeline::TaskStatus, TiforthTypes> {
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
 
