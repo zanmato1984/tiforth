@@ -1,6 +1,6 @@
 use std::env;
-use std::fs;
 
+use crate::cli::live_output::{emit_live_drift_artifacts, LiveDriftArtifacts};
 use crate::live::first_temporal_timestamp_tz_slice_tikv_live::{
     render_live_drift_report_markdown, LiveTidbRunner, LiveTiflashRunner, LiveTikvRunner,
     TIDB_MYSQL_ENV_PREFIX, TIFLASH_MYSQL_ENV_PREFIX, TIKV_MYSQL_ENV_PREFIX,
@@ -47,58 +47,23 @@ fn run() -> Result<(), String> {
     )
     .map_err(|error| format!("failed to render TiFlash-vs-TiKV sidecar as JSON: {error}"))?;
 
-    if write_artifacts {
-        fs::write(TIKV_CASE_RESULTS_REF, &tikv_case_results)
-            .map_err(|error| format!("failed to write `{TIKV_CASE_RESULTS_REF}`: {error}"))?;
-        fs::write(TIDB_VS_TIKV_DRIFT_REPORT_REF, &tidb_vs_tikv_drift_report).map_err(|error| {
-            format!("failed to write `{TIDB_VS_TIKV_DRIFT_REPORT_REF}`: {error}")
-        })?;
-        fs::write(
-            TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
-            &tidb_vs_tikv_drift_report_sidecar,
-        )
-        .map_err(|error| {
-            format!("failed to write `{TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}`: {error}")
-        })?;
-        fs::write(
-            TIFLASH_VS_TIKV_DRIFT_REPORT_REF,
-            &tiflash_vs_tikv_drift_report,
-        )
-        .map_err(|error| {
-            format!("failed to write `{TIFLASH_VS_TIKV_DRIFT_REPORT_REF}`: {error}")
-        })?;
-        fs::write(
-            TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
-            &tiflash_vs_tikv_drift_report_sidecar,
-        )
-        .map_err(|error| {
-            format!("failed to write `{TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}`: {error}")
-        })?;
-
-        println!("Updated:");
-        println!("- {TIKV_CASE_RESULTS_REF}");
-        println!("- {TIDB_VS_TIKV_DRIFT_REPORT_REF}");
-        println!("- {TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}");
-        println!("- {TIFLASH_VS_TIKV_DRIFT_REPORT_REF}");
-        println!("- {TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}");
-        return Ok(());
-    }
-
-    println!("Dry run complete. Use `{WRITE_FLAG}` to overwrite inventory artifacts.");
-    println!(
-        "Connection env prefixes: `{TIDB_MYSQL_ENV_PREFIX}_*`, `{TIFLASH_MYSQL_ENV_PREFIX}_*`, `{TIKV_MYSQL_ENV_PREFIX}_*`."
-    );
-    println!();
-    println!("=== {TIKV_CASE_RESULTS_REF} ===");
-    print!("{tikv_case_results}");
-    println!("=== {TIDB_VS_TIKV_DRIFT_REPORT_REF} ===");
-    print!("{tidb_vs_tikv_drift_report}");
-    println!("=== {TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF} ===");
-    print!("{tidb_vs_tikv_drift_report_sidecar}");
-    println!("=== {TIFLASH_VS_TIKV_DRIFT_REPORT_REF} ===");
-    print!("{tiflash_vs_tikv_drift_report}");
-    println!("=== {TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF} ===");
-    print!("{tiflash_vs_tikv_drift_report_sidecar}");
-
-    Ok(())
+    emit_live_drift_artifacts(
+        write_artifacts,
+        WRITE_FLAG,
+        LiveDriftArtifacts {
+            tikv_case_results_ref: TIKV_CASE_RESULTS_REF,
+            tikv_case_results: &tikv_case_results,
+            tidb_vs_tikv_drift_report_ref: TIDB_VS_TIKV_DRIFT_REPORT_REF,
+            tidb_vs_tikv_drift_report: &tidb_vs_tikv_drift_report,
+            tidb_vs_tikv_drift_report_sidecar_ref: TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
+            tidb_vs_tikv_drift_report_sidecar: &tidb_vs_tikv_drift_report_sidecar,
+            tiflash_vs_tikv_drift_report_ref: TIFLASH_VS_TIKV_DRIFT_REPORT_REF,
+            tiflash_vs_tikv_drift_report: &tiflash_vs_tikv_drift_report,
+            tiflash_vs_tikv_drift_report_sidecar_ref: TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
+            tiflash_vs_tikv_drift_report_sidecar: &tiflash_vs_tikv_drift_report_sidecar,
+            tidb_env_prefix: TIDB_MYSQL_ENV_PREFIX,
+            tiflash_env_prefix: TIFLASH_MYSQL_ENV_PREFIX,
+            tikv_env_prefix: TIKV_MYSQL_ENV_PREFIX,
+        },
+    )
 }

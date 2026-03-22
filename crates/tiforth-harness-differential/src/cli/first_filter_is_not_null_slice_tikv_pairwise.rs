@@ -1,6 +1,6 @@
 use std::env;
-use std::fs;
 
+use crate::cli::pairwise_output::{emit_pairwise_drift_artifacts, PairwiseDriftArtifacts};
 use crate::pairwise::first_filter_is_not_null_slice_tikv_pairwise::{
     execute_first_filter_is_not_null_slice_tikv_pairwise, render_drift_report_artifact_json,
     render_drift_report_markdown, TIDB_VS_TIKV_DRIFT_REPORT_REF,
@@ -42,52 +42,20 @@ fn run() -> Result<(), String> {
     )
     .map_err(|error| format!("failed to render TiFlash-vs-TiKV sidecar as JSON: {error}"))?;
 
-    if write_artifacts {
-        fs::write(TIDB_VS_TIKV_DRIFT_REPORT_REF, &tidb_vs_tikv_drift_report).map_err(|error| {
-            format!("failed to write `{TIDB_VS_TIKV_DRIFT_REPORT_REF}`: {error}")
-        })?;
-        fs::write(
-            TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
-            &tidb_vs_tikv_drift_report_sidecar,
-        )
-        .map_err(|error| {
-            format!("failed to write `{TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}`: {error}")
-        })?;
-        fs::write(
-            TIFLASH_VS_TIKV_DRIFT_REPORT_REF,
-            &tiflash_vs_tikv_drift_report,
-        )
-        .map_err(|error| {
-            format!("failed to write `{TIFLASH_VS_TIKV_DRIFT_REPORT_REF}`: {error}")
-        })?;
-        fs::write(
-            TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
-            &tiflash_vs_tikv_drift_report_sidecar,
-        )
-        .map_err(|error| {
-            format!("failed to write `{TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}`: {error}")
-        })?;
-
-        println!("Updated:");
-        println!("- {TIDB_VS_TIKV_DRIFT_REPORT_REF}");
-        println!("- {TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}");
-        println!("- {TIFLASH_VS_TIKV_DRIFT_REPORT_REF}");
-        println!("- {TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF}");
-        return Ok(());
-    }
-
-    println!("Dry run complete. Use `{WRITE_FLAG}` to overwrite inventory artifacts.");
-    println!();
-    println!("=== {TIDB_VS_TIKV_DRIFT_REPORT_REF} ===");
-    print!("{tidb_vs_tikv_drift_report}");
-    println!("=== {TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF} ===");
-    print!("{tidb_vs_tikv_drift_report_sidecar}");
-    println!("=== {TIFLASH_VS_TIKV_DRIFT_REPORT_REF} ===");
-    print!("{tiflash_vs_tikv_drift_report}");
-    println!("=== {TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF} ===");
-    print!("{tiflash_vs_tikv_drift_report_sidecar}");
-
-    Ok(())
+    emit_pairwise_drift_artifacts(
+        write_artifacts,
+        WRITE_FLAG,
+        PairwiseDriftArtifacts {
+            tidb_vs_tikv_drift_report_ref: TIDB_VS_TIKV_DRIFT_REPORT_REF,
+            tidb_vs_tikv_drift_report: &tidb_vs_tikv_drift_report,
+            tidb_vs_tikv_drift_report_sidecar_ref: TIDB_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
+            tidb_vs_tikv_drift_report_sidecar: &tidb_vs_tikv_drift_report_sidecar,
+            tiflash_vs_tikv_drift_report_ref: TIFLASH_VS_TIKV_DRIFT_REPORT_REF,
+            tiflash_vs_tikv_drift_report: &tiflash_vs_tikv_drift_report,
+            tiflash_vs_tikv_drift_report_sidecar_ref: TIFLASH_VS_TIKV_DRIFT_REPORT_SIDECAR_REF,
+            tiflash_vs_tikv_drift_report_sidecar: &tiflash_vs_tikv_drift_report_sidecar,
+        },
+    )
 }
 
 struct FixtureTidbRunner;

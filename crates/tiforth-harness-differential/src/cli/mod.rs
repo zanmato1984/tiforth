@@ -1,3 +1,4 @@
+pub mod artifact_output;
 pub mod first_collation_string_slice;
 pub mod first_decimal128_slice_tikv_live;
 pub mod first_decimal128_slice_tikv_pairwise;
@@ -16,3 +17,5 @@ pub mod first_temporal_timestamp_tz_slice_tikv_pairwise;
 pub mod first_union_slice;
 pub mod first_union_slice_tikv_live;
 pub mod first_union_slice_tikv_pairwise;
+pub mod live_output;
+pub mod pairwise_output;
