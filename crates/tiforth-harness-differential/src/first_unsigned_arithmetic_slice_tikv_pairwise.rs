@@ -3,14 +3,14 @@ use tiforth_adapter_tidb::first_unsigned_arithmetic_slice as tidb;
 use tiforth_adapter_tiflash::first_unsigned_arithmetic_slice as tiflash;
 use tiforth_adapter_tikv::first_unsigned_arithmetic_slice as tikv;
 
-use crate::first_unsigned_arithmetic_slice::{
+use crate::slices::first_unsigned_arithmetic_slice::{
     self, execute_first_unsigned_arithmetic_slice,
     render_drift_report_artifact_json as render_shared_drift_report_artifact_json, CaseOutcome,
     CaseResult, CaseResultsArtifact, ComparisonDimension, DriftCase, DriftReport, DriftStatus,
     ErrorClass, HarnessError as TidbTiflashHarnessError, SchemaField, TIDB_CASE_RESULTS_REF,
     TIFLASH_CASE_RESULTS_REF,
 };
-use crate::first_unsigned_arithmetic_slice_tikv::{
+use crate::tikv::first_unsigned_arithmetic_slice_tikv::{
     self, execute_first_unsigned_arithmetic_slice_tikv,
     CaseResultsArtifact as TikvCaseResultsArtifact, HarnessError as TikvHarnessError,
     TIKV_CASE_RESULTS_REF,

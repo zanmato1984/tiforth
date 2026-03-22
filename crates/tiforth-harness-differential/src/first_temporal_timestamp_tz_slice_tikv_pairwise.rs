@@ -3,14 +3,14 @@ use tiforth_adapter_tidb::first_temporal_timestamp_tz_slice as tidb;
 use tiforth_adapter_tiflash::first_temporal_timestamp_tz_slice as tiflash;
 use tiforth_adapter_tikv::first_temporal_timestamp_tz_slice as tikv;
 
-use crate::first_temporal_timestamp_tz_slice::{
+use crate::slices::first_temporal_timestamp_tz_slice::{
     self, execute_first_temporal_timestamp_tz_slice,
     render_drift_report_artifact_json as render_shared_drift_report_artifact_json, CaseOutcome,
     CaseResult, CaseResultsArtifact, ComparisonDimension, DriftCase, DriftReport, DriftStatus,
     ErrorClass, HarnessError as TidbTiflashHarnessError, SchemaField, TIDB_CASE_RESULTS_REF,
     TIFLASH_CASE_RESULTS_REF,
 };
-use crate::first_temporal_timestamp_tz_slice_tikv::{
+use crate::tikv::first_temporal_timestamp_tz_slice_tikv::{
     self, execute_first_temporal_timestamp_tz_slice_tikv,
     CaseResultsArtifact as TikvCaseResultsArtifact, HarnessError as TikvHarnessError,
     TIKV_CASE_RESULTS_REF,

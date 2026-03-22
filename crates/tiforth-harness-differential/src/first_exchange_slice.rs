@@ -6,7 +6,7 @@ use tiforth_adapter_tiflash::{
     first_expression_slice as tiflash_expression, first_filter_is_not_null_slice as tiflash_filter,
 };
 
-use crate::{first_expression_slice, first_filter_is_not_null_slice};
+use crate::slices::{first_expression_slice, first_filter_is_not_null_slice};
 
 pub const FIRST_EXCHANGE_SLICE_ID: &str = "first-exchange-slice";
 pub const DRIFT_REPORT_REF: &str =
