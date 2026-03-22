@@ -140,6 +140,11 @@ For current shared planning:
   `result.precision = max(p1 - s1, p2 - s2) + max(s1, s2) + 1`, mixed-scale
   alignment is limited to exact zero-extension, and derived precision `> 38`
   stays deferred to `decimal256`
+- issue #426 now fixes the first slice-level signed-widening `add<int64>`
+  boundary in `docs/design/first-signed-widening-add-int64-slice.md`; exact
+  `int64 + int64` plus the minimal widening pairs `int32 + int64` and
+  `int64 + int32` are admitted there without reopening broader signed or
+  floating follow-ons
 - selected add overloads derive result nullability as
   `lhs.nullable OR rhs.nullable`
 - integer add overloads keep overflow-as-error semantics after signature
@@ -582,6 +587,37 @@ For current shared contracts:
   behavior in its own spec checkpoint before executable coverage lands
 - overflow remains an operator compute failure and does not change runtime
   ownership or admission error taxonomy
+
+## First Signed-Widening `add<int64>` Follow-On Checkpoint
+
+Issue #426 adds a docs-first signed add checkpoint in
+`docs/design/first-signed-widening-add-int64-slice.md`.
+
+Issue #426 also adds the first docs-first signed add coverage anchors in:
+
+- `tests/conformance/first-signed-widening-add-int64-slice.md`
+- `tests/differential/first-signed-widening-add-int64-slice.md`
+- `adapters/first-signed-widening-add-int64-slice.md`
+
+For current shared contracts:
+
+- the first admitted signed add slice beyond milestone 1 selects `add<int64>`
+  for exact `int64 + int64` and the minimal widening pairs `int32 + int64`
+  plus `int64 + int32`
+- this checkpoint admits passthrough `column(index)` over `int64` as the slice
+  carrier baseline for signed result normalization
+- `add<int64>` derives logical type `int64`
+- `add<int64>` derives result nullability as `lhs.nullable OR rhs.nullable`
+- `add<int64>` propagates nulls row-wise at execution time
+- overflow is an execution error whenever selection has chosen `add<int64>`,
+  including the admitted widening pairs; shared defaults do not wrap,
+  saturate, or widen again after selection
+- this checkpoint does not add `literal<int64>`,
+  `is_not_null(column(index))` over `int64`, broader signed widths, or
+  `float64` and decimal add coverage
+- executable local kernel coverage, executable TiDB-versus-TiFlash harness
+  coverage, and checked-in `inventory/` artifacts for this slice remain
+  follow-on scope
 
 ## First Unsigned Arithmetic Follow-On Checkpoint
 
