@@ -120,6 +120,33 @@ For current shared planning:
 - unary plus, temporal add, interval add, aggregate `sum`, string `+`, and
   other non-numeric or non-scalar families remain separate follow-on boundaries
 
+## First Numeric Add Family Completion Boundary
+
+Issue #422 now fixes the family-completion entry in
+`docs/spec/functions/numeric-add-family-completion.md`.
+
+For current shared planning:
+
+- the completion program still uses one shared family identity, `add`, across
+  exact signed integer, exact unsigned integer, exact floating-point, and
+  exact decimal overload groups
+- current widening rescue remains limited to the admitted signed ladder
+  `int32 < int64 < float64`
+- `uint64` remains exact-match-only; there is no implicit rescue between
+  signed and unsigned families
+- decimal add remains a required family member, but it is not admitted until a
+  same-epic checkpoint fixes decimal precision/scale result derivation plus
+  overflow or rescale policy explicitly
+- selected add overloads derive result nullability as
+  `lhs.nullable OR rhs.nullable`
+- integer add overloads keep overflow-as-error semantics after signature
+  selection; `float64` add reuses the shared float64 special-value checkpoint
+  instead of the integer overflow rule
+
+That completion boundary does not widen this first family to `float32`,
+broader unsigned-width matrices, mixed signed/unsigned success semantics, or
+decimal/non-decimal implicit coercion.
+
 ## Current Milestone-1 Boundary
 
 The current executable slices fix the type behavior for the milestone-1 expression-projection path plus the first executable post-gate filter path.
@@ -564,6 +591,15 @@ checkpoint in:
 
 - `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
 
+Issue #310 adds the first executable TiDB-versus-TiFlash adapter and
+differential harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tidb/src/first_unsigned_arithmetic_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/first_unsigned_arithmetic_slice.rs`
+- `crates/tiforth-harness-differential/src/first_unsigned_arithmetic_slice.rs`
+
+with checked-in artifacts under `inventory/first-unsigned-arithmetic-slice-*`.
+
 For current shared contracts:
 
 - the first admitted unsigned arithmetic logical type beyond milestone 1 is
@@ -579,13 +615,19 @@ For current shared contracts:
   families, or unsigned arithmetic beyond `add<uint64>`
 - local executable kernel coverage for this unsigned checkpoint now exists in
   `crates/tiforth-kernel/tests/unsigned_arithmetic_slice.rs`
-- adapter and differential harness coverage for this unsigned checkpoint
-  remains follow-on scope
+- executable TiDB-versus-TiFlash adapter and differential harness coverage for
+  this unsigned checkpoint now exists in
+  `crates/tiforth-adapter-tidb/src/first_unsigned_arithmetic_slice.rs`,
+  `crates/tiforth-adapter-tiflash/src/first_unsigned_arithmetic_slice.rs`,
+  and `crates/tiforth-harness-differential/src/first_unsigned_arithmetic_slice.rs`,
+  with checked-in artifacts under `inventory/first-unsigned-arithmetic-slice-*`
 
 ## Open Questions
 
 - TODO: extend the initial coercion lattice beyond `int32`, `int64`, and `float64`, including cross-family precedence boundaries
 - TODO: define family-specific overflow semantics for decimal and temporal arithmetic checkpoints when those families become executable
+- TODO: fix decimal add precision/scale result derivation for the active
+  numeric add family before claiming that family complete
 - TODO: extend collation semantics beyond the first string checkpoint,
   including locale-specific collation families, binary-type collation
   interactions, and executable adapter plus kernel coverage

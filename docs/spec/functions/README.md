@@ -20,6 +20,8 @@ Current first-wave priority:
 
 - the first complete function family is now fixed in
   `docs/spec/functions/numeric-add-family.md`
+- the canonical shared completion entry for that same family now lives in
+  `docs/spec/functions/numeric-add-family-completion.md`
 - shared docs use `add` as the family name, while `plus` and SQL `+` remain
   accepted external spellings for the same numeric family when donor, engine,
   or protocol sources need to be discussed
@@ -27,8 +29,10 @@ Current first-wave priority:
   `add<int32>(lhs, rhs)` checkpoint from `first-expression-slice` plus the
   `add<uint64>(lhs, rhs)` checkpoint from
   `docs/design/first-unsigned-arithmetic-slice.md`
-- family-specific TiDB-to-Arrow mapping and `tipb`/`kvproto` enum reuse remain
-  required same-epic follow-ons before the family can be claimed complete
+- family-specific TiDB-to-Arrow mapping, `tipb`/`kvproto` enum reuse, and the
+  generic-first completion checklist are now fixed in shared docs; executable
+  follow-ons still need to satisfy the admitted overload and evidence
+  expectations named there before the family can be claimed complete
 
 ## Planned Follow-On Checkpoints
 
@@ -36,8 +40,10 @@ Current first-wave priority:
   fixed in `docs/design/first-tidb-arrow-type-mapping-boundary.md`
 - the `tipb`/`kvproto` enum reuse boundary for the same family is now fixed in
   `docs/design/first-add-family-tipb-kvproto-enum-reuse.md`
-- the next follow-on should complete the family through generic-first overload
-  reuse, with any remaining type-system updates landing there before the family
-  is claimed complete
+- the generic-first family-completion boundary is now fixed in
+  `docs/spec/functions/numeric-add-family-completion.md`
+- the next same-epic follow-ons should land the remaining admitted overload
+  checkpoints and their slice-level docs, harness coverage, and checked-in
+  evidence without reopening unrelated families
 
 Do not place implementation code here.
