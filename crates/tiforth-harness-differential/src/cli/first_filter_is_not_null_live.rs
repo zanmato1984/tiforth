@@ -1,6 +1,6 @@
 use std::env;
-use std::fs;
 
+use crate::cli::artifact_output::{emit_artifacts, ArtifactOutput};
 use crate::live::first_filter_is_not_null_live::{
     render_live_drift_report_markdown, LiveTidbRunner, LiveTiflashRunner, TIDB_MYSQL_ENV_PREFIX,
     TIFLASH_MYSQL_ENV_PREFIX,
@@ -39,37 +39,32 @@ fn run() -> Result<(), String> {
     let drift_report_sidecar = render_drift_report_artifact_json(&bundle.drift_report)
         .map_err(|error| format!("failed to render drift-report sidecar as JSON: {error}"))?;
 
-    if write_artifacts {
-        fs::write(TIDB_CASE_RESULTS_REF, &tidb_case_results)
-            .map_err(|error| format!("failed to write `{TIDB_CASE_RESULTS_REF}`: {error}"))?;
-        fs::write(TIFLASH_CASE_RESULTS_REF, &tiflash_case_results)
-            .map_err(|error| format!("failed to write `{TIFLASH_CASE_RESULTS_REF}`: {error}"))?;
-        fs::write(DRIFT_REPORT_REF, &drift_report)
-            .map_err(|error| format!("failed to write `{DRIFT_REPORT_REF}`: {error}"))?;
-        fs::write(DRIFT_REPORT_SIDECAR_REF, &drift_report_sidecar)
-            .map_err(|error| format!("failed to write `{DRIFT_REPORT_SIDECAR_REF}`: {error}"))?;
-
-        println!("Updated:");
-        println!("- {TIDB_CASE_RESULTS_REF}");
-        println!("- {TIFLASH_CASE_RESULTS_REF}");
-        println!("- {DRIFT_REPORT_REF}");
-        println!("- {DRIFT_REPORT_SIDECAR_REF}");
-        return Ok(());
-    }
-
-    println!("Dry run complete. Use `{WRITE_FLAG}` to overwrite inventory artifacts.");
-    println!(
+    let connection_note = format!(
         "Connection env prefixes: `{TIDB_MYSQL_ENV_PREFIX}_*`, `{TIFLASH_MYSQL_ENV_PREFIX}_*`."
     );
-    println!();
-    println!("=== {TIDB_CASE_RESULTS_REF} ===");
-    print!("{tidb_case_results}");
-    println!("=== {TIFLASH_CASE_RESULTS_REF} ===");
-    print!("{tiflash_case_results}");
-    println!("=== {DRIFT_REPORT_REF} ===");
-    print!("{drift_report}");
-    println!("=== {DRIFT_REPORT_SIDECAR_REF} ===");
-    print!("{drift_report_sidecar}");
+    let rendered_artifacts = [
+        ArtifactOutput {
+            path: TIDB_CASE_RESULTS_REF,
+            contents: &tidb_case_results,
+        },
+        ArtifactOutput {
+            path: TIFLASH_CASE_RESULTS_REF,
+            contents: &tiflash_case_results,
+        },
+        ArtifactOutput {
+            path: DRIFT_REPORT_REF,
+            contents: &drift_report,
+        },
+        ArtifactOutput {
+            path: DRIFT_REPORT_SIDECAR_REF,
+            contents: &drift_report_sidecar,
+        },
+    ];
 
-    Ok(())
+    emit_artifacts(
+        write_artifacts,
+        WRITE_FLAG,
+        Some(&connection_note),
+        &rendered_artifacts,
+    )
 }
