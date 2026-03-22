@@ -1,6 +1,15 @@
 # First TiDB-To-Arrow Type Mapping Boundary
 
-Status: planning checkpoint
+Status: issue #418 design checkpoint
+
+Verified: 2026-03-22
+
+Related issues:
+
+- #409 `epic: complete function-family program`
+- #413 `sub-epic: TiDB-to-Arrow mapping for the active function family`
+- #414 `spec: pin the first complete function family as numeric add/plus`
+- #418 `design: fix TiDB-to-Arrow mapping for the numeric add/plus family`
 
 ## Question
 
@@ -99,6 +108,43 @@ Temporal and JSON families need separate treatment.
   `NULL`, JSON literal `null`, canonical comparison, and transfer semantics
   without hidden adapter-local rules
 
+## First Active Function-Family Mapping Checkpoint
+
+Issue #418 now fixes the first concrete use of this boundary for the scalar
+numeric `add/plus` family.
+
+For the current active family:
+
+- exact signed integer add overloads map to Arrow-native signed integer types of
+  matching width; engine-local arithmetic widening to `bigint` does not change
+  the shared result-type identity
+- exact unsigned integer add overloads map to Arrow-native unsigned integer
+  types of matching width; current executable evidence already covers `uint64`
+- exact floating-point add overloads map to Arrow-native `float32` or `float64`
+  of matching width; current active-family completion should prioritize
+  `float64` before reopening `float32`
+- exact decimal add overloads with precision that fits Arrow `decimal128` map to
+  Arrow-native `decimal128(precision, scale)` with explicit precision/scale
+  preservation
+- exact decimal add overloads that would require `decimal256` remain directionally
+  Arrow-native, but stay deferred until a shared `decimal256` checkpoint exists
+- values beyond Arrow decimal range stay deferred for this family; `tiforth`
+  does not introduce a numeric-add-specific extension type or custom carrier now
+
+This resolves the first active-family mapping stance:
+
+- exact Arrow-native mapping bucket: signed integers, unsigned integers,
+  `float64`, and later `float32` when that overload is admitted
+- Arrow-native-with-explicit-policy bucket: decimal add through Arrow decimal
+  types with preserved precision and scale plus explicit overflow/rescale follow-ons
+- extension-type-or-custom-carrier bucket: none for the current numeric
+  add/plus family
+
+Adapters may still need explicit narrowing, casts, or metadata normalization so
+engine-local arithmetic plans line up with the shared exact overload identity.
+TiDB or TiKV surfacing `BIGINT` metadata for integer arithmetic does not by
+itself justify widening the shared `add<int32>` result to Arrow `int64`.
+
 ## Required Follow-On Docs Before Implementation
 
 Any implementation-facing type-mapping issue should update or create, or
@@ -139,5 +185,10 @@ Recommended decomposition:
 `tiforth` now has one explicit planning home for TiDB-to-Arrow type mapping:
 the shared matrix belongs under `docs/design/`, with `docs/spec/type-system.md`
 owning semantic identity and `docs/contracts/data.md` owning the handoff
-contract. Follow-on issues can now extend temporal, decimal, JSON, and other
-families without inventing the mapping boundary ad hoc.
+contract.
+
+For the current active function-family program, that home now also carries one
+concrete mapping decision: numeric `add/plus` stays Arrow-native by default,
+uses explicit decimal metadata policy instead of a custom numeric carrier, and
+does not let engine-local `BIGINT` widening silently change the shared exact
+overload type.
