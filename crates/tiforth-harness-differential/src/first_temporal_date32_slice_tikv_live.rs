@@ -6,8 +6,8 @@ use tiforth_adapter_tidb::first_temporal_date32_slice as tidb;
 use tiforth_adapter_tiflash::first_temporal_date32_slice as tiflash;
 use tiforth_adapter_tikv::first_temporal_date32_slice as tikv;
 
-use crate::first_temporal_date32_slice;
-use crate::first_temporal_date32_slice_tikv_pairwise;
+use crate::pairwise::first_temporal_date32_slice_tikv_pairwise;
+use crate::slices::first_temporal_date32_slice;
 
 pub const TIDB_MYSQL_ENV_PREFIX: &str = "TIFORTH_TIDB_MYSQL";
 pub const TIFLASH_MYSQL_ENV_PREFIX: &str = "TIFORTH_TIFLASH_MYSQL";

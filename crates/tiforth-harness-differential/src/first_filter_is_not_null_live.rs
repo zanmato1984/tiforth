@@ -5,7 +5,7 @@ use serde_json::Value;
 use tiforth_adapter_tidb::first_filter_is_not_null_slice as tidb;
 use tiforth_adapter_tiflash::first_filter_is_not_null_slice as tiflash;
 
-use crate::first_filter_is_not_null_slice;
+use crate::slices::first_filter_is_not_null_slice;
 
 pub const TIDB_MYSQL_ENV_PREFIX: &str = "TIFORTH_TIDB_MYSQL";
 pub const TIFLASH_MYSQL_ENV_PREFIX: &str = "TIFORTH_TIFLASH_MYSQL";

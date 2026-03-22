@@ -6,8 +6,8 @@ use tiforth_adapter_tidb::first_union_slice as tidb;
 use tiforth_adapter_tiflash::first_union_slice as tiflash;
 use tiforth_adapter_tikv::first_union_slice as tikv;
 
-use crate::first_union_slice;
-use crate::first_union_slice_tikv_pairwise;
+use crate::pairwise::first_union_slice_tikv_pairwise;
+use crate::slices::first_union_slice;
 
 pub const TIDB_MYSQL_ENV_PREFIX: &str = "TIFORTH_TIDB_MYSQL";
 pub const TIFLASH_MYSQL_ENV_PREFIX: &str = "TIFORTH_TIFLASH_MYSQL";
