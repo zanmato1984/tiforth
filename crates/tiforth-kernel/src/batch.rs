@@ -26,16 +26,8 @@ impl Drop for BatchClaimInner {
 }
 
 impl BatchClaim {
-    pub fn id(&self) -> u64 {
+    fn id(&self) -> u64 {
         self.inner.id
-    }
-
-    pub fn local_try_shrink(&self, bytes: usize) -> Result<(), TiforthError> {
-        self.inner.consumer.shrink(bytes)
-    }
-
-    pub fn local_try_release(&self) -> Result<(), TiforthError> {
-        self.inner.consumer.release()
     }
 
     pub(crate) fn new(id: u64, consumer: Arc<dyn AdmissionConsumer>) -> Self {
