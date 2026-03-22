@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc, Mutex,
+};
 
 use arrow_schema::ArrowError;
-use broken_pipeline::traits::arrow::{ArrowTypes, Batch};
 use broken_pipeline::{
     OpOutput, PipeOperator, SinkOperator, SourceOperator, TaskContext, ThreadId,
 };
@@ -12,80 +14,41 @@ use crate::admission::{
 };
 use crate::error::TiforthError;
 use crate::filter::{filter_batch, filter_governed_batch, FilterPredicate};
-use crate::handoff::{BatchTracker, GovernedBatch, RuntimeEvent, RuntimeEventRecorder};
+use crate::handoff::{
+    empty_column_claims, BatchClaim, BatchOrigin, GovernedBatch, RuntimeEvent, RuntimeEventRecorder,
+};
 use crate::projection::{project_batch, project_governed_batch, ProjectionExpr};
 use crate::snapshot::LocalExecutionSnapshot;
+use crate::{Batch, TiforthTypes};
 
 enum SourceBatch {
     Plain(Batch),
     Claimed {
         batch: Batch,
-        column_claims: Vec<Vec<crate::handoff::BatchClaim>>,
+        column_claims: Vec<Vec<BatchClaim>>,
     },
 }
 
-enum ExchangeQueuedBatch {
-    Plain(Batch),
-    Governed(GovernedBatch),
-}
-
-impl ExchangeQueuedBatch {
-    fn from_input(
-        ctx: &TaskContext<ArrowTypes>,
-        operator_name: &str,
-        batch: Batch,
-    ) -> Result<Self, ArrowError> {
-        if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
-            let governed = runtime
-                .adopt_batch(batch, operator_name)
-                .map_err(ArrowError::from)?;
-            Ok(Self::Governed(governed))
-        } else {
-            Ok(Self::Plain(batch))
-        }
-    }
-
-    fn emit(
-        self,
-        ctx: &TaskContext<ArrowTypes>,
-        operator_name: &str,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
-        match self {
-            Self::Plain(batch) => Ok(OpOutput::SourcePipeHasMore(batch)),
-            Self::Governed(batch) => {
-                let output = Arc::clone(batch.batch());
-                if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
-                    runtime
-                        .emit_pipe_batch(
-                            operator_name,
-                            Arc::clone(&output),
-                            batch.column_claims().to_vec(),
-                        )
-                        .map_err(ArrowError::from)?;
-                }
-                Ok(OpOutput::SourcePipeHasMore(output))
-            }
-        }
-    }
-}
-
 struct ExchangeState {
-    queue: VecDeque<ExchangeQueuedBatch>,
-    pending: Option<ExchangeQueuedBatch>,
+    queue: VecDeque<GovernedBatch>,
+    pending: Option<GovernedBatch>,
 }
 
 #[derive(Clone)]
 pub struct ProjectionRuntimeContext {
     admission: Arc<dyn AdmissionController>,
-    tracker: Arc<BatchTracker>,
+    events: RuntimeEventRecorder,
+    next_batch_id: Arc<AtomicU64>,
+    next_claim_id: Arc<AtomicU64>,
 }
 
 impl ProjectionRuntimeContext {
     pub fn new(admission: Arc<dyn AdmissionController>) -> Self {
-        let events = RuntimeEventRecorder::default();
         Self {
             admission,
-            tracker: Arc::new(BatchTracker::new(events)),
+            events: RuntimeEventRecorder::default(),
+            next_batch_id: Arc::new(AtomicU64::new(1)),
+            next_claim_id: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -94,7 +57,7 @@ impl ProjectionRuntimeContext {
     }
 
     pub fn runtime_events(&self) -> Vec<RuntimeEvent> {
-        self.tracker.events()
+        self.events.events()
     }
 
     pub fn local_snapshot(
@@ -104,23 +67,21 @@ impl ProjectionRuntimeContext {
         LocalExecutionSnapshot::capture(admission, self.runtime_events())
     }
 
-    pub fn new_claim(
-        &self,
-        consumer: Arc<dyn crate::admission::AdmissionConsumer>,
-    ) -> crate::handoff::BatchClaim {
-        self.tracker.new_claim(consumer)
+    pub fn new_claim(&self, consumer: Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim {
+        let id = self.next_claim_id.fetch_add(1, Ordering::Relaxed);
+        BatchClaim::new(id, consumer)
     }
 
     pub fn record_terminal_finished(&self) {
-        self.tracker.record(RuntimeEvent::TerminalFinished);
+        self.events.record(RuntimeEvent::TerminalFinished);
     }
 
     pub fn record_terminal_cancelled(&self) {
-        self.tracker.record(RuntimeEvent::TerminalCancelled);
+        self.events.record(RuntimeEvent::TerminalCancelled);
     }
 
     pub fn record_terminal_error(&self, message: impl Into<String>) {
-        self.tracker.record(RuntimeEvent::TerminalError {
+        self.events.record(RuntimeEvent::TerminalError {
             message: message.into(),
         });
     }
@@ -129,42 +90,57 @@ impl ProjectionRuntimeContext {
         &self,
         operator_name: &str,
         batch: SourceBatch,
-    ) -> Result<Batch, TiforthError> {
+    ) -> Result<GovernedBatch, TiforthError> {
         match batch {
-            SourceBatch::Plain(batch) => {
-                self.tracker
-                    .emit_ungoverned_batch(Arc::clone(&batch), operator_name)?;
-                Ok(batch)
-            }
+            SourceBatch::Plain(batch) => self.emit_batch(
+                BatchOrigin::local(operator_name),
+                Arc::clone(&batch),
+                empty_column_claims(batch.num_columns()),
+            ),
             SourceBatch::Claimed {
                 batch,
                 column_claims,
-            } => {
-                self.tracker.emit_batch(
-                    Arc::clone(&batch),
-                    crate::handoff::BatchOrigin::local(operator_name),
-                    column_claims,
-                )?;
-                Ok(batch)
-            }
+            } => self.emit_batch(BatchOrigin::local(operator_name), batch, column_claims),
         }
     }
 
-    fn adopt_batch(&self, batch: Batch, receiver: &str) -> Result<GovernedBatch, TiforthError> {
-        self.tracker.adopt_batch(batch, receiver)
+    fn emit_batch(
+        &self,
+        origin: BatchOrigin,
+        batch: Batch,
+        column_claims: Vec<Vec<BatchClaim>>,
+    ) -> Result<GovernedBatch, TiforthError> {
+        let batch_id = self.next_batch_id.fetch_add(1, Ordering::Relaxed);
+        let governed = GovernedBatch::new(
+            batch,
+            batch_id,
+            origin.clone(),
+            column_claims,
+            self.events.clone(),
+        )?;
+        self.events.record(RuntimeEvent::BatchEmitted {
+            batch_id,
+            origin,
+            claim_count: governed.claim_count(),
+        });
+        Ok(governed)
     }
 
     fn emit_pipe_batch(
         &self,
         operator_name: &str,
         batch: Batch,
-        column_claims: Vec<Vec<crate::handoff::BatchClaim>>,
-    ) -> Result<(), TiforthError> {
-        self.tracker.emit_batch(
-            batch,
-            crate::handoff::BatchOrigin::local(operator_name),
-            column_claims,
-        )
+        column_claims: Vec<Vec<BatchClaim>>,
+    ) -> Result<GovernedBatch, TiforthError> {
+        self.emit_batch(BatchOrigin::local(operator_name), batch, column_claims)
+    }
+
+    fn record_handoff(&self, batch: &GovernedBatch, receiver: &str) {
+        self.events.record(RuntimeEvent::BatchHandedOff {
+            batch_id: batch.batch_id(),
+            to_operator: receiver.into(),
+            claim_count: batch.claim_count(),
+        });
     }
 }
 
@@ -200,16 +176,16 @@ impl StaticRecordBatchSource {
     }
 }
 
-impl SourceOperator<ArrowTypes> for StaticRecordBatchSource {
+impl SourceOperator<TiforthTypes> for StaticRecordBatchSource {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn source(
         &self,
-        ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<TiforthTypes>,
         _thread_id: ThreadId,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
+    ) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         let mut batches = self.batches.lock().expect("source batches mutex poisoned");
         let runtime = ctx.context_as::<ProjectionRuntimeContext>();
         match batches.pop_front() {
@@ -217,7 +193,7 @@ impl SourceOperator<ArrowTypes> for StaticRecordBatchSource {
                 let batch = match runtime {
                     Some(runtime) => runtime.emit_source_batch(self.name(), batch),
                     None => match batch {
-                        SourceBatch::Plain(batch) => Ok(batch),
+                        SourceBatch::Plain(batch) => Ok(GovernedBatch::ungoverned(batch)),
                         SourceBatch::Claimed { .. } => {
                             Err(TiforthError::OwnershipContractViolation {
                                 detail: format!(
@@ -235,7 +211,7 @@ impl SourceOperator<ArrowTypes> for StaticRecordBatchSource {
                 let batch = match runtime {
                     Some(runtime) => runtime.emit_source_batch(self.name(), batch),
                     None => match batch {
-                        SourceBatch::Plain(batch) => Ok(batch),
+                        SourceBatch::Plain(batch) => Ok(GovernedBatch::ungoverned(batch)),
                         SourceBatch::Claimed { .. } => {
                             Err(TiforthError::OwnershipContractViolation {
                                 detail: format!(
@@ -268,44 +244,42 @@ impl ProjectionPipe {
     }
 }
 
-impl PipeOperator<ArrowTypes> for ProjectionPipe {
+impl PipeOperator<TiforthTypes> for ProjectionPipe {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn pipe(
         &self,
-        ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<TiforthTypes>,
         _thread_id: ThreadId,
-        input: Option<Batch>,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
+        input: Option<GovernedBatch>,
+    ) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         let batch = input.ok_or_else(|| ArrowError::from(TiforthError::InvalidPipeInput))?;
         if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
-            let input = runtime
-                .adopt_batch(batch, self.name())
-                .map_err(ArrowError::from)?;
+            runtime.record_handoff(&batch, self.name());
             let (output, column_claims) = project_governed_batch(
-                &input,
+                &batch,
                 &self.projections,
                 runtime.admission().as_ref(),
                 self.name(),
                 &|consumer| runtime.new_claim(consumer),
             )
             .map_err(ArrowError::from)?;
-            runtime
+            let output = runtime
                 .emit_pipe_batch(self.name(), Arc::clone(&output), column_claims)
                 .map_err(ArrowError::from)?;
             Ok(OpOutput::PipeEven(output))
         } else {
             let admission: Arc<dyn AdmissionController> = Arc::new(NoopAdmissionController);
             let output = project_batch(
-                batch.as_ref(),
+                batch.batch().as_ref(),
                 &self.projections,
                 admission.as_ref(),
                 self.name(),
             )
             .map_err(ArrowError::from)?;
-            Ok(OpOutput::PipeEven(output))
+            Ok(OpOutput::PipeEven(GovernedBatch::ungoverned(output)))
         }
     }
 }
@@ -324,44 +298,42 @@ impl FilterPipe {
     }
 }
 
-impl PipeOperator<ArrowTypes> for FilterPipe {
+impl PipeOperator<TiforthTypes> for FilterPipe {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn pipe(
         &self,
-        ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<TiforthTypes>,
         _thread_id: ThreadId,
-        input: Option<Batch>,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
+        input: Option<GovernedBatch>,
+    ) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         let batch = input.ok_or_else(|| ArrowError::from(TiforthError::InvalidPipeInput))?;
         if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
-            let input = runtime
-                .adopt_batch(batch, self.name())
-                .map_err(ArrowError::from)?;
+            runtime.record_handoff(&batch, self.name());
             let (output, column_claims) = filter_governed_batch(
-                &input,
+                &batch,
                 &self.predicate,
                 runtime.admission().as_ref(),
                 self.name(),
                 &|consumer| runtime.new_claim(consumer),
             )
             .map_err(ArrowError::from)?;
-            runtime
+            let output = runtime
                 .emit_pipe_batch(self.name(), Arc::clone(&output), column_claims)
                 .map_err(ArrowError::from)?;
             Ok(OpOutput::PipeEven(output))
         } else {
             let admission: Arc<dyn AdmissionController> = Arc::new(NoopAdmissionController);
             let output = filter_batch(
-                batch.as_ref(),
+                batch.batch().as_ref(),
                 &self.predicate,
                 admission.as_ref(),
                 self.name(),
             )
             .map_err(ArrowError::from)?;
-            Ok(OpOutput::PipeEven(output))
+            Ok(OpOutput::PipeEven(GovernedBatch::ungoverned(output)))
         }
     }
 }
@@ -385,22 +357,22 @@ impl ExchangePipe {
         }
     }
 
-    fn blocked(ctx: &TaskContext<ArrowTypes>) -> Result<OpOutput<Batch>, ArrowError> {
+    fn blocked(ctx: &TaskContext<TiforthTypes>) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         Ok(OpOutput::Blocked(ctx.make_resumer()?))
     }
 }
 
-impl PipeOperator<ArrowTypes> for ExchangePipe {
+impl PipeOperator<TiforthTypes> for ExchangePipe {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn pipe(
         &self,
-        ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<TiforthTypes>,
         _thread_id: ThreadId,
-        input: Option<Batch>,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
+        input: Option<GovernedBatch>,
+    ) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         let mut state = self.state.lock().expect("exchange state mutex poisoned");
 
         if let Some(batch) = input {
@@ -412,12 +384,14 @@ impl PipeOperator<ArrowTypes> for ExchangePipe {
                     ),
                 }));
             }
-            let queued = ExchangeQueuedBatch::from_input(ctx, self.name(), batch)?;
+            if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+                runtime.record_handoff(&batch, self.name());
+            }
             if state.queue.len() >= self.capacity {
-                state.pending = Some(queued);
+                state.pending = Some(batch);
                 return Self::blocked(ctx);
             }
-            state.queue.push_back(queued);
+            state.queue.push_back(batch);
             return Ok(OpOutput::PipeSinkNeedsMore);
         }
 
@@ -429,13 +403,11 @@ impl PipeOperator<ArrowTypes> for ExchangePipe {
                     .expect("pending exchange input should exist");
                 state.queue.push_back(pending);
             }
-            drop(state);
-            return outgoing.emit(ctx, self.name());
+            return Ok(OpOutput::SourcePipeHasMore(outgoing));
         }
 
         if let Some(pending) = state.pending.take() {
-            drop(state);
-            return pending.emit(ctx, self.name());
+            return Ok(OpOutput::SourcePipeHasMore(pending));
         }
 
         Ok(OpOutput::PipeSinkNeedsMore)
@@ -447,9 +419,9 @@ impl PipeOperator<ArrowTypes> for ExchangePipe {
 
     fn drain(
         &self,
-        ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<TiforthTypes>,
         thread_id: ThreadId,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
+    ) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         match self.pipe(ctx, thread_id, None)? {
             OpOutput::PipeSinkNeedsMore => Ok(OpOutput::Finished(None)),
             other => Ok(other),
@@ -478,25 +450,21 @@ impl CollectSink {
     }
 }
 
-impl SinkOperator<ArrowTypes> for CollectSink {
+impl SinkOperator<TiforthTypes> for CollectSink {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn sink(
         &self,
-        ctx: &TaskContext<ArrowTypes>,
+        ctx: &TaskContext<TiforthTypes>,
         _thread_id: ThreadId,
-        input: Option<Batch>,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
+        input: Option<GovernedBatch>,
+    ) -> Result<OpOutput<GovernedBatch>, ArrowError> {
         if let Some(batch) = input {
-            let batch = if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
-                runtime
-                    .adopt_batch(batch, self.name())
-                    .map_err(ArrowError::from)?
-            } else {
-                GovernedBatch::ungoverned(batch)
-            };
+            if let Some(runtime) = ctx.context_as::<ProjectionRuntimeContext>() {
+                runtime.record_handoff(&batch, self.name());
+            }
             self.batches
                 .lock()
                 .expect("sink batches mutex poisoned")
