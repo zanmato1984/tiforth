@@ -8,7 +8,7 @@ use broken_pipeline::{
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{AdmissionController, RecordingAdmissionController};
 use tiforth_kernel::operators::{CollectSink, FilterPipe, StaticRecordBatchSource};
-use tiforth_kernel::{Batch, FilterPredicate, RuntimeContext, TiforthTypes};
+use tiforth_kernel::{ArrowBatch, FilterPredicate, RuntimeContext, TiforthTypes};
 
 #[test]
 fn filter_pipe_keeps_all_rows_when_predicate_column_has_no_nulls() {
@@ -189,7 +189,7 @@ fn run_pipeline(
     scheduler.wait_task_group(handle)
 }
 
-fn make_single_int32_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
+fn make_single_int32_batch(values: Vec<Option<i32>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Int32,
@@ -204,7 +204,7 @@ fn make_two_int32_batch(
     lhs_nullable: bool,
     rhs_values: Vec<Option<i32>>,
     rhs_nullable: bool,
-) -> Batch {
+) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![
         Field::new("a", DataType::Int32, lhs_nullable),
         Field::new("b", DataType::Int32, rhs_nullable),
@@ -214,7 +214,7 @@ fn make_two_int32_batch(
     Arc::new(RecordBatch::try_new(schema, vec![lhs, rhs]).unwrap())
 }
 
-fn make_boolean_batch(values: Vec<Option<bool>>, nullable: bool) -> Batch {
+fn make_boolean_batch(values: Vec<Option<bool>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "b",
         DataType::Boolean,

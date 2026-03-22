@@ -17,7 +17,7 @@ use tiforth_kernel::operators::{
     CollectSink, ExchangePipe, ProjectionPipe, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::ProjectionExpr;
-use tiforth_kernel::{Batch, RuntimeContext, TiforthTypes};
+use tiforth_kernel::{ArrowBatch, RuntimeContext, TiforthTypes};
 
 #[test]
 fn exchange_passthrough_single_batch_preserves_schema_and_values() {
@@ -216,7 +216,7 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
     let source_claim = runtime_context.new_claim(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![source_claim]])],
+        vec![(Arc::clone(&input), vec![source_claim])],
     ));
 
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
@@ -285,7 +285,7 @@ fn projection_copy_pipe() -> Arc<dyn PipeOperator<TiforthTypes>> {
     ))
 }
 
-fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
+fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Int32,

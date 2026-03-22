@@ -55,13 +55,13 @@ struct TiforthBatchInner {
     batch: ArrowBatch,
     batch_id: u64,
     origin: BatchOrigin,
-    column_claims: Vec<Vec<BatchClaim>>,
+    claims: Vec<BatchClaim>,
     events: RuntimeEventRecorder,
 }
 
 impl Drop for TiforthBatchInner {
     fn drop(&mut self) {
-        let claim_count = unique_claim_count(&self.column_claims);
+        let claim_count = unique_claim_count(&self.claims);
         if claim_count == 0 {
             return;
         }
@@ -79,16 +79,15 @@ impl TiforthBatch {
         batch: ArrowBatch,
         batch_id: u64,
         origin: BatchOrigin,
-        column_claims: Vec<Vec<BatchClaim>>,
+        claims: Vec<BatchClaim>,
         events: RuntimeEventRecorder,
     ) -> Result<Self, TiforthError> {
-        validate_column_claims(batch.num_columns(), &column_claims)?;
         Ok(Self {
             inner: Arc::new(TiforthBatchInner {
                 batch,
                 batch_id,
                 origin,
-                column_claims,
+                claims,
                 events,
             }),
         })
@@ -100,7 +99,7 @@ impl TiforthBatch {
                 batch: Arc::clone(&batch),
                 batch_id: 0,
                 origin: BatchOrigin::local("local-input"),
-                column_claims: empty_column_claims(batch.num_columns()),
+                claims: empty_claims(),
                 events: RuntimeEventRecorder::default(),
             }),
         }
@@ -119,11 +118,11 @@ impl TiforthBatch {
     }
 
     pub fn claim_count(&self) -> usize {
-        unique_claim_count(&self.inner.column_claims)
+        unique_claim_count(&self.inner.claims)
     }
 
-    pub(crate) fn column_claims(&self) -> &[Vec<BatchClaim>] {
-        &self.inner.column_claims
+    pub(crate) fn claims(&self) -> &[BatchClaim] {
+        &self.inner.claims
     }
 }
 
@@ -147,32 +146,29 @@ impl Deref for TiforthBatch {
     }
 }
 
-pub(crate) fn empty_column_claims(columns: usize) -> Vec<Vec<BatchClaim>> {
-    vec![Vec::new(); columns]
+pub(crate) fn empty_claims() -> Vec<BatchClaim> {
+    Vec::new()
 }
 
-fn validate_column_claims(
-    columns: usize,
-    column_claims: &[Vec<BatchClaim>],
-) -> Result<(), TiforthError> {
-    if column_claims.len() == columns {
-        Ok(())
-    } else {
-        Err(TiforthError::OwnershipContractViolation {
-            detail: format!(
-                "expected {columns} column-claim entries, found {}",
-                column_claims.len()
-            ),
-        })
+pub(crate) fn append_unique_claims(
+    dst: &mut Vec<BatchClaim>,
+    claims: impl IntoIterator<Item = BatchClaim>,
+) {
+    let mut ids = HashSet::new();
+    for claim in dst.iter() {
+        ids.insert(claim.id());
+    }
+    for claim in claims {
+        if ids.insert(claim.id()) {
+            dst.push(claim);
+        }
     }
 }
 
-fn unique_claim_count(column_claims: &[Vec<BatchClaim>]) -> usize {
+fn unique_claim_count(claims: &[BatchClaim]) -> usize {
     let mut ids = HashSet::new();
-    for claims in column_claims {
-        for claim in claims {
-            ids.insert(claim.id());
-        }
+    for claim in claims {
+        ids.insert(claim.id());
     }
     ids.len()
 }

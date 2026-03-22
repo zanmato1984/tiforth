@@ -15,7 +15,7 @@ use tiforth_kernel::admission::{
 use tiforth_kernel::expr::Expr;
 use tiforth_kernel::operators::{CollectSink, ProjectionPipe, StaticRecordBatchSource};
 use tiforth_kernel::projection::ProjectionExpr;
-use tiforth_kernel::{Batch, LocalExecutionFixture, RuntimeContext, TiforthTypes};
+use tiforth_kernel::{ArrowBatch, LocalExecutionFixture, RuntimeContext, TiforthTypes};
 
 const PROJECTION_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-computed-before-terminal.json",
@@ -641,7 +641,7 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     let claim = runtime_context.new_claim(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -696,7 +696,7 @@ fn duplicate_direct_projection_keeps_one_forwarded_claim_identity() {
     let claim = runtime_context.new_claim(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -761,7 +761,7 @@ fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
     let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -815,7 +815,7 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
     let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -869,7 +869,7 @@ fn projection_output_can_carry_forwarded_and_computed_claims_together() {
     let claim = runtime_context.new_claim(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
 
     let status = run_pipeline(
@@ -933,7 +933,7 @@ fn projection_cancellation_can_capture_mixed_claim_teardown_after_sink_handoff()
     let claim = runtime_context.new_claim(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
 
     drive_pipeline_until_sink_handoff(
@@ -1064,7 +1064,7 @@ fn multi_computed_projection_pipe() -> Arc<dyn PipeOperator<TiforthTypes>> {
     ))
 }
 
-fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
+fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Int32,
@@ -1074,7 +1074,7 @@ fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
     Arc::new(RecordBatch::try_new(schema, vec![values]).unwrap())
 }
 
-fn make_bool_batch(values: Vec<Option<bool>>, nullable: bool) -> Batch {
+fn make_bool_batch(values: Vec<Option<bool>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Boolean,

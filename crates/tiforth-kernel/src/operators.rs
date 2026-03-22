@@ -6,21 +6,21 @@ use broken_pipeline::{
     OpOutput, PipeOperator, SinkOperator, SourceOperator, TaskContext, ThreadId,
 };
 
-use crate::batch::{empty_column_claims, BatchClaim, TiforthBatch};
+use crate::batch::{empty_claims, BatchClaim, TiforthBatch};
 use crate::error::TiforthError;
 use crate::filter::{filter_batch, FilterPredicate};
 use crate::projection::{project_batch, ProjectionExpr};
-use crate::{Batch, TiforthTypes};
+use crate::{ArrowBatch, TiforthTypes};
 
 struct SourceInput {
-    batch: Batch,
-    column_claims: Vec<Vec<BatchClaim>>,
+    batch: ArrowBatch,
+    claims: Vec<BatchClaim>,
 }
 
 impl SourceInput {
-    fn plain(batch: Batch) -> Self {
+    fn plain(batch: ArrowBatch) -> Self {
         Self {
-            column_claims: empty_column_claims(batch.num_columns()),
+            claims: empty_claims(),
             batch,
         }
     }
@@ -37,7 +37,7 @@ pub struct StaticRecordBatchSource {
 }
 
 impl StaticRecordBatchSource {
-    pub fn new(name: impl Into<String>, batches: Vec<Batch>) -> Self {
+    pub fn new(name: impl Into<String>, batches: Vec<ArrowBatch>) -> Self {
         Self {
             name: name.into(),
             batches: Mutex::new(batches.into_iter().map(SourceInput::plain).collect()),
@@ -46,17 +46,14 @@ impl StaticRecordBatchSource {
 
     pub fn with_claims(
         name: impl Into<String>,
-        batches: Vec<(Batch, Vec<Vec<crate::batch::BatchClaim>>)>,
+        batches: Vec<(ArrowBatch, Vec<crate::batch::BatchClaim>)>,
     ) -> Self {
         Self {
             name: name.into(),
             batches: Mutex::new(
                 batches
                     .into_iter()
-                    .map(|(batch, column_claims)| SourceInput {
-                        batch,
-                        column_claims,
-                    })
+                    .map(|(batch, claims)| SourceInput { batch, claims })
                     .collect(),
             ),
         }
@@ -78,14 +75,14 @@ impl SourceOperator<TiforthTypes> for StaticRecordBatchSource {
             Some(batch) if batches.is_empty() => {
                 let batch = ctx
                     .context()
-                    .emit_source_batch(self.name(), batch.batch, batch.column_claims)
+                    .emit_source_batch(self.name(), batch.batch, batch.claims)
                     .map_err(ArrowError::from)?;
                 Ok(OpOutput::Finished(Some(batch)))
             }
             Some(batch) => {
                 let batch = ctx
                     .context()
-                    .emit_source_batch(self.name(), batch.batch, batch.column_claims)
+                    .emit_source_batch(self.name(), batch.batch, batch.claims)
                     .map_err(ArrowError::from)?;
                 Ok(OpOutput::SourcePipeHasMore(batch))
             }

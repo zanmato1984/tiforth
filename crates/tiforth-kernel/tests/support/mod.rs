@@ -4,7 +4,7 @@ use arrow_array::RecordBatch;
 use tiforth_kernel::admission::{AdmissionController, RecordingAdmissionController};
 use tiforth_kernel::filter::FilterPredicate;
 use tiforth_kernel::projection::ProjectionExpr;
-use tiforth_kernel::{Batch, RuntimeContext, TiforthBatch, TiforthError};
+use tiforth_kernel::{ArrowBatch, RuntimeContext, TiforthBatch, TiforthError};
 
 #[allow(dead_code)]
 pub fn project_batch(
@@ -12,7 +12,7 @@ pub fn project_batch(
     projections: &[ProjectionExpr],
     controller: &RecordingAdmissionController,
     operator_name: &str,
-) -> Result<Batch, TiforthError> {
+) -> Result<ArrowBatch, TiforthError> {
     let runtime_admission: Arc<dyn AdmissionController> = Arc::new(controller.clone());
     let runtime = RuntimeContext::new(runtime_admission);
     let input = TiforthBatch::from_arrow(Arc::new(input.clone()));
@@ -27,7 +27,7 @@ pub fn filter_batch(
     predicate: &FilterPredicate,
     controller: &RecordingAdmissionController,
     operator_name: &str,
-) -> Result<Batch, TiforthError> {
+) -> Result<ArrowBatch, TiforthError> {
     let runtime_admission: Arc<dyn AdmissionController> = Arc::new(controller.clone());
     let runtime = RuntimeContext::new(runtime_admission);
     let input = TiforthBatch::from_arrow(Arc::new(input.clone()));

@@ -7,7 +7,7 @@ use crate::admission::{AdmissionConsumer, AdmissionController, RecordingAdmissio
 use crate::batch::{BatchClaim, TiforthBatch};
 use crate::error::TiforthError;
 use crate::snapshot::LocalExecutionSnapshot;
-use crate::Batch;
+use crate::ArrowBatch;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BatchOrigin {
@@ -127,19 +127,19 @@ impl RuntimeContext {
     pub(crate) fn emit_source_batch(
         &self,
         operator_name: &str,
-        batch: Batch,
-        column_claims: Vec<Vec<BatchClaim>>,
+        batch: ArrowBatch,
+        claims: Vec<BatchClaim>,
     ) -> Result<TiforthBatch, TiforthError> {
-        self.emit_batch(BatchOrigin::local(operator_name), batch, column_claims)
+        self.emit_batch(BatchOrigin::local(operator_name), batch, claims)
     }
 
     pub(crate) fn emit_pipe_batch(
         &self,
         operator_name: &str,
-        batch: Batch,
-        column_claims: Vec<Vec<BatchClaim>>,
+        batch: ArrowBatch,
+        claims: Vec<BatchClaim>,
     ) -> Result<TiforthBatch, TiforthError> {
-        self.emit_batch(BatchOrigin::local(operator_name), batch, column_claims)
+        self.emit_batch(BatchOrigin::local(operator_name), batch, claims)
     }
 
     pub(crate) fn record_handoff(&self, batch: &TiforthBatch, receiver: &str) {
@@ -153,17 +153,12 @@ impl RuntimeContext {
     fn emit_batch(
         &self,
         origin: BatchOrigin,
-        batch: Batch,
-        column_claims: Vec<Vec<BatchClaim>>,
+        batch: ArrowBatch,
+        claims: Vec<BatchClaim>,
     ) -> Result<TiforthBatch, TiforthError> {
         let batch_id = self.next_batch_id.fetch_add(1, Ordering::Relaxed);
-        let batch = TiforthBatch::new(
-            batch,
-            batch_id,
-            origin.clone(),
-            column_claims,
-            self.events.clone(),
-        )?;
+        let batch =
+            TiforthBatch::new(batch, batch_id, origin.clone(), claims, self.events.clone())?;
         self.events.record(RuntimeEvent::BatchEmitted {
             batch_id,
             origin,

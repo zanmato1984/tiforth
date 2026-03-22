@@ -5,11 +5,11 @@ use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, UInt64Array};
 use arrow_schema::Schema;
 
 use crate::admission::{AdmissionController, ConsumerKind, ConsumerSpec};
-use crate::batch::{BatchClaim, TiforthBatch};
+use crate::batch::{append_unique_claims, BatchClaim, TiforthBatch};
 use crate::error::TiforthError;
 use crate::expr::Expr;
 use crate::runtime::RuntimeContext;
-use crate::Batch;
+use crate::ArrowBatch;
 
 #[derive(Clone, Debug)]
 pub struct ProjectionExpr {
@@ -38,14 +38,14 @@ pub fn project_batch(
     input: &TiforthBatch,
     projections: &[ProjectionExpr],
 ) -> Result<TiforthBatch, TiforthError> {
-    let (output, column_claims) = project_output(
+    let (output, claims) = project_output(
         input,
         projections,
         runtime.admission(),
         operator_name,
         &|consumer| runtime.new_claim(consumer),
     )?;
-    runtime.emit_pipe_batch(operator_name, output, column_claims)
+    runtime.emit_pipe_batch(operator_name, output, claims)
 }
 
 fn project_output(
@@ -54,7 +54,7 @@ fn project_output(
     controller: &dyn AdmissionController,
     operator_name: &str,
     claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(Batch, Vec<Vec<BatchClaim>>), TiforthError> {
+) -> Result<(ArrowBatch, Vec<BatchClaim>), TiforthError> {
     let schema = Arc::new(Schema::new(
         projections
             .iter()
@@ -67,9 +67,9 @@ fn project_output(
     ));
 
     let mut arrays = Vec::with_capacity(projections.len());
-    let mut column_claims = Vec::with_capacity(projections.len());
+    let mut claims = Vec::new();
     for projection in projections {
-        let (array, claims) = evaluate_governed_projection(
+        let (array, projection_claims) = evaluate_governed_projection(
             projection,
             input,
             controller,
@@ -77,11 +77,11 @@ fn project_output(
             claim_factory,
         )?;
         arrays.push(array);
-        column_claims.push(claims);
+        append_unique_claims(&mut claims, projection_claims);
     }
 
     let batch = Arc::new(RecordBatch::try_new(schema, arrays)?);
-    Ok((batch, column_claims))
+    Ok((batch, claims))
 }
 
 fn evaluate_governed_projection(
@@ -99,12 +99,7 @@ fn evaluate_governed_projection(
                 .get(*index)
                 .cloned()
                 .ok_or(TiforthError::MissingColumn { index: *index })?;
-            let claims = input
-                .column_claims()
-                .get(*index)
-                .cloned()
-                .ok_or(TiforthError::MissingColumn { index: *index })?;
-            Ok((array, claims))
+            Ok((array, input.claims().to_vec()))
         }
         Expr::LiteralInt32(value) => materialize_int32_scalar_with_claim(
             *value,

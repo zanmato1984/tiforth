@@ -18,7 +18,7 @@ pub use admission::{
     NoopAdmissionController, RecordingAdmissionController,
 };
 pub use batch::{BatchClaim, TiforthBatch};
-pub use broken_pipeline::traits::arrow::Batch;
+pub use broken_pipeline::traits::arrow::Batch as ArrowBatch;
 pub use collation::{
     collation_eq_column_literal, collation_lt_column_literal, order_by_column_asc_indices,
     CollationRef,

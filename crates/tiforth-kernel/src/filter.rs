@@ -6,10 +6,10 @@ use arrow_schema::{DataType, TimeUnit};
 use arrow_select::filter::filter_record_batch;
 
 use crate::admission::{AdmissionConsumer, AdmissionController, ConsumerKind, ConsumerSpec};
-use crate::batch::{BatchClaim, TiforthBatch};
+use crate::batch::{append_unique_claims, BatchClaim, TiforthBatch};
 use crate::error::TiforthError;
 use crate::runtime::RuntimeContext;
-use crate::Batch;
+use crate::ArrowBatch;
 
 #[derive(Clone, Debug)]
 pub enum FilterPredicate {
@@ -28,14 +28,14 @@ pub fn filter_batch(
     input: &TiforthBatch,
     predicate: &FilterPredicate,
 ) -> Result<TiforthBatch, TiforthError> {
-    let (output, column_claims) = filter_output(
+    let (output, claims) = filter_output(
         input,
         predicate,
         runtime.admission(),
         operator_name,
         &|consumer| runtime.new_claim(consumer),
     )?;
-    runtime.emit_pipe_batch(operator_name, output, column_claims)
+    runtime.emit_pipe_batch(operator_name, output, claims)
 }
 
 fn filter_output(
@@ -44,7 +44,7 @@ fn filter_output(
     controller: &dyn AdmissionController,
     operator_name: &str,
     claim_factory: &dyn Fn(Arc<dyn AdmissionConsumer>) -> BatchClaim,
-) -> Result<(Batch, Vec<Vec<BatchClaim>>), TiforthError> {
+) -> Result<(ArrowBatch, Vec<BatchClaim>), TiforthError> {
     let selection = evaluate_selection(predicate, input.batch().as_ref())?;
     let consumers =
         reserve_filter_output_consumers(input.batch().as_ref(), controller, operator_name)?;
@@ -58,7 +58,7 @@ fn filter_output(
         }
     };
 
-    let mut column_claims = Vec::with_capacity(filtered.num_columns());
+    let mut claims = Vec::with_capacity(filtered.num_columns());
     let filtered_columns = filtered.columns();
     for (index, filtered_array) in filtered_columns.iter().enumerate() {
         if let Err(error) = reconcile_filter_output_bytes(&consumers[index], filtered_array) {
@@ -68,10 +68,10 @@ fn filter_output(
             return Err(error);
         }
         let claim = claim_factory(Arc::clone(&consumers[index].consumer));
-        column_claims.push(vec![claim]);
+        append_unique_claims(&mut claims, [claim]);
     }
 
-    Ok((Arc::new(filtered), column_claims))
+    Ok((Arc::new(filtered), claims))
 }
 
 struct ReservedConsumer {
