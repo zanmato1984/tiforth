@@ -2,7 +2,21 @@
 
 This file is a table of contents for future agents. The source of truth lives under `docs/`, plus the linked GitHub issues and PRs.
 
-## Read In This Order
+## Startup Focus Control
+
+Every session starts in this order:
+
+1. `AGENTS.md`
+2. `docs/process/focus-driven-execution.md`
+3. the GitHub `program:` meta issue named there
+4. the active `epic:` issue named by that meta issue
+5. the current concrete issue named by that meta issue
+
+Do not treat `docs/vision.md` `Next Checkpoint` notes or other forward-looking
+docs text as live priority unless the `program:` meta issue explicitly promotes
+that direction.
+
+## Read In This Order For Stable Repo Context
 
 1. `README.md`
 2. `docs/vision.md`
@@ -11,11 +25,12 @@ This file is a table of contents for future agents. The source of truth lives un
 5. `docs/contracts/runtime.md`
 6. `docs/spec/type-system.md`
 7. `docs/process/documentation-updates.md`
-8. `docs/process/issues-and-prs.md`
-9. `docs/process/worktrees.md`
-10. `docs/process/inventory-artifact-naming.md`
-11. `docs/process/inventory-refresh.md`
-12. `docs/decisions/README.md`
+8. `docs/process/focus-driven-execution.md`
+9. `docs/process/issues-and-prs.md`
+10. `docs/process/worktrees.md`
+11. `docs/process/inventory-artifact-naming.md`
+12. `docs/process/inventory-refresh.md`
+13. `docs/decisions/README.md`
 
 ## Where Things Go
 
@@ -36,6 +51,9 @@ This file is a table of contents for future agents. The source of truth lives un
 
 - Treat `docs/` as the source of truth for stable design knowledge.
 - Track live execution state in GitHub issues, issue comments, and PRs. Do not add repo-local plan or status tracking docs for project progress.
+- Use `docs/process/focus-driven-execution.md` plus the GitHub `program:` meta issue as the startup control layer for choosing current work.
+- Keep exactly one active top-level epic and one current concrete issue at a time.
+- If the current issue is blocked by a missing accepted boundary, open the blocking docs-first or bootstrap issue inside the same active epic instead of jumping to another epic.
 - If a PR changes semantics, boundaries, top-level structure, or contributor workflow, update the corresponding docs or explain `Docs-Impact: none - <reason>` in the PR body.
 - When a PR adds, renames, regenerates, or intentionally skips in-scope `inventory/` evidence, follow `docs/process/inventory-refresh.md` and declare `Inventory-Impact: ...` in the PR body.
 - Do not add concrete operators or functions until their specs and harness coverage exist.
