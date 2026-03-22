@@ -60,6 +60,7 @@ Detailed first union-aware handoff slice rationale lives in `docs/design/first-u
 Detailed first temporal semantic slice rationale lives in `docs/design/first-temporal-semantic-slice.md`.
 Detailed first timestamp-timezone temporal slice rationale lives in `docs/design/first-temporal-timestamp-tz-slice.md`.
 Detailed first decimal semantic slice rationale lives in `docs/design/first-decimal-semantic-slice.md`.
+Detailed TiDB-to-Arrow native-versus-extension mapping rationale lives in `docs/design/first-tidb-arrow-type-mapping-boundary.md`.
 Detailed adapter-visible batch-envelope claim-carrier rationale lives in `docs/design/adapter-visible-batch-envelope-claim-carrier.md`.
 
 ### Milestone-1 Projection `Int32Array` Estimate Rule
