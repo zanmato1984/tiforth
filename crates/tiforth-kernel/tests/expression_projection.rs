@@ -1,11 +1,10 @@
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
 use arrow_schema::{ArrowError, DataType, Field, Schema};
 use broken_pipeline::{
-    compile, OpOutput, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator,
-    TaskContext, TaskStatus, ThreadId,
+    compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator, TaskStatus,
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{
@@ -16,7 +15,7 @@ use tiforth_kernel::operators::{
     CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::{project_batch, ProjectionExpr};
-use tiforth_kernel::{ArrowTypes, Batch, LocalExecutionFixture};
+use tiforth_kernel::{Batch, LocalExecutionFixture, TiforthTypes};
 
 const PROJECTION_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-computed-before-terminal.json",
@@ -75,9 +74,6 @@ const PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION: &str = include_str!(
 );
 const PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-shrink-ownership-violation.json",
-);
-const PROJECTION_UNTRACKED_HANDOFF_OWNERSHIP_VIOLATION: &str = include_str!(
-    "../../../tests/conformance/fixtures/local-execution/projection-untracked-handoff-ownership-violation.json",
 );
 const PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-claimed-source-runtime-context-ownership-violation.json",
@@ -877,7 +873,7 @@ fn claimed_source_requires_projection_runtime_context_before_source_emit() {
         "ClaimedSource",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     );
-    let scheduler = SequentialCoroScheduler::default();
+    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
     let task_context = scheduler.make_task_context(None);
 
     let error = source
@@ -896,40 +892,6 @@ fn claimed_source_requires_projection_runtime_context_before_source_emit() {
             .local_snapshot(admission.as_ref())
             .to_fixture(),
         PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION,
-    );
-}
-
-#[test]
-fn untracked_handoff_violation_is_reported_before_projection_adopts_batch() {
-    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
-    let admission = Arc::new(RecordingAdmissionController::unbounded());
-    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
-    let sink = Arc::new(CollectSink::new("Sink"));
-
-    let error = run_pipeline(
-        Arc::new(UntrackedRecordBatchSource::new("UntrackedSource", input)),
-        Arc::new(ProjectionPipe::new(
-            "Projection",
-            vec![ProjectionExpr::new("a_copy", Expr::column(0))],
-        )),
-        Arc::clone(&sink),
-        runtime_context.clone(),
-    )
-    .expect_err("untracked handoff should fail before projection adopts the batch");
-
-    assert!(error
-        .to_string()
-        .contains("received an untracked batch handoff"));
-    assert!(sink.batches().is_empty());
-    runtime_context.record_terminal_error(error.to_string());
-
-    assert_fixture_json(
-        "projection-untracked-handoff-ownership-violation",
-        runtime_context
-            .local_snapshot(admission.as_ref())
-            .to_fixture(),
-        PROJECTION_UNTRACKED_HANDOFF_OWNERSHIP_VIOLATION,
     );
 }
 
@@ -1060,21 +1022,21 @@ fn assert_fixture_json(name: &str, actual: LocalExecutionFixture, expected: &str
 }
 
 fn run_pipeline(
-    source: Arc<dyn SourceOperator<ArrowTypes>>,
-    pipe: Arc<dyn PipeOperator<ArrowTypes>>,
+    source: Arc<dyn SourceOperator<TiforthTypes>>,
+    pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
     runtime_context: ProjectionRuntimeContext,
-) -> broken_pipeline_schedule::Result<broken_pipeline::TaskStatus> {
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink;
+) -> broken_pipeline::BpResult<broken_pipeline::TaskStatus, TiforthTypes> {
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
 
-    let pipeline = Pipeline::<ArrowTypes>::new(
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "ProjectionPipeline",
         vec![PipelineChannel::new(source, vec![pipe])],
         sink_op,
     );
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
-    let scheduler = SequentialCoroScheduler::default();
+    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
     let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
     let task_context = scheduler.make_task_context(Some(context));
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
@@ -1082,21 +1044,21 @@ fn run_pipeline(
 }
 
 fn drive_pipeline_until_sink_handoff(
-    source: Arc<dyn SourceOperator<ArrowTypes>>,
-    pipe: Arc<dyn PipeOperator<ArrowTypes>>,
+    source: Arc<dyn SourceOperator<TiforthTypes>>,
+    pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
     runtime_context: ProjectionRuntimeContext,
 ) -> Result<(), ArrowError> {
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink.clone();
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
 
-    let pipeline = Pipeline::<ArrowTypes>::new(
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "ProjectionPipeline",
         vec![PipelineChannel::new(source, vec![pipe])],
         sink_op,
     );
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
-    let scheduler = SequentialCoroScheduler::default();
+    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
     let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
     let task_context = scheduler.make_task_context(Some(context));
 
@@ -1120,40 +1082,7 @@ fn drive_pipeline_until_sink_handoff(
     }
 }
 
-struct UntrackedRecordBatchSource {
-    name: String,
-    batch: Mutex<Option<Batch>>,
-}
-
-impl UntrackedRecordBatchSource {
-    fn new(name: impl Into<String>, batch: Batch) -> Self {
-        Self {
-            name: name.into(),
-            batch: Mutex::new(Some(batch)),
-        }
-    }
-}
-
-impl SourceOperator<ArrowTypes> for UntrackedRecordBatchSource {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn source(
-        &self,
-        _ctx: &TaskContext<ArrowTypes>,
-        _thread_id: ThreadId,
-    ) -> Result<OpOutput<Batch>, ArrowError> {
-        Ok(OpOutput::Finished(
-            self.batch
-                .lock()
-                .expect("untracked source batch mutex poisoned")
-                .take(),
-        ))
-    }
-}
-
-fn projection_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
+fn projection_pipe() -> Arc<dyn PipeOperator<TiforthTypes>> {
     Arc::new(ProjectionPipe::new(
         "Projection",
         vec![
@@ -1166,7 +1095,7 @@ fn projection_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
     ))
 }
 
-fn multi_computed_projection_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
+fn multi_computed_projection_pipe() -> Arc<dyn PipeOperator<TiforthTypes>> {
     Arc::new(ProjectionPipe::new(
         "Projection",
         vec![

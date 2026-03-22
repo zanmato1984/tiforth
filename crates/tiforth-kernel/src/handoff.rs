@@ -1,10 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc, Mutex,
-};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 
-use broken_pipeline::traits::arrow::Batch;
+use broken_pipeline::traits::arrow::Batch as ArrowBatch;
 
 use crate::admission::AdmissionConsumer;
 use crate::error::TiforthError;
@@ -101,7 +98,7 @@ impl BatchClaim {
         self.inner.consumer.release()
     }
 
-    fn new(id: u64, consumer: Arc<dyn AdmissionConsumer>) -> Self {
+    pub(crate) fn new(id: u64, consumer: Arc<dyn AdmissionConsumer>) -> Self {
         consumer.local_track_live_claim(id);
         Self {
             inner: Arc::new(BatchClaimInner { id, consumer }),
@@ -115,7 +112,7 @@ pub struct GovernedBatch {
 }
 
 struct GovernedBatchInner {
-    batch: Batch,
+    batch: ArrowBatch,
     batch_id: u64,
     origin: BatchOrigin,
     column_claims: Vec<Vec<BatchClaim>>,
@@ -139,7 +136,7 @@ impl Drop for GovernedBatchInner {
 
 impl GovernedBatch {
     pub(crate) fn new(
-        batch: Batch,
+        batch: ArrowBatch,
         batch_id: u64,
         origin: BatchOrigin,
         column_claims: Vec<Vec<BatchClaim>>,
@@ -157,7 +154,7 @@ impl GovernedBatch {
         })
     }
 
-    pub(crate) fn ungoverned(batch: Batch) -> Self {
+    pub(crate) fn ungoverned(batch: ArrowBatch) -> Self {
         Self {
             inner: Arc::new(GovernedBatchInner {
                 batch: Arc::clone(&batch),
@@ -169,7 +166,7 @@ impl GovernedBatch {
         }
     }
 
-    pub fn batch(&self) -> &Batch {
+    pub fn batch(&self) -> &ArrowBatch {
         &self.inner.batch
     }
 
@@ -190,128 +187,7 @@ impl GovernedBatch {
     }
 }
 
-pub(crate) struct BatchTracker {
-    events: RuntimeEventRecorder,
-    next_batch_id: AtomicU64,
-    next_claim_id: AtomicU64,
-    pending: Mutex<HashMap<usize, PendingBatch>>,
-}
-
-struct PendingBatch {
-    batch_id: u64,
-    origin: BatchOrigin,
-    column_claims: Vec<Vec<BatchClaim>>,
-}
-
-impl BatchTracker {
-    pub(crate) fn new(events: RuntimeEventRecorder) -> Self {
-        Self {
-            events,
-            next_batch_id: AtomicU64::new(1),
-            next_claim_id: AtomicU64::new(1),
-            pending: Mutex::new(HashMap::new()),
-        }
-    }
-
-    pub(crate) fn events(&self) -> Vec<RuntimeEvent> {
-        self.events.events()
-    }
-
-    pub(crate) fn record(&self, event: RuntimeEvent) {
-        self.events.record(event);
-    }
-
-    pub(crate) fn new_claim(&self, consumer: Arc<dyn AdmissionConsumer>) -> BatchClaim {
-        let id = self.next_claim_id.fetch_add(1, Ordering::Relaxed);
-        BatchClaim::new(id, consumer)
-    }
-
-    pub(crate) fn emit_ungoverned_batch(
-        &self,
-        batch: Batch,
-        operator_name: &str,
-    ) -> Result<(), TiforthError> {
-        let columns = batch.num_columns();
-        self.emit_batch(
-            batch,
-            BatchOrigin::local(operator_name),
-            empty_column_claims(columns),
-        )
-    }
-
-    pub(crate) fn emit_batch(
-        &self,
-        batch: Batch,
-        origin: BatchOrigin,
-        column_claims: Vec<Vec<BatchClaim>>,
-    ) -> Result<(), TiforthError> {
-        validate_column_claims(batch.num_columns(), &column_claims)?;
-        let batch_id = self.next_batch_id.fetch_add(1, Ordering::Relaxed);
-        let claim_count = unique_claim_count(&column_claims);
-        let key = batch_key(&batch);
-        let pending = PendingBatch {
-            batch_id,
-            origin: origin.clone(),
-            column_claims,
-        };
-        if self
-            .pending
-            .lock()
-            .expect("batch tracker mutex poisoned")
-            .insert(key, pending)
-            .is_some()
-        {
-            return Err(TiforthError::OwnershipContractViolation {
-                detail: format!(
-                    "attempted to emit an already-tracked batch from {}",
-                    origin.operator
-                ),
-            });
-        }
-
-        self.events.record(RuntimeEvent::BatchEmitted {
-            batch_id,
-            origin,
-            claim_count,
-        });
-        Ok(())
-    }
-
-    pub(crate) fn adopt_batch(
-        &self,
-        batch: Batch,
-        receiver: &str,
-    ) -> Result<GovernedBatch, TiforthError> {
-        let key = batch_key(&batch);
-        let pending = self
-            .pending
-            .lock()
-            .expect("batch tracker mutex poisoned")
-            .remove(&key)
-            .ok_or_else(|| TiforthError::OwnershipContractViolation {
-                detail: format!("{receiver} received an untracked batch handoff"),
-            })?;
-        let claim_count = unique_claim_count(&pending.column_claims);
-        self.events.record(RuntimeEvent::BatchHandedOff {
-            batch_id: pending.batch_id,
-            to_operator: receiver.into(),
-            claim_count,
-        });
-        GovernedBatch::new(
-            batch,
-            pending.batch_id,
-            pending.origin,
-            pending.column_claims,
-            self.events.clone(),
-        )
-    }
-}
-
-fn batch_key(batch: &Batch) -> usize {
-    Arc::as_ptr(batch) as usize
-}
-
-fn empty_column_claims(columns: usize) -> Vec<Vec<BatchClaim>> {
+pub(crate) fn empty_column_claims(columns: usize) -> Vec<Vec<BatchClaim>> {
     vec![Vec::new(); columns]
 }
 

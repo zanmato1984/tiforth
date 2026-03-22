@@ -11,7 +11,7 @@ use tiforth_kernel::admission::{AdmissionController, RecordingAdmissionControlle
 use tiforth_kernel::operators::{
     CollectSink, FilterPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
-use tiforth_kernel::{ArrowTypes, Batch, FilterPredicate};
+use tiforth_kernel::{Batch, FilterPredicate, TiforthTypes};
 
 #[test]
 fn filter_pipe_keeps_all_rows_when_predicate_column_has_no_nulls() {
@@ -172,21 +172,21 @@ fn filter_pipe_reports_unsupported_predicate_type_error() {
 }
 
 fn run_pipeline(
-    source: Arc<dyn SourceOperator<ArrowTypes>>,
-    pipe: Arc<dyn PipeOperator<ArrowTypes>>,
+    source: Arc<dyn SourceOperator<TiforthTypes>>,
+    pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
     runtime_context: ProjectionRuntimeContext,
-) -> broken_pipeline_schedule::Result<broken_pipeline::TaskStatus> {
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink;
+) -> broken_pipeline::BpResult<broken_pipeline::TaskStatus, TiforthTypes> {
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
 
-    let pipeline = Pipeline::<ArrowTypes>::new(
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "FilterPipeline",
         vec![PipelineChannel::new(source, vec![pipe])],
         sink_op,
     );
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
-    let scheduler = SequentialCoroScheduler::default();
+    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
     let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
     let task_context = scheduler.make_task_context(Some(context));
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);

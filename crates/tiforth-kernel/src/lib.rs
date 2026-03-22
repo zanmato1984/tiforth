@@ -8,11 +8,15 @@ pub mod operators;
 pub mod projection;
 pub mod snapshot;
 
+use arrow_schema::ArrowError;
+use broken_pipeline::PipelineTypes;
+use broken_pipeline_schedule::{ScheduleError, ScheduleTypes};
+
 pub use admission::{
     AdmissionConsumer, AdmissionController, AdmissionEvent, ConsumerKind, ConsumerSpec,
     NoopAdmissionController, RecordingAdmissionController,
 };
-pub use broken_pipeline::traits::arrow::{ArrowTypes, Batch};
+pub use broken_pipeline::traits::arrow::Batch;
 pub use collation::{
     collation_eq_column_literal, collation_lt_column_literal, order_by_column_asc_indices,
     CollationRef,
@@ -30,3 +34,17 @@ pub use snapshot::{
     AdmissionFixtureEvent, FixtureBatchOrigin, LocalExecutionFixture, LocalExecutionSnapshot,
     RuntimeFixtureEvent,
 };
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TiforthTypes;
+
+impl PipelineTypes for TiforthTypes {
+    type Batch = GovernedBatch;
+    type Error = ArrowError;
+}
+
+impl ScheduleTypes for TiforthTypes {
+    fn from_schedule_error(error: ScheduleError) -> Self::Error {
+        ArrowError::ComputeError(error.to_string())
+    }
+}

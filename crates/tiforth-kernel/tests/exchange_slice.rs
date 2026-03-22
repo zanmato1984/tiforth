@@ -17,7 +17,7 @@ use tiforth_kernel::operators::{
     CollectSink, ExchangePipe, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
 };
 use tiforth_kernel::projection::ProjectionExpr;
-use tiforth_kernel::{ArrowTypes, Batch};
+use tiforth_kernel::{Batch, TiforthTypes};
 
 #[test]
 fn exchange_passthrough_single_batch_preserves_schema_and_values() {
@@ -96,8 +96,8 @@ fn exchange_bounded_queue_can_block_then_resume() {
     let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink.clone();
-    let pipeline = Pipeline::<ArrowTypes>::new(
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "ExchangeBlockedResume",
         vec![PipelineChannel::new(
             Arc::new(StaticRecordBatchSource::new(
@@ -163,8 +163,8 @@ fn exchange_reports_finished_only_after_drain_for_buffered_batches() {
     let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink.clone();
-    let pipeline = Pipeline::<ArrowTypes>::new(
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "ExchangeDrainFinish",
         vec![PipelineChannel::new(
             Arc::new(StaticRecordBatchSource::new(
@@ -219,8 +219,8 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
         vec![(Arc::clone(&input), vec![vec![source_claim]])],
     ));
 
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink.clone();
-    let pipeline = Pipeline::<ArrowTypes>::new(
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "ExchangeCancelledRelease",
         vec![PipelineChannel::new(
             source,
@@ -259,27 +259,27 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
 }
 
 fn run_pipeline(
-    source: Arc<dyn SourceOperator<ArrowTypes>>,
-    pipes: Vec<Arc<dyn PipeOperator<ArrowTypes>>>,
+    source: Arc<dyn SourceOperator<TiforthTypes>>,
+    pipes: Vec<Arc<dyn PipeOperator<TiforthTypes>>>,
     sink: Arc<CollectSink>,
     runtime_context: ProjectionRuntimeContext,
-) -> broken_pipeline_schedule::Result<TaskStatus> {
-    let sink_op: Arc<dyn SinkOperator<ArrowTypes>> = sink;
-    let pipeline = Pipeline::<ArrowTypes>::new(
+) -> broken_pipeline::BpResult<TaskStatus, TiforthTypes> {
+    let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
+    let pipeline = Pipeline::<TiforthTypes>::new(
         "ExchangePipeline",
         vec![PipelineChannel::new(source, pipes)],
         sink_op,
     );
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
-    let scheduler = SequentialCoroScheduler::default();
+    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
     let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
     let task_context = scheduler.make_task_context(Some(context));
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
 }
 
-fn projection_copy_pipe() -> Arc<dyn PipeOperator<ArrowTypes>> {
+fn projection_copy_pipe() -> Arc<dyn PipeOperator<TiforthTypes>> {
     Arc::new(ProjectionPipe::new(
         "Projection",
         vec![ProjectionExpr::new("a_copy", Expr::column(0))],
@@ -350,7 +350,7 @@ impl Awaiter for RecordedAwaiter {
     }
 }
 
-fn test_task_context(runtime_context: ProjectionRuntimeContext) -> TaskContext<ArrowTypes> {
+fn test_task_context(runtime_context: ProjectionRuntimeContext) -> TaskContext<TiforthTypes> {
     let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
     TaskContext::new(
         Some(context),
