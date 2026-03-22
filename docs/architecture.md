@@ -57,6 +57,15 @@ This means future growth should prefer adding modules under those existing
 categories instead of adding one new top-level directory or one new crate per
 slice.
 
+Issue #401 now re-evaluates post-reorganization adapter and harness carrier
+extraction in
+`docs/design/post-reorganization-shared-carrier-extraction-boundary.md`.
+
+That follow-on keeps the workspace-crate categories unchanged: the next
+implementation-sharing step, if one is needed, should stay inside existing
+adapter `engine/` modules or inside `crates/tiforth-harness-differential`
+rather than introducing a new cross-workspace support crate.
+
 ## Current Repository Bias
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
