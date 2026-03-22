@@ -10,22 +10,22 @@ use crate::error::TiforthError;
 use crate::runtime::{BatchOrigin, RuntimeEvent, RuntimeEventRecorder};
 
 #[derive(Clone)]
-pub struct BatchClaim {
-    inner: Arc<BatchClaimInner>,
+pub struct OwnershipToken {
+    inner: Arc<OwnershipTokenInner>,
 }
 
-struct BatchClaimInner {
+struct OwnershipTokenInner {
     id: u64,
     consumer: Arc<dyn AdmissionConsumer>,
 }
 
-impl Drop for BatchClaimInner {
+impl Drop for OwnershipTokenInner {
     fn drop(&mut self) {
         self.consumer.local_untrack_live_claim(self.id);
     }
 }
 
-impl BatchClaim {
+impl OwnershipToken {
     fn id(&self) -> u64 {
         self.inner.id
     }
@@ -33,7 +33,7 @@ impl BatchClaim {
     pub(crate) fn new(id: u64, consumer: Arc<dyn AdmissionConsumer>) -> Self {
         consumer.local_track_live_claim(id);
         Self {
-            inner: Arc::new(BatchClaimInner { id, consumer }),
+            inner: Arc::new(OwnershipTokenInner { id, consumer }),
         }
     }
 }
@@ -47,7 +47,7 @@ struct TiforthBatchInner {
     batch: ArrowBatch,
     batch_id: u64,
     origin: BatchOrigin,
-    claims: Vec<BatchClaim>,
+    claims: Vec<OwnershipToken>,
     events: RuntimeEventRecorder,
 }
 
@@ -71,7 +71,7 @@ impl TiforthBatch {
         batch: ArrowBatch,
         batch_id: u64,
         origin: BatchOrigin,
-        claims: Vec<BatchClaim>,
+        claims: Vec<OwnershipToken>,
         events: RuntimeEventRecorder,
     ) -> Result<Self, TiforthError> {
         Ok(Self {
@@ -113,7 +113,7 @@ impl TiforthBatch {
         unique_claim_count(&self.inner.claims)
     }
 
-    pub(crate) fn claims(&self) -> &[BatchClaim] {
+    pub(crate) fn claims(&self) -> &[OwnershipToken] {
         &self.inner.claims
     }
 }
@@ -138,13 +138,13 @@ impl Deref for TiforthBatch {
     }
 }
 
-pub(crate) fn empty_claims() -> Vec<BatchClaim> {
+pub(crate) fn empty_claims() -> Vec<OwnershipToken> {
     Vec::new()
 }
 
 pub(crate) fn append_unique_claims(
-    dst: &mut Vec<BatchClaim>,
-    claims: impl IntoIterator<Item = BatchClaim>,
+    dst: &mut Vec<OwnershipToken>,
+    claims: impl IntoIterator<Item = OwnershipToken>,
 ) {
     let mut ids = HashSet::new();
     for claim in dst.iter() {
@@ -157,7 +157,7 @@ pub(crate) fn append_unique_claims(
     }
 }
 
-fn unique_claim_count(claims: &[BatchClaim]) -> usize {
+fn unique_claim_count(claims: &[OwnershipToken]) -> usize {
     let mut ids = HashSet::new();
     for claim in claims {
         ids.insert(claim.id());

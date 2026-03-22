@@ -213,7 +213,7 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
     source_consumer
         .try_reserve(12)
         .expect("source reserve should succeed");
-    let source_claim = runtime_context.new_claim(source_consumer);
+    let source_claim = runtime_context.new_token(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![source_claim])],

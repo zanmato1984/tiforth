@@ -42,7 +42,7 @@ The current attachment pattern is:
 - runtime-entered operators implement `SourceOperator<TiforthTypes>`, `PipeOperator<TiforthTypes>`, or `SinkOperator<TiforthTypes>` directly and return upstream `OpOutput<TiforthBatch>` values
 - expression nodes such as `Expr` and `ProjectionExpr` stay inside `tiforth` operator logic for schema derivation and batch evaluation; they do not own scheduling, continuation, or handoff states
 - `RuntimeContext` is milestone-1 attachment glue carried through upstream `TaskContext`; it supplies admission control, batch-claim tracking, and event recording without renaming `TaskStatus` or `OpOutput`
-- `TiforthBatch`, `BatchClaim`, and `LocalExecutionSnapshot` remain `tiforth`-owned data, ownership, and observability helpers around the adopted runtime payload rather than replacement runtime contracts
+- `TiforthBatch`, `OwnershipToken`, and `LocalExecutionSnapshot` remain `tiforth`-owned data, ownership, and observability helpers around the adopted runtime payload rather than replacement runtime contracts
 
 This keeps the upstream runtime vocabulary stable while letting `tiforth` own the semantics that are specific to its kernel slice.
 
@@ -88,7 +88,7 @@ For the current slice, `RuntimeContext` is that local glue and it is the require
 
 ## Tiforth-Owned Helpers Surround The Payload, Not The Protocol
 
-`TiforthBatch` and `BatchClaim` add ownership bookkeeping around the adopted `Batch` payload so the source -> projection -> sink slice can preserve live claims.
+`TiforthBatch` and `OwnershipToken` add ownership bookkeeping around the adopted `Batch` payload so the source -> projection -> sink slice can preserve live claims.
 
 `LocalExecutionSnapshot` and `LocalExecutionFixture` translate local recorders into stable conformance evidence, with adapter-visible export bounded by `docs/design/adapter-visible-runtime-event-carrier.md`.
 

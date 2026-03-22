@@ -638,7 +638,7 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
+    let claim = runtime_context.new_token(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![claim])],
@@ -693,7 +693,7 @@ fn duplicate_direct_projection_keeps_one_forwarded_claim_identity() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
+    let claim = runtime_context.new_token(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![claim])],
@@ -758,7 +758,7 @@ fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
+    let claim = runtime_context.new_token(Arc::clone(&source_consumer));
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![claim])],
@@ -812,7 +812,7 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
+    let claim = runtime_context.new_token(Arc::clone(&source_consumer));
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![claim])],
@@ -866,7 +866,7 @@ fn projection_output_can_carry_forwarded_and_computed_claims_together() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
+    let claim = runtime_context.new_token(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![claim])],
@@ -930,7 +930,7 @@ fn projection_cancellation_can_capture_mixed_claim_teardown_after_sink_handoff()
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
+    let claim = runtime_context.new_token(source_consumer);
     let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![claim])],

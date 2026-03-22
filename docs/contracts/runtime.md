@@ -50,7 +50,7 @@ For milestone 1, the operator and expression attachment pattern is fixed by `doc
 - runtime-entered `tiforth` kernels implement the upstream `SourceOperator<TiforthTypes>`, `PipeOperator<TiforthTypes>`, and `SinkOperator<TiforthTypes>` traits directly
 - runtime-visible results stay `OpOutput<TiforthBatch>`, and upstream task-state names stay adopted by name and meaning
 - expression nodes such as `Expr` and `ProjectionExpr` stay operator-internal evaluators and schema helpers instead of runtime participants
-- `RuntimeContext`, `TiforthBatch`, `BatchClaim`, and `LocalExecutionSnapshot` add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
+- `RuntimeContext`, `TiforthBatch`, `OwnershipToken`, and `LocalExecutionSnapshot` add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
 
 ## Shared Contract Surface
 

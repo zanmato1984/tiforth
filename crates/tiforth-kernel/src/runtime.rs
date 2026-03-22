@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use crate::admission::{AdmissionConsumer, AdmissionController, RecordingAdmissionController};
-use crate::batch::{BatchClaim, TiforthBatch};
+use crate::batch::{OwnershipToken, TiforthBatch};
 use crate::error::TiforthError;
 use crate::snapshot::LocalExecutionSnapshot;
 use crate::ArrowBatch;
@@ -105,9 +105,9 @@ impl RuntimeContext {
         LocalExecutionSnapshot::capture(admission, self.runtime_events())
     }
 
-    pub fn new_claim(&self, consumer: Arc<dyn AdmissionConsumer>) -> BatchClaim {
+    pub fn new_token(&self, consumer: Arc<dyn AdmissionConsumer>) -> OwnershipToken {
         let id = self.next_claim_id.fetch_add(1, Ordering::Relaxed);
-        BatchClaim::new(id, consumer)
+        OwnershipToken::new(id, consumer)
     }
 
     pub fn record_terminal_finished(&self) {
@@ -128,7 +128,7 @@ impl RuntimeContext {
         &self,
         operator_name: &str,
         batch: ArrowBatch,
-        claims: Vec<BatchClaim>,
+        claims: Vec<OwnershipToken>,
     ) -> Result<TiforthBatch, TiforthError> {
         self.emit_batch(BatchOrigin::local(operator_name), batch, claims)
     }
@@ -137,7 +137,7 @@ impl RuntimeContext {
         &self,
         operator_name: &str,
         batch: ArrowBatch,
-        claims: Vec<BatchClaim>,
+        claims: Vec<OwnershipToken>,
     ) -> Result<TiforthBatch, TiforthError> {
         self.emit_batch(BatchOrigin::local(operator_name), batch, claims)
     }
@@ -154,7 +154,7 @@ impl RuntimeContext {
         &self,
         origin: BatchOrigin,
         batch: ArrowBatch,
-        claims: Vec<BatchClaim>,
+        claims: Vec<OwnershipToken>,
     ) -> Result<TiforthBatch, TiforthError> {
         let batch_id = self.next_batch_id.fetch_add(1, Ordering::Relaxed);
         let batch =

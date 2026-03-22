@@ -6,7 +6,7 @@ use broken_pipeline::{
     OpOutput, PipeOperator, SinkOperator, SourceOperator, TaskContext, ThreadId,
 };
 
-use crate::batch::{empty_claims, BatchClaim, TiforthBatch};
+use crate::batch::{empty_claims, OwnershipToken, TiforthBatch};
 use crate::error::TiforthError;
 use crate::filter::{filter_batch, FilterPredicate};
 use crate::projection::{project_batch, ProjectionExpr};
@@ -14,7 +14,7 @@ use crate::{ArrowBatch, TiforthTypes};
 
 struct SourceInput {
     batch: ArrowBatch,
-    claims: Vec<BatchClaim>,
+    claims: Vec<OwnershipToken>,
 }
 
 impl SourceInput {
@@ -46,7 +46,7 @@ impl StaticRecordBatchSource {
 
     pub fn with_claims(
         name: impl Into<String>,
-        batches: Vec<(ArrowBatch, Vec<crate::batch::BatchClaim>)>,
+        batches: Vec<(ArrowBatch, Vec<crate::batch::OwnershipToken>)>,
     ) -> Self {
         Self {
             name: name.into(),

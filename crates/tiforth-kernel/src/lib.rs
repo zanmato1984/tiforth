@@ -17,7 +17,7 @@ pub use admission::{
     AdmissionConsumer, AdmissionController, AdmissionEvent, ConsumerKind, ConsumerSpec,
     NoopAdmissionController, RecordingAdmissionController,
 };
-pub use batch::{BatchClaim, TiforthBatch};
+pub use batch::{OwnershipToken, TiforthBatch};
 pub use broken_pipeline::traits::arrow::Batch as ArrowBatch;
 pub use collation::{
     collation_eq_column_literal, collation_lt_column_literal, order_by_column_asc_indices,

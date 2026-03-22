@@ -5,7 +5,7 @@ use arrow_array::{Array, ArrayRef, Int32Array, RecordBatch, UInt64Array};
 use arrow_schema::Schema;
 
 use crate::admission::{AdmissionController, ConsumerKind, ConsumerSpec};
-use crate::batch::{append_unique_claims, BatchClaim, TiforthBatch};
+use crate::batch::{append_unique_claims, OwnershipToken, TiforthBatch};
 use crate::error::TiforthError;
 use crate::expr::Expr;
 use crate::runtime::RuntimeContext;
@@ -43,7 +43,7 @@ pub fn project_batch(
         projections,
         runtime.admission(),
         operator_name,
-        &|consumer| runtime.new_claim(consumer),
+        &|consumer| runtime.new_token(consumer),
     )?;
     runtime.emit_pipe_batch(operator_name, output, claims)
 }
@@ -53,8 +53,8 @@ fn project_output(
     projections: &[ProjectionExpr],
     controller: &dyn AdmissionController,
     operator_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrowBatch, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrowBatch, Vec<OwnershipToken>), TiforthError> {
     let schema = Arc::new(Schema::new(
         projections
             .iter()
@@ -89,8 +89,8 @@ fn evaluate_governed_projection(
     input: &TiforthBatch,
     controller: &dyn AdmissionController,
     operator_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError> {
     match &projection.expr {
         Expr::Column(index) => {
             let array = input
@@ -219,8 +219,8 @@ fn materialize_int32_scalar_with_claim(
     controller: &dyn AdmissionController,
     operator_name: &str,
     output_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError> {
     with_claimed_int32_array(
         rows,
         controller,
@@ -245,8 +245,8 @@ fn materialize_uint64_scalar_with_claim(
     controller: &dyn AdmissionController,
     operator_name: &str,
     output_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError> {
     with_claimed_uint64_array(
         rows,
         controller,
@@ -297,8 +297,8 @@ fn materialize_int32_add_with_claim(
     controller: &dyn AdmissionController,
     operator_name: &str,
     output_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError> {
     with_claimed_int32_array(
         rows,
         controller,
@@ -355,8 +355,8 @@ fn materialize_uint64_add_with_claim(
     controller: &dyn AdmissionController,
     operator_name: &str,
     output_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError> {
     with_claimed_uint64_array(
         rows,
         controller,
@@ -419,9 +419,9 @@ fn with_claimed_int32_array<F>(
     controller: &dyn AdmissionController,
     operator_name: &str,
     output_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
     build: F,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError>
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError>
 where
     F: FnOnce(&mut Int32Builder) -> Result<(), TiforthError>,
 {
@@ -487,9 +487,9 @@ fn with_claimed_uint64_array<F>(
     controller: &dyn AdmissionController,
     operator_name: &str,
     output_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> BatchClaim,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
     build: F,
-) -> Result<(ArrayRef, Vec<BatchClaim>), TiforthError>
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError>
 where
     F: FnOnce(&mut UInt64Builder) -> Result<(), TiforthError>,
 {

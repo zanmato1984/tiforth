@@ -6,7 +6,7 @@ use arrow_schema::{DataType, TimeUnit};
 use arrow_select::filter::filter_record_batch;
 
 use crate::admission::{AdmissionConsumer, AdmissionController, ConsumerKind, ConsumerSpec};
-use crate::batch::{append_unique_claims, BatchClaim, TiforthBatch};
+use crate::batch::{append_unique_claims, OwnershipToken, TiforthBatch};
 use crate::error::TiforthError;
 use crate::runtime::RuntimeContext;
 use crate::ArrowBatch;
@@ -33,7 +33,7 @@ pub fn filter_batch(
         predicate,
         runtime.admission(),
         operator_name,
-        &|consumer| runtime.new_claim(consumer),
+        &|consumer| runtime.new_token(consumer),
     )?;
     runtime.emit_pipe_batch(operator_name, output, claims)
 }
@@ -43,8 +43,8 @@ fn filter_output(
     predicate: &FilterPredicate,
     controller: &dyn AdmissionController,
     operator_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn AdmissionConsumer>) -> BatchClaim,
-) -> Result<(ArrowBatch, Vec<BatchClaim>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrowBatch, Vec<OwnershipToken>), TiforthError> {
     let selection = evaluate_selection(predicate, input.batch().as_ref())?;
     let consumers =
         reserve_filter_output_consumers(input.batch().as_ref(), controller, operator_name)?;
