@@ -64,6 +64,25 @@ This checkpoint does not define:
 - asynchronous host callbacks or scheduler replacement
 - adapter-local session, connection, or retry orchestration policy
 
+## Planned Validation Slice
+
+The next Go-host checkpoint should remain narrow and executable:
+
+- validate one minimal host-facing FFI slice for `compile` -> `pipe_exec` ->
+  repeated `step` -> explicit release or drop
+- prove host-owned input borrowing, `tiforth`-owned output release, and
+  terminal teardown on `finished`, `cancelled`, and `error`
+- record memory-management expectations for who allocates, who may borrow, and
+  who must trigger final release on every buffer domain that crosses the FFI
+  surface
+- add benchmark evidence for direct Rust stepping versus Go-through-`cgo`
+  stepping so the repo can judge the control-loop overhead explicitly
+
+That follow-on should stay a validation slice, not a permanent public-ABI
+commitment. It should not be treated as permission to freeze one universal C
+ABI, async callback model, or general Arrow foreign-buffer bridge for every
+embedding.
+
 ## Result
 
 `tiforth` now has a first durable Go-host off-heap interop checkpoint: host-driven compile and step control flow, host-owned input borrowing, and explicit host release responsibilities for `tiforth`-created output batches.
