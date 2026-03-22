@@ -33,14 +33,14 @@ Observed from the public `broken-pipeline-rs` repo on 2026-03-16:
 
 - the workspace currently exposes `broken-pipeline`, `broken-pipeline-schedule`, and `broken-pipeline-c`
 - `broken-pipeline` is the core protocol crate and exports Arrow-bound types under `broken_pipeline::traits::arrow`
-- the Arrow binding currently uses `Batch = Arc<RecordBatch>`, `Error = ArrowError`, and `ArrowTypes` as the `PipelineTypes` specialization
+- the Arrow binding currently uses `Batch = Arc<RecordBatch>` and `Error = ArrowError`, while `PipelineTypes` now also carries a typed task-context payload
 - the core crate publicly exports `SourceOperator`, `PipeOperator`, `SinkOperator`, `OpOutput`, `TaskContext`, `TaskStatus`, `Pipeline`, `PipelineChannel`, `compile`, and `PipeExec`
-- the optional schedule crate re-exports Arrow-bound aliases and ships ready-made scheduler fronts plus detail awaiter or resumer helpers
+- the optional schedule crate is generic over `ScheduleTypes` and ships ready-made scheduler fronts plus detail awaiter or resumer helpers
 - the current crate manifests set `publish = false`, so milestone-1 consumption currently implies a pinned git dependency or vendored source rather than crates.io packaging
 
 Observed from the current `tiforth` manifests on 2026-03-17:
 
-- `crates/tiforth-kernel/Cargo.toml` currently pins both `broken-pipeline` and `broken-pipeline-schedule` to git revision `174e6cd07c41210158ae1d805b568968cf71f898`
+- `crates/tiforth-kernel/Cargo.toml` currently pins both `broken-pipeline` and `broken-pipeline-schedule` to git revision `489d351c8091ec351486982d57574f83a7097aa7`
 - that revision is the current reproducible upstream contract snapshot for the milestone-1 implementation slice
 
 ## Boundary Decision
@@ -59,8 +59,8 @@ This keeps the production and shared contract centered on the upstream core crat
 
 The milestone-1 dependency boundary now records the exact upstream revision used by the checked-in implementation:
 
-- `broken-pipeline = 174e6cd07c41210158ae1d805b568968cf71f898`
-- `broken-pipeline-schedule = 174e6cd07c41210158ae1d805b568968cf71f898`
+- `broken-pipeline = 489d351c8091ec351486982d57574f83a7097aa7`
+- `broken-pipeline-schedule = 489d351c8091ec351486982d57574f83a7097aa7`
 
 That pin keeps the runtime evidence base reproducible while the upstream crates remain unpublished on crates.io. A later revision bump or vendored snapshot should be handled as a separate issue so the contract review and implementation change stay explicit.
 
@@ -76,10 +76,10 @@ A later issue should switch to a vendored snapshot only when at least one of tho
 
 The following surfaces are upstream-owned and should be adopted directly instead of being redefined inside `tiforth`:
 
-- Arrow runtime typing: `broken_pipeline::traits::arrow::{ArrowTypes, Batch, Error, Result}`
+- runtime typing: `broken_pipeline::PipelineTypes` plus Arrow data payloads under `broken_pipeline::traits::arrow::{Batch, Error, Result}`
 - operator attachment traits: `broken_pipeline::{SourceOperator, PipeOperator, SinkOperator}`
-- operator step outputs: `broken_pipeline::OpOutput<Batch>`
-- task and blocking control: `broken_pipeline::{TaskContext, TaskStatus, Awaiter, Resumer, SharedAwaiter, SharedResumer, TaskGroup}` specialized to `ArrowTypes`
+- operator step outputs: `broken_pipeline::OpOutput<TiforthTypes::Batch>`
+- task and blocking control: `broken_pipeline::{TaskContext, TaskStatus, Awaiter, Resumer, SharedAwaiter, SharedResumer, TaskGroup}` specialized to `TiforthTypes`
 
 These names refer to the Rust upstream surface from `broken-pipeline-rs`, not to the original C++ repository.
 

@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::{new_empty_array, Array, ArrayRef, Decimal128Array, Int32Array, RecordBatch};
 use arrow_schema::{DataType, Field, Schema};
+use support::{filter_batch, project_batch};
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::filter::{filter_batch, FilterPredicate};
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::filter::FilterPredicate;
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[test]
 fn decimal128_column_passthrough_preserves_values_and_metadata() {

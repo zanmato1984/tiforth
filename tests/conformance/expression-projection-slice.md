@@ -34,7 +34,6 @@ Milestone 1 now has local executable coverage in `crates/tiforth-kernel/tests/ex
 - duplicate direct-column projection with one forwarded claim identity shared across multiple output columns
 - mixed-claim cancelled teardown after sink handoff via a local explicit cancellation driver
 - forwarded-claim ownership violations after sink handoff via local explicit early-release and early-shrink checkpoints against the directly addressed local consumer behind that live claim
-- claimed-source ownership violation when `ProjectionRuntimeContext` is missing before any source emit or sink collection
 - untracked source-to-projection handoff ownership violation before batch adoption and sink collection
 
 The same local slice also preserves explicit local fixture checkpoints for a direct `NULL` literal computed-output path. That checkpoint confirms the milestone-1 no-shrink path: the projection-output consumer reserves the full nullable `Int32Array` estimate, keeps all admitted bytes attached to the emitted claim, and releases that unchanged retained size only after the sink-owned batch drops.
@@ -56,8 +55,6 @@ The local Rust slice now covers a true `cancelled` terminal checkpoint for mixed
 The same local slice now also covers two `ownership_contract_violation` checkpoints for forwarded-claim passthrough. Those checkpoints wait until sink handoff is observable, then attempt either an explicit local early release or an explicit local early shrink through the directly addressed local consumer behind the still-live forwarded claim before dropping the sink-owned batch and recording the terminal error. The preserved fixture output stays local to this Rust-side enforcement path rather than redefining any shared runtime surface.
 
 The same local slice also covers an untracked-handoff `ownership_contract_violation` checkpoint. That checkpoint uses a local source that bypasses runtime tracking, expects the projection receiver to reject the batch before sink collection, and preserves the resulting terminal error through the same local fixture carrier.
-
-The same local slice also covers a missing-runtime-context `ownership_contract_violation` checkpoint for claimed source batches. That checkpoint exercises the existing guard in `StaticRecordBatchSource::new_claimed`, expects the claimed local source to reject the batch before any source emit, and preserves the resulting terminal error through the same local fixture carrier.
 
 The same local slice now also covers an unsupported-arithmetic-type execution-error checkpoint. That checkpoint drives `add<int32>` against a boolean source column, expects the projection receiver to reject the batch before any projection output emit or sink collection, and preserves the resulting terminal error through the same local fixture carrier.
 

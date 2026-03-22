@@ -35,25 +35,25 @@ How should milestone-1 `tiforth` operators and expressions attach to the adopted
 
 ## Design Summary
 
-For milestone 1, `tiforth` attaches to the adopted runtime by implementing the upstream Arrow-bound operator traits directly and by keeping expressions as operator-internal evaluators instead of runtime participants.
+For milestone 1, `tiforth` attaches to the adopted runtime by implementing the upstream operator traits directly over `TiforthTypes` and by keeping expressions as operator-internal evaluators instead of runtime participants.
 
 The current attachment pattern is:
 
-- runtime-entered operators implement `SourceOperator<ArrowTypes>`, `PipeOperator<ArrowTypes>`, or `SinkOperator<ArrowTypes>` directly and return upstream `OpOutput<Batch>` values
+- runtime-entered operators implement `SourceOperator<TiforthTypes>`, `PipeOperator<TiforthTypes>`, or `SinkOperator<TiforthTypes>` directly and return upstream `OpOutput<TiforthBatch>` values
 - expression nodes such as `Expr` and `ProjectionExpr` stay inside `tiforth` operator logic for schema derivation and batch evaluation; they do not own scheduling, continuation, or handoff states
-- `ProjectionRuntimeContext` is milestone-1 attachment glue carried through upstream `TaskContext`; it supplies admission control, batch-claim tracking, and event recording without renaming `TaskStatus` or `OpOutput`
-- `GovernedBatch`, `BatchClaim`, and `LocalExecutionSnapshot` remain `tiforth`-owned data, ownership, and observability helpers around the adopted runtime payload rather than replacement runtime contracts
+- `RuntimeContext` is milestone-1 attachment glue carried through upstream `TaskContext`; it supplies admission control, batch-claim tracking, and event recording without renaming `TaskStatus` or `OpOutput`
+- `TiforthBatch`, `OwnershipToken`, and `LocalExecutionSnapshot` remain `tiforth`-owned data, ownership, and observability helpers around the adopted runtime payload rather than replacement runtime contracts
 
 This keeps the upstream runtime vocabulary stable while letting `tiforth` own the semantics that are specific to its kernel slice.
 
 ## Operators Enter Through Upstream Traits
 
-The runtime-facing operator surface for milestone 1 is the upstream Arrow specialization:
+The runtime-facing operator surface for milestone 1 is the upstream `TiforthTypes` specialization:
 
-- `StaticRecordBatchSource` implements `SourceOperator<ArrowTypes>`
-- `ProjectionPipe` implements `PipeOperator<ArrowTypes>`
-- `CollectSink` implements `SinkOperator<ArrowTypes>`
-- runtime-visible return values stay `OpOutput<Batch>`
+- `StaticRecordBatchSource` implements `SourceOperator<TiforthTypes>`
+- `ProjectionPipe` implements `PipeOperator<TiforthTypes>`
+- `CollectSink` implements `SinkOperator<TiforthTypes>`
+- runtime-visible return values stay `OpOutput<TiforthBatch>`
 - scheduler and context access stay `TaskContext`
 
 Milestone 1 should not introduce parallel traits such as a `tiforth`-renamed source, pipe, sink, or task-status API for this same slice.
@@ -78,19 +78,17 @@ Any future expression family should continue to attach through operator implemen
 
 ## Local Glue Travels Through `TaskContext`
 
-When milestone-1 operators need `tiforth`-specific state at runtime, they should recover it from the upstream context carrier instead of wrapping or replacing the runtime protocol.
+When milestone-1 operators need `tiforth`-specific state at runtime, they should recover it from the upstream typed context carrier instead of wrapping or replacing the runtime protocol.
 
-For the current slice, `ProjectionRuntimeContext` is that local glue. It owns:
+For the current slice, `RuntimeContext` is that local glue and it is the required `TaskContext<TiforthTypes>` payload. It owns:
 
 - admission controller access
-- claim creation and batch tracking
+- claim creation and governed-batch tracking
 - runtime event recording for local harness evidence
-
-Missing required context for a `tiforth`-owned path is an operator error, not a new runtime control state.
 
 ## Tiforth-Owned Helpers Surround The Payload, Not The Protocol
 
-`GovernedBatch` and `BatchClaim` add ownership bookkeeping around the adopted `Batch` payload so the source -> projection -> sink slice can preserve live claims.
+`TiforthBatch` and `OwnershipToken` add ownership bookkeeping around the adopted `Batch` payload so the source -> projection -> sink slice can preserve live claims.
 
 `LocalExecutionSnapshot` and `LocalExecutionFixture` translate local recorders into stable conformance evidence, with adapter-visible export bounded by `docs/design/adapter-visible-runtime-event-carrier.md`.
 

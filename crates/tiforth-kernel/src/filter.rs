@@ -5,11 +5,11 @@ use arrow_array::{Array, ArrayRef, BooleanArray, RecordBatch};
 use arrow_schema::{DataType, TimeUnit};
 use arrow_select::filter::filter_record_batch;
 
-use broken_pipeline::traits::arrow::Batch;
-
 use crate::admission::{AdmissionConsumer, AdmissionController, ConsumerKind, ConsumerSpec};
+use crate::batch::{append_unique_claims, OwnershipToken, TiforthBatch};
 use crate::error::TiforthError;
-use crate::handoff::{BatchClaim, GovernedBatch};
+use crate::runtime::RuntimeContext;
+use crate::ArrowBatch;
 
 #[derive(Clone, Debug)]
 pub enum FilterPredicate {
@@ -23,41 +23,28 @@ impl FilterPredicate {
 }
 
 pub fn filter_batch(
-    batch: &RecordBatch,
-    predicate: &FilterPredicate,
-    controller: &dyn AdmissionController,
+    runtime: &RuntimeContext,
     operator_name: &str,
-) -> Result<Batch, TiforthError> {
-    let selection = evaluate_selection(predicate, batch)?;
-    let consumers = reserve_filter_output_consumers(batch, controller, operator_name)?;
-    let filtered = filter_record_batch(batch, &selection).map_err(TiforthError::from);
-    let filtered = match filtered {
-        Ok(filtered) => filtered,
-        Err(error) => {
-            release_consumers_best_effort(&consumers);
-            return Err(error);
-        }
-    };
-
-    let filtered_columns = filtered.columns();
-    for (index, filtered_array) in filtered_columns.iter().enumerate() {
-        if let Err(error) = reconcile_filter_output_bytes(&consumers[index], filtered_array) {
-            release_consumers_best_effort(&consumers);
-            return Err(error);
-        }
-    }
-    release_consumers(&consumers)?;
-
-    Ok(Arc::new(filtered))
+    input: &TiforthBatch,
+    predicate: &FilterPredicate,
+) -> Result<TiforthBatch, TiforthError> {
+    let (output, claims) = filter_output(
+        input,
+        predicate,
+        runtime.admission(),
+        operator_name,
+        &|consumer| runtime.new_token(consumer),
+    )?;
+    runtime.emit_pipe_batch(operator_name, output, claims)
 }
 
-pub(crate) fn filter_governed_batch(
-    input: &GovernedBatch,
+fn filter_output(
+    input: &TiforthBatch,
     predicate: &FilterPredicate,
     controller: &dyn AdmissionController,
     operator_name: &str,
-    claim_factory: &dyn Fn(Arc<dyn AdmissionConsumer>) -> BatchClaim,
-) -> Result<(Batch, Vec<Vec<BatchClaim>>), TiforthError> {
+    claim_factory: &dyn Fn(Arc<dyn AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrowBatch, Vec<OwnershipToken>), TiforthError> {
     let selection = evaluate_selection(predicate, input.batch().as_ref())?;
     let consumers =
         reserve_filter_output_consumers(input.batch().as_ref(), controller, operator_name)?;
@@ -71,7 +58,7 @@ pub(crate) fn filter_governed_batch(
         }
     };
 
-    let mut column_claims = Vec::with_capacity(filtered.num_columns());
+    let mut claims = Vec::with_capacity(filtered.num_columns());
     let filtered_columns = filtered.columns();
     for (index, filtered_array) in filtered_columns.iter().enumerate() {
         if let Err(error) = reconcile_filter_output_bytes(&consumers[index], filtered_array) {
@@ -81,10 +68,10 @@ pub(crate) fn filter_governed_batch(
             return Err(error);
         }
         let claim = claim_factory(Arc::clone(&consumers[index].consumer));
-        column_claims.push(vec![claim]);
+        append_unique_claims(&mut claims, [claim]);
     }
 
-    Ok((Arc::new(filtered), column_claims))
+    Ok((Arc::new(filtered), claims))
 }
 
 struct ReservedConsumer {
@@ -227,22 +214,6 @@ fn reconcile_filter_output_bytes(
 
 fn estimate_filter_output_bytes(input: &ArrayRef) -> usize {
     input.get_buffer_memory_size()
-}
-
-fn release_consumers(consumers: &[ReservedConsumer]) -> Result<(), TiforthError> {
-    let mut first_error = None;
-    for consumer in consumers {
-        if let Err(error) = consumer.consumer.release() {
-            if first_error.is_none() {
-                first_error = Some(error);
-            }
-        }
-    }
-    if let Some(error) = first_error {
-        Err(error)
-    } else {
-        Ok(())
-    }
 }
 
 fn release_consumers_best_effort(consumers: &[ReservedConsumer]) {

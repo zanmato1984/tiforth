@@ -95,7 +95,7 @@ This note does not broaden operator-specific compute errors; those remain ordina
 
 This design intentionally does **not** settle:
 
-- the adapter-facing or serialized carrier used to expose `batch_id`, `origin`, and full `claims[]` detail beyond the current local Rust-side `GovernedBatch` state and `LocalExecutionSnapshot`
+- the adapter-facing or serialized carrier used to expose `batch_id`, `origin`, and full `claims[]` detail beyond the current local Rust-side `TiforthBatch` state and `LocalExecutionSnapshot`
 - imported immutable foreign-buffer bridges or direct host-allocator-backed Arrow buffers
 - full metrics-field registries for every host embedding
 - spill-specific operator algorithms beyond the ownership and accounting rules they must obey

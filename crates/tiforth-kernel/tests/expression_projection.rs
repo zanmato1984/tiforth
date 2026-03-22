@@ -1,5 +1,6 @@
-use std::any::Any;
 use std::sync::Arc;
+
+mod support;
 
 use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
 use arrow_schema::{ArrowError, DataType, Field, Schema};
@@ -7,15 +8,14 @@ use broken_pipeline::{
     compile, PipeOperator, Pipeline, PipelineChannel, SinkOperator, SourceOperator, TaskStatus,
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
+use support::project_batch;
 use tiforth_kernel::admission::{
     AdmissionController, AdmissionEvent, ConsumerKind, RecordingAdmissionController,
 };
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::operators::{
-    CollectSink, ProjectionPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
-};
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
-use tiforth_kernel::{Batch, LocalExecutionFixture, TiforthTypes};
+use tiforth_kernel::operators::{CollectSink, ProjectionPipe, StaticRecordBatchSource};
+use tiforth_kernel::projection::ProjectionExpr;
+use tiforth_kernel::{ArrowBatch, LocalExecutionFixture, RuntimeContext, TiforthTypes};
 
 const PROJECTION_COMPUTED_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-computed-before-terminal.json",
@@ -75,9 +75,6 @@ const PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION: &str = include_str!(
 const PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-shrink-ownership-violation.json",
 );
-const PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION: &str = include_str!(
-    "../../../tests/conformance/fixtures/local-execution/projection-claimed-source-runtime-context-ownership-violation.json",
-);
 const PROJECTION_MIXED_CLAIMS_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-before-terminal.json",
 );
@@ -93,7 +90,7 @@ fn projection_pipe_runs_end_to_end_with_scheduler() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -190,7 +187,7 @@ fn nullable_add_projection_preserves_full_claim_through_runtime_handoff() {
     let input = make_batch(vec![Some(1), None, Some(3)], true);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -291,7 +288,7 @@ fn non_null_literal_projection_carries_shrunk_claim_through_runtime_handoff() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -379,7 +376,7 @@ fn null_literal_projection_preserves_full_claim_without_shrink() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -434,7 +431,7 @@ fn multi_computed_projection_keeps_one_claim_per_computed_output_column() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -490,7 +487,7 @@ fn admission_denial_fails_before_projection_output_is_collected() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::with_limit(0));
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -522,7 +519,7 @@ fn add_projection_overflow_is_reported_before_projection_output_is_collected() {
     let input = make_batch(vec![Some(i32::MAX), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -554,7 +551,7 @@ fn missing_column_projection_is_reported_before_projection_output_is_collected()
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -592,7 +589,7 @@ fn unsupported_arithmetic_type_projection_is_reported_before_projection_output_i
     let input = make_bool_batch(vec![Some(true), Some(false), Some(true)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -633,7 +630,7 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
     let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
         "Source:a",
@@ -641,10 +638,10 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let claim = runtime_context.new_token(source_consumer);
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -688,7 +685,7 @@ fn duplicate_direct_projection_keeps_one_forwarded_claim_identity() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
     let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
         "Source:a",
@@ -696,10 +693,10 @@ fn duplicate_direct_projection_keeps_one_forwarded_claim_identity() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let claim = runtime_context.new_token(source_consumer);
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -753,7 +750,7 @@ fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
     let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
         "Source:a",
@@ -761,10 +758,10 @@ fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let claim = runtime_context.new_token(Arc::clone(&source_consumer));
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -807,7 +804,7 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
     let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
         "Source:a",
@@ -815,10 +812,10 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let claim = runtime_context.new_token(Arc::clone(&source_consumer));
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
     let pipe = Arc::new(ProjectionPipe::new(
         "Projection",
@@ -857,50 +854,11 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
 }
 
 #[test]
-fn claimed_source_requires_projection_runtime_context_before_source_emit() {
-    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
-    let admission = Arc::new(RecordingAdmissionController::unbounded());
-    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
-    let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
-        "ClaimedSource:a",
-        ConsumerKind::SourceInput,
-        false,
-    ));
-    source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let source = StaticRecordBatchSource::new_claimed(
-        "ClaimedSource",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
-    );
-    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let task_context = scheduler.make_task_context(None);
-
-    let error = source
-        .source(&task_context, 0)
-        .err()
-        .expect("claimed source should require ProjectionRuntimeContext");
-
-    assert!(error
-        .to_string()
-        .contains("requires ProjectionRuntimeContext"));
-    runtime_context.record_terminal_error(error.to_string());
-
-    assert_fixture_json(
-        "projection-claimed-source-runtime-context-ownership-violation",
-        runtime_context
-            .local_snapshot(admission.as_ref())
-            .to_fixture(),
-        PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION,
-    );
-}
-
-#[test]
 fn projection_output_can_carry_forwarded_and_computed_claims_together() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
     let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
         "Source:a",
@@ -908,10 +866,10 @@ fn projection_output_can_carry_forwarded_and_computed_claims_together() {
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let claim = runtime_context.new_token(source_consumer);
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
 
     let status = run_pipeline(
@@ -964,7 +922,7 @@ fn projection_cancellation_can_capture_mixed_claim_teardown_after_sink_handoff()
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
     let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
         "Source:a",
@@ -972,10 +930,10 @@ fn projection_cancellation_can_capture_mixed_claim_teardown_after_sink_handoff()
         false,
     ));
     source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let claim = runtime_context.new_token(source_consumer);
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
+        vec![(Arc::clone(&input), vec![claim])],
     ));
 
     drive_pipeline_until_sink_handoff(
@@ -1025,7 +983,7 @@ fn run_pipeline(
     source: Arc<dyn SourceOperator<TiforthTypes>>,
     pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
-    runtime_context: ProjectionRuntimeContext,
+    runtime_context: RuntimeContext,
 ) -> broken_pipeline::BpResult<broken_pipeline::TaskStatus, TiforthTypes> {
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
 
@@ -1037,8 +995,7 @@ fn run_pipeline(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
 }
@@ -1047,7 +1004,7 @@ fn drive_pipeline_until_sink_handoff(
     source: Arc<dyn SourceOperator<TiforthTypes>>,
     pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
-    runtime_context: ProjectionRuntimeContext,
+    runtime_context: RuntimeContext,
 ) -> Result<(), ArrowError> {
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink.clone();
 
@@ -1059,8 +1016,7 @@ fn drive_pipeline_until_sink_handoff(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
 
     loop {
         if !sink.batches().is_empty() {
@@ -1108,7 +1064,7 @@ fn multi_computed_projection_pipe() -> Arc<dyn PipeOperator<TiforthTypes>> {
     ))
 }
 
-fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
+fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Int32,
@@ -1118,7 +1074,7 @@ fn make_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
     Arc::new(RecordBatch::try_new(schema, vec![values]).unwrap())
 }
 
-fn make_bool_batch(values: Vec<Option<bool>>, nullable: bool) -> Batch {
+fn make_bool_batch(values: Vec<Option<bool>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Boolean,

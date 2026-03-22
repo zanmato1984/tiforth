@@ -9,7 +9,6 @@ Related issues:
 - #9 `design: tiforth dependency boundary over broken-pipeline-rs`
 - #19 `design: define milestone-1 Arrow batch handoff and memory-ownership contract`
 - #21 `milestone-1: implement claim-carrying batch handoff in tiforth-kernel`
-- #45 `conformance: add claimed-source runtime-context ownership-violation checkpoint`
 - #64 `conformance: add multi-computed projection claim checkpoints`
 
 ## Scope
@@ -56,9 +55,9 @@ Filter execution is deferred unless a later issue extends this slice explicitly.
 ## Runtime Boundary
 
 - the executable path uses the adopted `broken-pipeline` core runtime contract directly
-- milestone-1 operators attach through the upstream `SourceOperator<ArrowTypes>`, `PipeOperator<ArrowTypes>`, and `SinkOperator<ArrowTypes>` traits directly; the current reference operators are `StaticRecordBatchSource`, `ProjectionPipe`, and `CollectSink`
+- milestone-1 operators attach through the upstream `SourceOperator<TiforthTypes>`, `PipeOperator<TiforthTypes>`, and `SinkOperator<TiforthTypes>` traits directly; the current reference operators are `StaticRecordBatchSource`, `ProjectionPipe`, and `CollectSink`
 - `Expr` and `ProjectionExpr` stay inside operator-local field derivation and batch evaluation; they do not define alternate runtime states
-- `ProjectionRuntimeContext` is the current `tiforth`-owned attachment glue carried through `TaskContext`; it provides admission, claim, and local observability support without replacing the adopted runtime API
+- `RuntimeContext` is the required typed `TaskContext<TiforthTypes>` payload; it provides admission, claim, and local observability support without replacing the adopted runtime API
 - `broken-pipeline-schedule` is allowed only in local tests and harness execution
 - this slice does not define a `tiforth`-owned replacement runtime API
 - this slice should emit observable admit, deny, emit, handoff, release, and terminal runtime events as defined in `docs/contracts/runtime.md`
@@ -80,9 +79,9 @@ For the current `literal<int32>` and `add<int32>` paths, each computed output co
 
 Multi-computed projections apply the same rule independently per computed output column. One emitted batch may therefore carry a mix of shrunk non-null claims and unshrunk nullable claims at the same time.
 
-Issue #21 provides the current local implementation path for this boundary: the crate keeps the adopted Arrow `Batch` payload on the runtime surface while local bookkeeping carries `batch_id`, origin metadata, and live claims through the source -> projection -> sink path. When one output batch contains multiple computed projection columns, the local milestone-1 path keeps one retained claim per computed output column on that batch until final release.
+Issue #21 provides the current local implementation path for this boundary: the crate keeps `TiforthBatch` on the runtime surface while each batch still carries an Arrow `Batch` payload, `batch_id`, origin metadata, and live claims through the source -> projection -> sink path. When one output batch contains multiple computed projection columns, the local milestone-1 path keeps one retained claim per computed output column on that batch until final release.
 
-Current local tests now use several local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, including missing-column failure coverage before any projection emit, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, explicit local early-release and early-shrink ownership-violation checkpoints against the directly addressed local consumer behind a still-live forwarded claim after sink handoff, an untracked-handoff checkpoint that expects the projection receiver to reject a batch before adoption, and a claimed-source checkpoint that expects a claimed local source to reject missing `ProjectionRuntimeContext` before any source emit. That broader ownership enforcement remains local to milestone-1 harness scaffolding and does not invent a new shared runtime API.
+Current local tests now use several local harness paths around the adopted runtime surface: the compiled `pipe_exec().task_group()` helper for the existing `finished` and error checkpoints, including missing-column failure coverage before any projection emit, an explicit local cancellation driver that steps `pipe_exec()` until sink handoff is observable and then tears down before the later `finished` step, and explicit local early-release and early-shrink ownership-violation checkpoints against the directly addressed local consumer behind a still-live forwarded claim after sink handoff. That broader ownership enforcement remains local to milestone-1 harness scaffolding and does not invent a new shared runtime API.
 
 ## Deferred Work
 

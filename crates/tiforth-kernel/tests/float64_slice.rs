@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
+mod support;
+
 use arrow_array::{Array, ArrayRef, Float32Array, Float64Array, Int32Array, RecordBatch};
 use arrow_schema::{DataType, Field, Schema};
+use support::{filter_batch, project_batch};
 use tiforth_kernel::admission::RecordingAdmissionController;
 use tiforth_kernel::expr::Expr;
-use tiforth_kernel::filter::{filter_batch, FilterPredicate};
-use tiforth_kernel::projection::{project_batch, ProjectionExpr};
+use tiforth_kernel::filter::FilterPredicate;
+use tiforth_kernel::projection::ProjectionExpr;
 
 #[test]
 fn float64_column_passthrough_preserves_finite_values_and_non_nullable_field() {

@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::sync::Arc;
 
 use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
@@ -8,17 +7,15 @@ use broken_pipeline::{
 };
 use broken_pipeline_schedule::SequentialCoroScheduler;
 use tiforth_kernel::admission::{AdmissionController, RecordingAdmissionController};
-use tiforth_kernel::operators::{
-    CollectSink, FilterPipe, ProjectionRuntimeContext, StaticRecordBatchSource,
-};
-use tiforth_kernel::{Batch, FilterPredicate, TiforthTypes};
+use tiforth_kernel::operators::{CollectSink, FilterPipe, StaticRecordBatchSource};
+use tiforth_kernel::{ArrowBatch, FilterPredicate, RuntimeContext, TiforthTypes};
 
 #[test]
 fn filter_pipe_keeps_all_rows_when_predicate_column_has_no_nulls() {
     let input = make_single_int32_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -51,7 +48,7 @@ fn filter_pipe_drops_all_rows_when_predicate_column_is_all_null() {
     let input = make_single_int32_batch(vec![None, None, None], true);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -86,7 +83,7 @@ fn filter_pipe_preserves_schema_order_and_values_for_mixed_keep_drop() {
     );
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let status = run_pipeline(
@@ -120,7 +117,7 @@ fn filter_pipe_reports_missing_column_error() {
     let input = make_single_int32_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -148,7 +145,7 @@ fn filter_pipe_reports_unsupported_predicate_type_error() {
     let input = make_boolean_batch(vec![Some(true), Some(false), Some(true)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
     let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
+    let runtime_context = RuntimeContext::new(runtime_admission);
     let sink = Arc::new(CollectSink::new("Sink"));
 
     let error = run_pipeline(
@@ -175,7 +172,7 @@ fn run_pipeline(
     source: Arc<dyn SourceOperator<TiforthTypes>>,
     pipe: Arc<dyn PipeOperator<TiforthTypes>>,
     sink: Arc<CollectSink>,
-    runtime_context: ProjectionRuntimeContext,
+    runtime_context: RuntimeContext,
 ) -> broken_pipeline::BpResult<broken_pipeline::TaskStatus, TiforthTypes> {
     let sink_op: Arc<dyn SinkOperator<TiforthTypes>> = sink;
 
@@ -187,13 +184,12 @@ fn run_pipeline(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
 }
 
-fn make_single_int32_batch(values: Vec<Option<i32>>, nullable: bool) -> Batch {
+fn make_single_int32_batch(values: Vec<Option<i32>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "a",
         DataType::Int32,
@@ -208,7 +204,7 @@ fn make_two_int32_batch(
     lhs_nullable: bool,
     rhs_values: Vec<Option<i32>>,
     rhs_nullable: bool,
-) -> Batch {
+) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![
         Field::new("a", DataType::Int32, lhs_nullable),
         Field::new("b", DataType::Int32, rhs_nullable),
@@ -218,7 +214,7 @@ fn make_two_int32_batch(
     Arc::new(RecordBatch::try_new(schema, vec![lhs, rhs]).unwrap())
 }
 
-fn make_boolean_batch(values: Vec<Option<bool>>, nullable: bool) -> Batch {
+fn make_boolean_batch(values: Vec<Option<bool>>, nullable: bool) -> ArrowBatch {
     let schema = Arc::new(Schema::new(vec![Field::new(
         "b",
         DataType::Boolean,
