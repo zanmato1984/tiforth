@@ -143,6 +143,11 @@ For current shared planning:
   `int64 + int64` plus the minimal widening pairs `int32 + int64` and
   `int64 + int32` are admitted there without reopening broader signed or
   floating follow-ons
+- issue #427 now fixes the first slice-level widening `add<float64>` boundary
+  in `docs/design/first-widening-add-float64-slice.md`; exact
+  `float64 + float64` plus the minimal mixed `int32`/`int64` with `float64`
+  pairs are admitted there while `float32` and explicit near-`2^53`
+  precision-loss probes remain deferred
 - selected add overloads derive result nullability as
   `lhs.nullable OR rhs.nullable`
 - integer add overloads keep overflow-as-error semantics after signature
@@ -488,8 +493,49 @@ For current shared contracts:
 - canonical differential ordering for this checkpoint is
   `-Infinity < finite < Infinity < NaN`, with `-0.0` ordered before `0.0` only
   as a stable canonicalization tie-break
-- broader floating behavior (arithmetic, coercion, casts, and SQL ordering
-  policy) remains follow-on scope
+- broader floating behavior beyond this ordering checkpoint remains follow-on
+  scope; the first admitted float arithmetic follow-on is now the narrow
+  widening `add<float64>` slice fixed in
+  `docs/design/first-widening-add-float64-slice.md`, while broader casts and
+  SQL ordering policy remain deferred
+
+## First Widening `add<float64>` Follow-On Checkpoint
+
+Issue #427 adds a docs-first float add checkpoint in
+`docs/design/first-widening-add-float64-slice.md`.
+
+Issue #427 also adds the first docs-first widening-float64 coverage anchors
+in:
+
+- `tests/conformance/first-widening-add-float64-slice.md`
+- `tests/differential/first-widening-add-float64-slice.md`
+- `adapters/first-widening-add-float64-slice.md`
+
+For current shared contracts:
+
+- the first admitted float add slice beyond the float64 ordering checkpoint
+  selects `add<float64>` for exact `float64 + float64` and the minimal
+  widening pairs `int32 + float64`, `int64 + float64`, `float64 + int32`, and
+  `float64 + int64`
+- this checkpoint admits passthrough `column(index)` over `float64` as the
+  slice carrier baseline for float result normalization
+- `add<float64>` derives logical type `float64`
+- `add<float64>` derives result nullability as `lhs.nullable OR rhs.nullable`
+- `add<float64>` propagates nulls row-wise at execution time
+- `NaN`, `Infinity`, `-Infinity`, `0.0`, and `-0.0` remain ordinary non-null
+  `float64` outcomes when produced by selected `add<float64>`; this checkpoint
+  reuses the accepted float64 canonical token normalization instead of the
+  integer overflow rule
+- named widening-success fixtures keep integer operands inside the exact
+  `float64` integer range so this checkpoint does not settle broader
+  precision-loss policy
+- this checkpoint does not add `literal<float64>`,
+  `is_not_null(column(index))` over `float64` inside the add slice, exact or
+  mixed `float32` add, mixed signed/unsigned success semantics, decimal
+  rescue, or explicit near-`2^53` precision-loss probes
+- executable local kernel coverage, executable TiDB-versus-TiFlash harness
+  coverage, and checked-in `inventory/` artifacts for this slice remain
+  follow-on scope
 
 ## First JSON Comparability/Cast Checkpoint
 
