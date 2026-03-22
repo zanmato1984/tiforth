@@ -34,6 +34,8 @@ The shared type system should be rich enough to describe behavior across TiDB, T
 - current specs and harnesses should normalize dictionary-backed evidence to the underlying logical type before comparison
 - representation-level rules for when dictionary arrays may cross a shared stage boundary live in `docs/contracts/data.md`
 - milestone-1 nested plus decimal and temporal family scope boundaries live in `docs/design/milestone-1-nested-decimal-temporal-boundary.md`
+- planned TiDB-to-Arrow native-versus-extension mapping work lives in
+  `docs/design/first-tidb-arrow-type-mapping-boundary.md`
 
 ## Initial Collation Scope And Ownership Checkpoint
 
