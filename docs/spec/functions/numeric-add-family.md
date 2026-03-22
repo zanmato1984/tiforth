@@ -139,16 +139,24 @@ That mapping keeps the current family Arrow-native by default:
 - decimal add remains Arrow-native through Arrow decimal types with explicit
   precision/scale policy rather than a custom numeric carrier
 
+## Enum-Reuse Boundary
+
+Issue #420 now fixes the family-specific enum-reuse boundary in
+`docs/design/first-add-family-tipb-kvproto-enum-reuse.md`.
+
+That boundary reuses the existing upstream arithmetic IDs directly:
+
+- `tipb::ScalarFuncSig::PlusReal` for floating-point add
+- `tipb::ScalarFuncSig::PlusDecimal` for decimal add
+- `tipb::ScalarFuncSig::PlusInt` plus the signedness-specific `PlusInt*`
+  variants for exact integer add overloads
+- no separate numeric-add function enum from `kvproto`; `kvproto` remains the
+  transport boundary for `tipb` payloads
+
 ## Remaining Follow-On Boundary
 
-Before the family can be completed coherently, the active epic still must
-settle:
-
-1. `#412` for `tipb` and `kvproto` enum reuse or explicit `tiforth`-only ID
-   fallback for the same family
-
-Only after that boundary lands should a later issue claim full family
-completion through generic-first overload reuse.
+The active epic may now advance to complete-family generic-first overload reuse
+for the numeric `add/plus` family.
 
 ## Result
 
