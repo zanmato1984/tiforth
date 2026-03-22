@@ -98,8 +98,8 @@ For milestone 1:
 
 The current milestone-1 implementation pin is the git revision already recorded in `crates/tiforth-kernel/Cargo.toml`:
 
-- `broken-pipeline = caf70aacc384e62630ee0ae71e88c513a81b16dd`
-- `broken-pipeline-schedule = caf70aacc384e62630ee0ae71e88c513a81b16dd`
+- `broken-pipeline = 489d351c8091ec351486982d57574f83a7097aa7`
+- `broken-pipeline-schedule = 489d351c8091ec351486982d57574f83a7097aa7`
 
 That revision is the current reproducible upstream contract snapshot for milestone 1. If `tiforth` later bumps that revision or vendors an upstream snapshot, that change should be handled as its own issue because it changes the verified runtime baseline.
 

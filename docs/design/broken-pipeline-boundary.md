@@ -40,7 +40,7 @@ Observed from the public `broken-pipeline-rs` repo on 2026-03-16:
 
 Observed from the current `tiforth` manifests on 2026-03-17:
 
-- `crates/tiforth-kernel/Cargo.toml` currently pins both `broken-pipeline` and `broken-pipeline-schedule` to git revision `caf70aacc384e62630ee0ae71e88c513a81b16dd`
+- `crates/tiforth-kernel/Cargo.toml` currently pins both `broken-pipeline` and `broken-pipeline-schedule` to git revision `489d351c8091ec351486982d57574f83a7097aa7`
 - that revision is the current reproducible upstream contract snapshot for the milestone-1 implementation slice
 
 ## Boundary Decision
@@ -59,8 +59,8 @@ This keeps the production and shared contract centered on the upstream core crat
 
 The milestone-1 dependency boundary now records the exact upstream revision used by the checked-in implementation:
 
-- `broken-pipeline = caf70aacc384e62630ee0ae71e88c513a81b16dd`
-- `broken-pipeline-schedule = caf70aacc384e62630ee0ae71e88c513a81b16dd`
+- `broken-pipeline = 489d351c8091ec351486982d57574f83a7097aa7`
+- `broken-pipeline-schedule = 489d351c8091ec351486982d57574f83a7097aa7`
 
 That pin keeps the runtime evidence base reproducible while the upstream crates remain unpublished on crates.io. A later revision bump or vendored snapshot should be handled as a separate issue so the contract review and implementation change stay explicit.
 

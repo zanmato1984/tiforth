@@ -93,7 +93,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 [[package]]
 name = "broken-pipeline"
 version = "0.1.0"
-source = "git+https://github.com/zanmato1984/broken-pipeline-rs.git?rev=caf70aacc384e62630ee0ae71e88c513a81b16dd#caf70aacc384e62630ee0ae71e88c513a81b16dd"
+source = "git+https://github.com/zanmato1984/broken-pipeline-rs.git?rev=489d351c8091ec351486982d57574f83a7097aa7#489d351c8091ec351486982d57574f83a7097aa7"
 dependencies = [
  "arrow-array",
  "arrow-schema",
@@ -102,7 +102,7 @@ dependencies = [
 [[package]]
 name = "broken-pipeline-schedule"
 version = "0.1.0"
-source = "git+https://github.com/zanmato1984/broken-pipeline-rs.git?rev=caf70aacc384e62630ee0ae71e88c513a81b16dd#caf70aacc384e62630ee0ae71e88c513a81b16dd"
+source = "git+https://github.com/zanmato1984/broken-pipeline-rs.git?rev=489d351c8091ec351486982d57574f83a7097aa7#489d351c8091ec351486982d57574f83a7097aa7"
 dependencies = [
  "arrow-schema",
  "broken-pipeline",
