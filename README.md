@@ -10,7 +10,9 @@ The legacy repository at `https://github.com/zanmato1984/tiforth-legacy` is dono
 - `inventory/`: checked-in normalized case-results, compatibility notes, donor notes, and drift reports
 - `tests/`: harness skeletons, cases, and fixtures
 - `adapters/`: engine-facing adapter boundaries for TiDB, TiFlash, and TiKV
-- `crates/`: narrow Rust implementation slices that are justified by accepted docs and local tests
+- `crates/tiforth-kernel`: shared Rust kernel surfaces, runtime glue, and narrow executable slices justified by accepted docs and local tests
+- `crates/tiforth-adapter-*`: engine-local Rust adapters that execute shared slice carriers against TiDB, TiFlash, and TiKV
+- `crates/tiforth-harness-*`: Rust harness crates for cross-engine execution, comparison, and artifact rendering
 - `scripts/`: local workflow helpers for repeatable repository maintenance tasks
 
 ## Current Checkpoints
