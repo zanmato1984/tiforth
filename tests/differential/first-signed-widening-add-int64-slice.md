@@ -1,6 +1,6 @@
 # First Differential Signed-Widening `add<int64>` Slice
 
-Status: issue #426 design checkpoint
+Status: issue #426 design checkpoint, issue #434 executable checkpoint
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #422 `spec: complete the numeric add/plus family boundary`
 - #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 - #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
+- #434 `milestone-1: implement first executable signed-widening add/int64 TiDB/TiFlash differential slice`
 
 ## Question
 
@@ -205,15 +206,16 @@ The minimal shared adapter request and response boundary for this slice lives in
 
 ## Follow-On Boundary
 
+Issue #429 already adds executable local kernel coverage for this checkpoint,
+and issue #434 now adds executable TiDB/TiFlash adapter and harness coverage
+plus checked-in `inventory/` artifacts.
+
 Later issues may extend this slice to cover:
 
-- executable local kernel coverage for this checkpoint
-- executable TiDB/TiFlash adapter and harness coverage plus checked-in
-  `inventory/` artifacts
 - `literal<int64>` and `literal<int32>` signed add probes
 - `float64` and decimal add slices
 - TiKV single-engine and pairwise checkpoints for signed add
 
-Until then, this checkpoint fixes only the first signed-widening differential
-semantics, request IDs, adapter-boundary shape, and normalized comparison rules
-for the TiDB-versus-TiFlash add-family follow-on.
+This checkpoint now fixes the first signed-widening differential semantics,
+request IDs, adapter-boundary shape, and normalized comparison rules exercised
+by the TiDB-versus-TiFlash add-family checkpoint.

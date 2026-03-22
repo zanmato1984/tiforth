@@ -1,6 +1,6 @@
 # First Signed-Widening `add<int64>` Slice Cases
 
-Status: issue #426 docs checkpoint, issue #429 local executable kernel checkpoint
+Status: issue #426 docs checkpoint, issue #429 local executable kernel checkpoint, issue #434 differential harness checkpoint
 
 Spec source: `docs/design/first-signed-widening-add-int64-slice.md`
 
@@ -37,5 +37,11 @@ checkpoint in:
 
 - `crates/tiforth-kernel/tests/signed_widening_add_int64_slice.rs`
 
-Executable TiDB/TiFlash differential harness coverage and checked-in
-`inventory/` artifacts remain follow-on scope for the same active epic.
+Issue #434 adds executable TiDB/TiFlash differential harness coverage and
+checked-in `inventory/` artifacts for these same cases in:
+
+- `crates/tiforth-harness-differential/src/first_signed_widening_add_int64_slice.rs`
+- `inventory/first-signed-widening-add-int64-slice-tidb-case-results.json`
+- `inventory/first-signed-widening-add-int64-slice-tiflash-case-results.json`
+- `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.md`
+- `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.json`

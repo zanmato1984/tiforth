@@ -1,0 +1,263 @@
+{
+  "slice_id": "first-signed-widening-add-int64-slice",
+  "engine": "tidb",
+  "adapter": "tidb-sql",
+  "cases": [
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "int64-column-passthrough",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int64-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-0",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "s64",
+            "logical_type": "int64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            -7
+          ],
+          [
+            0
+          ],
+          [
+            42
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "int64-add-basic",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int64-add-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-int64-column-0-column-1",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "sum",
+            "logical_type": "int64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            1
+          ],
+          [
+            30
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "int64-add-null-propagation",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int64-add-nullable",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-int64-column-0-column-1",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "sum",
+            "logical_type": "int64",
+            "nullable": true
+          }
+        ],
+        "rows": [
+          [
+            null
+          ],
+          [
+            null
+          ],
+          [
+            1
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "signed-widening-int32-plus-int64",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int32-int64-add-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-int64-column-0-column-1",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "sum",
+            "logical_type": "int64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            1
+          ],
+          [
+            300
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "signed-widening-int64-plus-int32",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int64-int32-add-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-int64-column-0-column-1",
+      "outcome": {
+        "kind": "rows",
+        "schema": [
+          {
+            "name": "sum",
+            "logical_type": "int64",
+            "nullable": false
+          }
+        ],
+        "rows": [
+          [
+            3
+          ],
+          [
+            1
+          ],
+          [
+            300
+          ]
+        ],
+        "row_count": 3
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "int64-add-overflow-error",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int64-add-overflow",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-int64-column-0-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "arithmetic_overflow",
+        "engine_code": "1690",
+        "engine_message": "BIGINT value is out of range in '(input_rows.lhs + input_rows.rhs)'"
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "signed-widening-int32-plus-int64-overflow-error",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int32-int64-add-overflow",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "add-int64-column-0-column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "arithmetic_overflow",
+        "engine_code": "1690",
+        "engine_message": "BIGINT value is out of range in '(CAST(input_rows.lhs32 AS SIGNED) + input_rows.rhs64)'"
+      }
+    },
+    {
+      "slice_id": "first-signed-widening-add-int64-slice",
+      "engine": "tidb",
+      "adapter": "tidb-sql",
+      "case_id": "int64-missing-column-error",
+      "spec_refs": [
+        "docs/design/first-signed-widening-add-int64-slice.md",
+        "docs/spec/functions/numeric-add-family-completion.md",
+        "docs/spec/type-system.md",
+        "tests/conformance/first-signed-widening-add-int64-slice.md",
+        "tests/differential/first-signed-widening-add-int64-slice.md"
+      ],
+      "input_ref": "first-int64-basic",
+      "comparison_mode": "row-order-preserved",
+      "projection_ref": "column-1",
+      "outcome": {
+        "kind": "error",
+        "error_class": "missing_column",
+        "engine_code": "1054",
+        "engine_message": "Unknown column '__missing_column_1' in 'field list'"
+      }
+    }
+  ]
+}

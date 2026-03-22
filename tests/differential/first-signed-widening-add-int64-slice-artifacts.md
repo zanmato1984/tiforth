@@ -1,6 +1,6 @@
 # First Signed-Widening `add<int64>` Slice Artifact Carriers
 
-Status: issue #426 design checkpoint
+Status: issue #426 design checkpoint, issue #434 executable checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #409 `epic: complete function-family program`
 - #422 `spec: complete the numeric add/plus family boundary`
 - #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
+- #434 `milestone-1: implement first executable signed-widening add/int64 TiDB/TiFlash differential slice`
 
 ## Purpose
 
@@ -39,8 +40,8 @@ Artifact filenames for this slice:
 - `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.json`
 
-This issue does not yet add those `inventory/` files. It fixes the filenames
-and carrier shape that later executable work should use.
+Issue #434 adds those checked-in `inventory/` files using the stable
+filenames and carrier shape fixed here.
 
 ## `case-results` Artifact Shape
 
@@ -121,11 +122,9 @@ slice; it is not shared SQL `ORDER BY` policy.
 
 ## Inventory Refresh Boundary
 
-This checkpoint is docs-first only and does not yet add checked-in artifacts.
-
-Follow-on harness work should use the filenames above and refresh those
-`inventory/` files whenever the documented case set, normalization rules, or
-shared carrier fields change.
+Issue #434 adds the first checked-in artifacts under the filenames above.
+Future harness work should refresh those `inventory/` files whenever the
+documented case set, normalization rules, or shared carrier fields change.
 
 ## Boundary For Now
 
