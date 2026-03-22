@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const FIRST_JSON_SLICE_ID: &str = "first-json-slice";
-pub const TIDB_ENGINE: &str = "tidb";
-pub const TIDB_ADAPTER: &str = "tidb-sql";
+use crate::engine::{is_missing_column, normalize_json_value, SqlExecutionPlan};
+pub use crate::engine::{
+    EngineColumn, EngineExecutionError, EngineExecutionResult, ADAPTER as TIDB_ADAPTER,
+    ENGINE as TIDB_ENGINE,
+};
 
+pub const FIRST_JSON_SLICE_ID: &str = "first-json-slice";
 const FIRST_JSON_SLICE_SPEC_REFS: [&str; 4] = [
     "docs/design/first-json-semantic-slice.md",
     "docs/spec/type-system.md",
@@ -62,11 +65,7 @@ pub struct AdapterRequest {
     pub cast_ref: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TidbExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TidbExecutionPlan = SqlExecutionPlan<AdapterRequest>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -122,30 +121,6 @@ pub enum ErrorClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdapterRequestValidationError {
     UnsupportedSliceId(String),
     UnknownCaseId(String),
@@ -190,10 +165,7 @@ impl TidbFirstJsonSliceAdapter {
     ) -> Result<TidbExecutionPlan, AdapterRequestValidationError> {
         let case = validate_request(request)?;
 
-        Ok(TidbExecutionPlan {
-            request: request.clone(),
-            sql: case.render_sql(),
-        })
+        Ok(SqlExecutionPlan::new(request.clone(), case.render_sql()))
     }
 
     pub fn execute<R: TidbRunner>(
@@ -509,14 +481,6 @@ fn normalize_error(error: EngineExecutionError) -> CaseOutcome {
     }
 }
 
-fn is_missing_column(engine_code: Option<&str>, engine_message: &str) -> bool {
-    let normalized_message = engine_message.to_ascii_lowercase();
-
-    engine_code == Some("1054")
-        || normalized_message.contains("unknown column")
-        || normalized_message.contains("no such column")
-}
-
 fn is_unsupported_json_comparison(engine_code: Option<&str>, engine_message: &str) -> bool {
     let normalized_message = engine_message.to_ascii_lowercase();
 
@@ -561,50 +525,6 @@ fn normalize_rows_for_schema(rows: Vec<Vec<Value>>, schema: &[SchemaField]) -> V
                 .collect()
         })
         .collect()
-}
-
-fn normalize_json_value(value: Value) -> Value {
-    match value {
-        Value::Null => Value::Null,
-        Value::String(token) => match serde_json::from_str::<Value>(&token) {
-            Ok(parsed) => Value::String(render_canonical_json(&parsed)),
-            Err(_) => Value::String(token),
-        },
-        other => Value::String(render_canonical_json(&other)),
-    }
-}
-
-fn render_canonical_json(value: &Value) -> String {
-    match value {
-        Value::Null => "null".to_string(),
-        Value::Bool(value) => value.to_string(),
-        Value::Number(value) => value.to_string(),
-        Value::String(value) => serde_json::to_string(value).expect("string should serialize"),
-        Value::Array(values) => {
-            let rendered = values
-                .iter()
-                .map(render_canonical_json)
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("[{rendered}]")
-        }
-        Value::Object(values) => {
-            let mut entries: Vec<_> = values.iter().collect();
-            entries.sort_by(|left, right| left.0.cmp(right.0));
-            let rendered = entries
-                .into_iter()
-                .map(|(key, value)| {
-                    format!(
-                        "{}:{}",
-                        serde_json::to_string(key).expect("key should serialize"),
-                        render_canonical_json(value)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("{{{rendered}}}")
-        }
-    }
 }
 
 #[cfg(test)]

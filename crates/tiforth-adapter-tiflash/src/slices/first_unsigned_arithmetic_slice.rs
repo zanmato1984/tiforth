@@ -1,71 +1,70 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const FIRST_FLOAT64_ORDERING_SLICE_ID: &str = "first-float64-ordering-slice";
-pub const TIFLASH_ENGINE: &str = "tiflash";
-pub const TIFLASH_ADAPTER: &str = "tiflash-sql";
-pub const COMPARISON_MODE_ROW_ORDER_PRESERVED: &str = "row-order-preserved";
-pub const COMPARISON_MODE_FLOAT64_MULTISET_CANONICAL: &str = "float64-multiset-canonical";
+use crate::engine::SqlExecutionPlan;
+pub use crate::engine::{
+    EngineColumn, EngineExecutionError, EngineExecutionResult, ADAPTER as TIFLASH_ADAPTER,
+    ENGINE as TIFLASH_ENGINE,
+};
 
-const FIRST_FLOAT64_ORDERING_SLICE_SPEC_REFS: [&str; 4] = [
-    "docs/design/first-float64-ordering-slice.md",
+pub const FIRST_UNSIGNED_ARITHMETIC_SLICE_ID: &str = "first-unsigned-arithmetic-slice";
+pub const COMPARISON_MODE_ROW_ORDER_PRESERVED: &str = "row-order-preserved";
+
+const FIRST_UNSIGNED_ARITHMETIC_SLICE_SPEC_REFS: [&str; 4] = [
+    "docs/design/first-unsigned-arithmetic-slice.md",
     "docs/spec/type-system.md",
-    "tests/conformance/first-float64-ordering-slice.md",
-    "tests/differential/first-float64-ordering-slice.md",
+    "tests/conformance/first-unsigned-arithmetic-slice.md",
+    "tests/differential/first-unsigned-arithmetic-slice.md",
 ];
 
-const FLOAT64_BASIC_INPUT_SQL: &str = concat!(
-    "SELECT CAST(-1.5 AS DOUBLE) AS f ",
+const UINT64_BASIC_INPUT_SQL: &str = concat!(
+    "SELECT CAST(0 AS UNSIGNED) AS u ",
     "UNION ALL ",
-    "SELECT CAST(0.0 AS DOUBLE) AS f ",
+    "SELECT CAST(7 AS UNSIGNED) AS u ",
     "UNION ALL ",
-    "SELECT CAST(2.25 AS DOUBLE) AS f"
+    "SELECT CAST(42 AS UNSIGNED) AS u"
 );
 
-const FLOAT64_SPECIAL_VALUES_INPUT_SQL: &str = concat!(
-    "SELECT CAST('-Infinity' AS DOUBLE) AS f ",
+const UINT64_NULLABLE_INPUT_SQL: &str = concat!(
+    "SELECT CAST(NULL AS UNSIGNED) AS u ",
     "UNION ALL ",
-    "SELECT CAST('-0.0' AS DOUBLE) AS f ",
+    "SELECT CAST(5 AS UNSIGNED) AS u ",
     "UNION ALL ",
-    "SELECT CAST('0.0' AS DOUBLE) AS f ",
+    "SELECT CAST(NULL AS UNSIGNED) AS u ",
     "UNION ALL ",
-    "SELECT CAST('Infinity' AS DOUBLE) AS f ",
-    "UNION ALL ",
-    "SELECT CAST('NaN' AS DOUBLE) AS f"
+    "SELECT CAST(9 AS UNSIGNED) AS u"
 );
 
-const FLOAT64_NULLABLE_SPECIAL_VALUES_INPUT_SQL: &str = concat!(
-    "SELECT CAST(NULL AS DOUBLE) AS f ",
+const UINT64_ADD_BASIC_INPUT_SQL: &str = concat!(
+    "SELECT CAST(1 AS UNSIGNED) AS lhs, CAST(2 AS UNSIGNED) AS rhs ",
     "UNION ALL ",
-    "SELECT CAST('-Infinity' AS DOUBLE) AS f ",
+    "SELECT CAST(3 AS UNSIGNED) AS lhs, CAST(4 AS UNSIGNED) AS rhs ",
     "UNION ALL ",
-    "SELECT CAST(NULL AS DOUBLE) AS f ",
-    "UNION ALL ",
-    "SELECT CAST('NaN' AS DOUBLE) AS f ",
-    "UNION ALL ",
-    "SELECT CAST(1.0 AS DOUBLE) AS f"
+    "SELECT CAST(10 AS UNSIGNED) AS lhs, CAST(20 AS UNSIGNED) AS rhs"
 );
 
-const FLOAT64_ORDERING_SCRAMBLE_INPUT_SQL: &str = concat!(
-    "SELECT CAST('NaN' AS DOUBLE) AS f ",
+const UINT64_ADD_NULLABLE_INPUT_SQL: &str = concat!(
+    "SELECT CAST(NULL AS UNSIGNED) AS lhs, CAST(1 AS UNSIGNED) AS rhs ",
     "UNION ALL ",
-    "SELECT CAST(1.0 AS DOUBLE) AS f ",
+    "SELECT CAST(2 AS UNSIGNED) AS lhs, CAST(NULL AS UNSIGNED) AS rhs ",
     "UNION ALL ",
-    "SELECT CAST('-Infinity' AS DOUBLE) AS f ",
-    "UNION ALL ",
-    "SELECT CAST('Infinity' AS DOUBLE) AS f ",
-    "UNION ALL ",
-    "SELECT CAST(0.0 AS DOUBLE) AS f ",
-    "UNION ALL ",
-    "SELECT CAST('-0.0' AS DOUBLE) AS f"
+    "SELECT CAST(3 AS UNSIGNED) AS lhs, CAST(4 AS UNSIGNED) AS rhs"
 );
 
-const FLOAT32_BASIC_INPUT_SQL: &str = concat!(
-    "SELECT CAST(1.5 AS FLOAT) AS f32 ",
+const UINT64_ADD_OVERFLOW_INPUT_SQL: &str = concat!(
+    "SELECT CAST(18446744073709551615 AS UNSIGNED) AS lhs, ",
+    "CAST(1 AS UNSIGNED) AS rhs"
+);
+
+const MIXED_INT64_UINT64_INPUT_SQL: &str =
+    concat!("SELECT CAST(1 AS SIGNED) AS s, CAST(1 AS UNSIGNED) AS u");
+
+const UINT32_BASIC_INPUT_SQL: &str = concat!(
+    "SELECT CAST(1 AS UNSIGNED) AS u32 ",
     "UNION ALL ",
-    "SELECT CAST(0.0 AS FLOAT) AS f32 ",
+    "SELECT CAST(2 AS UNSIGNED) AS u32 ",
     "UNION ALL ",
-    "SELECT CAST(-2.25 AS FLOAT) AS f32"
+    "SELECT CAST(3 AS UNSIGNED) AS u32"
 );
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,11 +80,7 @@ pub struct AdapterRequest {
     pub filter_ref: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TiflashExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TiflashExecutionPlan = SqlExecutionPlan<AdapterRequest>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -131,33 +126,11 @@ pub struct SchemaField {
 #[serde(rename_all = "snake_case")]
 pub enum ErrorClass {
     MissingColumn,
-    UnsupportedFloatingType,
+    UnsignedOverflow,
+    MixedSignedUnsigned,
+    UnsupportedUnsignedFamily,
     AdapterUnavailable,
     EngineError,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -190,9 +163,9 @@ pub trait TiflashRunner {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct TiflashFirstFloat64OrderingSliceAdapter;
+pub struct TiflashFirstUnsignedArithmeticSliceAdapter;
 
-impl TiflashFirstFloat64OrderingSliceAdapter {
+impl TiflashFirstUnsignedArithmeticSliceAdapter {
     pub fn canonical_requests() -> Vec<AdapterRequest> {
         CASE_DEFINITIONS
             .iter()
@@ -206,10 +179,7 @@ impl TiflashFirstFloat64OrderingSliceAdapter {
     ) -> Result<TiflashExecutionPlan, AdapterRequestValidationError> {
         let case = validate_request(request)?;
 
-        Ok(TiflashExecutionPlan {
-            request: request.clone(),
-            sql: case.render_sql(),
-        })
+        Ok(SqlExecutionPlan::new(request.clone(), case.render_sql()))
     }
 
     pub fn execute<R: TiflashRunner>(
@@ -262,9 +232,9 @@ struct CaseDefinition {
 impl CaseDefinition {
     fn canonical_request(self) -> AdapterRequest {
         AdapterRequest {
-            slice_id: FIRST_FLOAT64_ORDERING_SLICE_ID.to_string(),
+            slice_id: FIRST_UNSIGNED_ARITHMETIC_SLICE_ID.to_string(),
             case_id: self.case_id.to_string(),
-            spec_refs: FIRST_FLOAT64_ORDERING_SLICE_SPEC_REFS
+            spec_refs: FIRST_UNSIGNED_ARITHMETIC_SLICE_SPEC_REFS
                 .iter()
                 .map(|spec_ref| (*spec_ref).to_string())
                 .collect(),
@@ -285,61 +255,87 @@ impl CaseDefinition {
                     "SELECT input_rows.{column_name} AS {column_name} FROM ({input_sql}) AS input_rows"
                 )
             }
-            (None, Some(filter_ref)) => {
-                let filter_condition = filter_condition(self.input_ref, filter_ref);
-                format!("SELECT * FROM ({input_sql}) AS input_rows WHERE {filter_condition}")
+            (Some("column-2"), None) => format!(
+                "SELECT input_rows.__missing_column_2 AS __missing_column_2 FROM ({input_sql}) AS input_rows"
+            ),
+            (Some("literal-uint64-7"), None) => format!(
+                "SELECT CAST(7 AS UNSIGNED) AS seven FROM ({input_sql}) AS input_rows"
+            ),
+            (Some("add-uint64-column-0-column-1"), None) => {
+                let add_expression = add_expression(self.input_ref);
+                format!(
+                    "SELECT CAST({add_expression} AS UNSIGNED) AS sum FROM ({input_sql}) AS input_rows"
+                )
             }
+            (None, Some("is-not-null-column-0")) => format!(
+                "SELECT * FROM ({input_sql}) AS input_rows WHERE {}",
+                filter_condition(self.input_ref)
+            ),
             _ => unreachable!("validated case definitions always set exactly one operation ref"),
         }
     }
 }
 
-const CASE_DEFINITIONS: [CaseDefinition; 7] = [
+const CASE_DEFINITIONS: [CaseDefinition; 9] = [
     CaseDefinition {
-        case_id: "float64-column-passthrough",
-        input_ref: "first-float64-basic",
+        case_id: "uint64-column-passthrough",
+        input_ref: "first-uint64-basic",
         comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
         projection_ref: Some("column-0"),
         filter_ref: None,
     },
     CaseDefinition {
-        case_id: "float64-special-values-passthrough",
-        input_ref: "first-float64-special-values",
+        case_id: "uint64-literal-projection",
+        input_ref: "first-uint64-basic",
         comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
-        projection_ref: Some("column-0"),
+        projection_ref: Some("literal-uint64-7"),
         filter_ref: None,
     },
     CaseDefinition {
-        case_id: "float64-is-not-null-all-kept",
-        input_ref: "first-float64-special-values",
+        case_id: "uint64-add-basic",
+        input_ref: "first-uint64-add-basic",
+        comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
+        projection_ref: Some("add-uint64-column-0-column-1"),
+        filter_ref: None,
+    },
+    CaseDefinition {
+        case_id: "uint64-add-null-propagation",
+        input_ref: "first-uint64-add-nullable",
+        comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
+        projection_ref: Some("add-uint64-column-0-column-1"),
+        filter_ref: None,
+    },
+    CaseDefinition {
+        case_id: "uint64-add-overflow-error",
+        input_ref: "first-uint64-add-overflow",
+        comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
+        projection_ref: Some("add-uint64-column-0-column-1"),
+        filter_ref: None,
+    },
+    CaseDefinition {
+        case_id: "uint64-is-not-null-mixed-keep-drop",
+        input_ref: "first-uint64-nullable",
         comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
         projection_ref: None,
         filter_ref: Some("is-not-null-column-0"),
     },
     CaseDefinition {
-        case_id: "float64-is-not-null-mixed-keep-drop",
-        input_ref: "first-float64-nullable-special-values",
+        case_id: "uint64-missing-column-error",
+        input_ref: "first-uint64-basic",
         comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
-        projection_ref: None,
-        filter_ref: Some("is-not-null-column-0"),
-    },
-    CaseDefinition {
-        case_id: "float64-canonical-ordering-normalization",
-        input_ref: "first-float64-ordering-scramble",
-        comparison_mode: COMPARISON_MODE_FLOAT64_MULTISET_CANONICAL,
-        projection_ref: Some("column-0"),
+        projection_ref: Some("column-2"),
         filter_ref: None,
     },
     CaseDefinition {
-        case_id: "float64-missing-column-error",
-        input_ref: "first-float64-basic",
+        case_id: "mixed-signed-unsigned-arithmetic-error",
+        input_ref: "first-mixed-int64-uint64",
         comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
-        projection_ref: None,
-        filter_ref: Some("is-not-null-column-1"),
+        projection_ref: Some("add-uint64-column-0-column-1"),
+        filter_ref: None,
     },
     CaseDefinition {
-        case_id: "unsupported-floating-type-error",
-        input_ref: "first-float32-basic",
+        case_id: "unsupported-unsigned-family-error",
+        input_ref: "first-uint32-basic",
         comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
         projection_ref: Some("column-0"),
         filter_ref: None,
@@ -349,7 +345,7 @@ const CASE_DEFINITIONS: [CaseDefinition; 7] = [
 fn validate_request(
     request: &AdapterRequest,
 ) -> Result<CaseDefinition, AdapterRequestValidationError> {
-    if request.slice_id != FIRST_FLOAT64_ORDERING_SLICE_ID {
+    if request.slice_id != FIRST_UNSIGNED_ARITHMETIC_SLICE_ID {
         return Err(AdapterRequestValidationError::UnsupportedSliceId(
             request.slice_id.clone(),
         ));
@@ -379,7 +375,7 @@ fn validate_request(
         });
     }
 
-    let expected_spec_refs: Vec<String> = FIRST_FLOAT64_ORDERING_SLICE_SPEC_REFS
+    let expected_spec_refs: Vec<String> = FIRST_UNSIGNED_ARITHMETIC_SLICE_SPEC_REFS
         .iter()
         .map(|spec_ref| (*spec_ref).to_string())
         .collect();
@@ -396,38 +392,39 @@ fn validate_request(
 
 fn input_sql(input_ref: &str) -> &'static str {
     match input_ref {
-        "first-float64-basic" => FLOAT64_BASIC_INPUT_SQL,
-        "first-float64-special-values" => FLOAT64_SPECIAL_VALUES_INPUT_SQL,
-        "first-float64-nullable-special-values" => FLOAT64_NULLABLE_SPECIAL_VALUES_INPUT_SQL,
-        "first-float64-ordering-scramble" => FLOAT64_ORDERING_SCRAMBLE_INPUT_SQL,
-        "first-float32-basic" => FLOAT32_BASIC_INPUT_SQL,
+        "first-uint64-basic" => UINT64_BASIC_INPUT_SQL,
+        "first-uint64-nullable" => UINT64_NULLABLE_INPUT_SQL,
+        "first-uint64-add-basic" => UINT64_ADD_BASIC_INPUT_SQL,
+        "first-uint64-add-nullable" => UINT64_ADD_NULLABLE_INPUT_SQL,
+        "first-uint64-add-overflow" => UINT64_ADD_OVERFLOW_INPUT_SQL,
+        "first-mixed-int64-uint64" => MIXED_INT64_UINT64_INPUT_SQL,
+        "first-uint32-basic" => UINT32_BASIC_INPUT_SQL,
         _ => unreachable!("validated input refs should always be known"),
     }
 }
 
 fn projection_column_name(input_ref: &str) -> &'static str {
     match input_ref {
-        "first-float64-basic"
-        | "first-float64-special-values"
-        | "first-float64-nullable-special-values"
-        | "first-float64-ordering-scramble" => "f",
-        "first-float32-basic" => "f32",
+        "first-uint64-basic" | "first-uint64-nullable" => "u",
+        "first-uint32-basic" => "u32",
         _ => unreachable!("validated input refs should always be known"),
     }
 }
 
-fn filter_condition(input_ref: &str, filter_ref: &str) -> &'static str {
-    match filter_ref {
-        "is-not-null-column-0" => match input_ref {
-            "first-float64-basic"
-            | "first-float64-special-values"
-            | "first-float64-nullable-special-values"
-            | "first-float64-ordering-scramble" => "input_rows.f IS NOT NULL",
-            "first-float32-basic" => "input_rows.f32 IS NOT NULL",
-            _ => unreachable!("validated input refs should always be known"),
-        },
-        "is-not-null-column-1" => "input_rows.__missing_column_1 IS NOT NULL",
-        _ => unreachable!("validated filter refs should always be known"),
+fn add_expression(input_ref: &str) -> &'static str {
+    match input_ref {
+        "first-uint64-add-basic" | "first-uint64-add-nullable" | "first-uint64-add-overflow" => {
+            "input_rows.lhs + input_rows.rhs"
+        }
+        "first-mixed-int64-uint64" => "input_rows.s + input_rows.u",
+        _ => unreachable!("validated input refs should always be known"),
+    }
+}
+
+fn filter_condition(input_ref: &str) -> &'static str {
+    match input_ref {
+        "first-uint64-basic" | "first-uint64-nullable" => "input_rows.u IS NOT NULL",
+        _ => unreachable!("validated input refs should always be known"),
     }
 }
 
@@ -441,8 +438,12 @@ fn normalize_error(error: EngineExecutionError) -> CaseOutcome {
         EngineExecutionError::EngineFailure { code, message } => {
             let error_class = if is_missing_column(code.as_deref(), &message) {
                 ErrorClass::MissingColumn
-            } else if is_unsupported_floating_type(code.as_deref(), &message) {
-                ErrorClass::UnsupportedFloatingType
+            } else if is_unsigned_overflow(code.as_deref(), &message) {
+                ErrorClass::UnsignedOverflow
+            } else if is_mixed_signed_unsigned(&message) {
+                ErrorClass::MixedSignedUnsigned
+            } else if is_unsupported_unsigned_family(&message) {
+                ErrorClass::UnsupportedUnsignedFamily
             } else {
                 ErrorClass::EngineError
             };
@@ -462,14 +463,32 @@ fn is_missing_column(engine_code: Option<&str>, engine_message: &str) -> bool {
     engine_code == Some("1054")
         || normalized_message.contains("unknown column")
         || normalized_message.contains("no such column")
+        || normalized_message.contains("missing input column")
 }
 
-fn is_unsupported_floating_type(engine_code: Option<&str>, engine_message: &str) -> bool {
+fn is_unsigned_overflow(engine_code: Option<&str>, engine_message: &str) -> bool {
     let normalized_message = engine_message.to_ascii_lowercase();
 
-    engine_code == Some("1105")
-        || normalized_message.contains("unsupported floating type")
-        || (normalized_message.contains("float") && normalized_message.contains("out of scope"))
+    engine_code == Some("1690")
+        || ((normalized_message.contains("unsigned") || normalized_message.contains("uint64"))
+            && (normalized_message.contains("out of range")
+                || normalized_message.contains("overflow")))
+}
+
+fn is_mixed_signed_unsigned(engine_message: &str) -> bool {
+    let normalized_message = engine_message.to_ascii_lowercase();
+
+    normalized_message.contains("mixed signed and unsigned")
+        || (normalized_message.contains("signed and unsigned")
+            && normalized_message.contains("unsupported"))
+}
+
+fn is_unsupported_unsigned_family(engine_message: &str) -> bool {
+    let normalized_message = engine_message.to_ascii_lowercase();
+
+    normalized_message.contains("unsupported unsigned")
+        || (normalized_message.contains("uint32") && normalized_message.contains("out of scope"))
+        || normalized_message.contains("unsupported unsigned family")
 }
 
 fn normalize_logical_type(engine_type: &str) -> String {
@@ -477,9 +496,10 @@ fn normalize_logical_type(engine_type: &str) -> String {
     let normalized = normalized.split('(').next().unwrap_or(&normalized).trim();
 
     match normalized {
-        "double" | "double precision" | "float64" => "float64".to_string(),
-        "float" | "real" | "float32" => "float32".to_string(),
+        "bigint unsigned" | "unsigned bigint" | "unsigned" | "uint64" => "uint64".to_string(),
         "int" | "integer" | "mediumint" | "smallint" | "tinyint" => "int32".to_string(),
+        "bigint" | "signed" | "int64" => "int64".to_string(),
+        "int unsigned" | "integer unsigned" | "uint32" => "uint32".to_string(),
         other => other.to_string(),
     }
 }
@@ -492,161 +512,86 @@ mod tests {
 
     #[test]
     fn canonical_requests_cover_all_documented_cases() {
-        let requests = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests();
+        let requests = TiflashFirstUnsignedArithmeticSliceAdapter::canonical_requests();
         let case_ids: Vec<&str> = requests
             .iter()
             .map(|request| request.case_id.as_str())
             .collect();
 
-        assert_eq!(requests.len(), 7);
+        assert_eq!(requests.len(), 9);
         assert_eq!(
             case_ids,
             vec![
-                "float64-column-passthrough",
-                "float64-special-values-passthrough",
-                "float64-is-not-null-all-kept",
-                "float64-is-not-null-mixed-keep-drop",
-                "float64-canonical-ordering-normalization",
-                "float64-missing-column-error",
-                "unsupported-floating-type-error",
+                "uint64-column-passthrough",
+                "uint64-literal-projection",
+                "uint64-add-basic",
+                "uint64-add-null-propagation",
+                "uint64-add-overflow-error",
+                "uint64-is-not-null-mixed-keep-drop",
+                "uint64-missing-column-error",
+                "mixed-signed-unsigned-arithmetic-error",
+                "unsupported-unsigned-family-error",
             ]
         );
 
         for request in requests {
-            assert_eq!(request.slice_id, FIRST_FLOAT64_ORDERING_SLICE_ID);
+            assert_eq!(request.slice_id, FIRST_UNSIGNED_ARITHMETIC_SLICE_ID);
             assert_eq!(request.spec_refs.len(), 4);
-            assert_eq!(
-                request.spec_refs[0],
-                "docs/design/first-float64-ordering-slice.md"
-            );
-            assert_eq!(request.spec_refs[1], "docs/spec/type-system.md");
-            assert_eq!(
-                request.spec_refs[2],
-                "tests/conformance/first-float64-ordering-slice.md"
-            );
-            assert_eq!(
-                request.spec_refs[3],
-                "tests/differential/first-float64-ordering-slice.md"
-            );
             let op_ref_count =
                 request.projection_ref.iter().count() + request.filter_ref.iter().count();
             assert_eq!(op_ref_count, 1);
-            assert!(
-                request.comparison_mode == COMPARISON_MODE_ROW_ORDER_PRESERVED
-                    || request.comparison_mode == COMPARISON_MODE_FLOAT64_MULTISET_CANONICAL
+            assert_eq!(
+                request.comparison_mode,
+                COMPARISON_MODE_ROW_ORDER_PRESERVED.to_string()
             );
         }
     }
 
     #[test]
-    fn lowering_renders_tiflash_sql_for_each_documented_case() {
-        let requests = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests();
-        let plans: Vec<(String, String)> = requests
-            .iter()
-            .map(|request| {
-                let plan = TiflashFirstFloat64OrderingSliceAdapter::lower_request(request).unwrap();
-                (plan.request.case_id, plan.sql)
-            })
-            .collect();
-
-        assert_eq!(
-            plans,
-            vec![
-                (
-                    "float64-column-passthrough".to_string(),
-                    "SELECT input_rows.f AS f FROM (SELECT CAST(-1.5 AS DOUBLE) AS f UNION ALL SELECT CAST(0.0 AS DOUBLE) AS f UNION ALL SELECT CAST(2.25 AS DOUBLE) AS f) AS input_rows".to_string()
-                ),
-                (
-                    "float64-special-values-passthrough".to_string(),
-                    "SELECT input_rows.f AS f FROM (SELECT CAST('-Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST('-0.0' AS DOUBLE) AS f UNION ALL SELECT CAST('0.0' AS DOUBLE) AS f UNION ALL SELECT CAST('Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST('NaN' AS DOUBLE) AS f) AS input_rows".to_string()
-                ),
-                (
-                    "float64-is-not-null-all-kept".to_string(),
-                    "SELECT * FROM (SELECT CAST('-Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST('-0.0' AS DOUBLE) AS f UNION ALL SELECT CAST('0.0' AS DOUBLE) AS f UNION ALL SELECT CAST('Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST('NaN' AS DOUBLE) AS f) AS input_rows WHERE input_rows.f IS NOT NULL".to_string()
-                ),
-                (
-                    "float64-is-not-null-mixed-keep-drop".to_string(),
-                    "SELECT * FROM (SELECT CAST(NULL AS DOUBLE) AS f UNION ALL SELECT CAST('-Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST(NULL AS DOUBLE) AS f UNION ALL SELECT CAST('NaN' AS DOUBLE) AS f UNION ALL SELECT CAST(1.0 AS DOUBLE) AS f) AS input_rows WHERE input_rows.f IS NOT NULL".to_string()
-                ),
-                (
-                    "float64-canonical-ordering-normalization".to_string(),
-                    "SELECT input_rows.f AS f FROM (SELECT CAST('NaN' AS DOUBLE) AS f UNION ALL SELECT CAST(1.0 AS DOUBLE) AS f UNION ALL SELECT CAST('-Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST('Infinity' AS DOUBLE) AS f UNION ALL SELECT CAST(0.0 AS DOUBLE) AS f UNION ALL SELECT CAST('-0.0' AS DOUBLE) AS f) AS input_rows".to_string()
-                ),
-                (
-                    "float64-missing-column-error".to_string(),
-                    "SELECT * FROM (SELECT CAST(-1.5 AS DOUBLE) AS f UNION ALL SELECT CAST(0.0 AS DOUBLE) AS f UNION ALL SELECT CAST(2.25 AS DOUBLE) AS f) AS input_rows WHERE input_rows.__missing_column_1 IS NOT NULL".to_string()
-                ),
-                (
-                    "unsupported-floating-type-error".to_string(),
-                    "SELECT input_rows.f32 AS f32 FROM (SELECT CAST(1.5 AS FLOAT) AS f32 UNION ALL SELECT CAST(0.0 AS FLOAT) AS f32 UNION ALL SELECT CAST(-2.25 AS FLOAT) AS f32) AS input_rows".to_string()
-                ),
-            ]
-        );
-    }
-
-    #[test]
     fn execute_rows_normalizes_schema_and_row_count() {
-        let request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let request = TiflashFirstUnsignedArithmeticSliceAdapter::canonical_requests()
             .into_iter()
-            .find(|request| request.case_id == "float64-canonical-ordering-normalization")
+            .find(|request| request.case_id == "uint64-column-passthrough")
             .unwrap();
         let runner = StubRunner::rows(
             vec![EngineColumn {
-                name: "f".to_string(),
-                engine_type: "double".to_string(),
+                name: "u".to_string(),
+                engine_type: "bigint unsigned".to_string(),
                 nullable: false,
             }],
-            vec![
-                vec![json!("NaN")],
-                vec![json!("1.0")],
-                vec![json!("-Infinity")],
-                vec![json!("Infinity")],
-                vec![json!("0.0")],
-                vec![json!("-0.0")],
-            ],
+            vec![vec![json!("0")], vec![json!("7")], vec![json!("42")]],
         );
 
-        let result = TiflashFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
+        let result =
+            TiflashFirstUnsignedArithmeticSliceAdapter::execute(&request, &runner).unwrap();
 
-        assert_eq!(result.engine, TIFLASH_ENGINE);
-        assert_eq!(result.adapter, TIFLASH_ADAPTER);
         assert_eq!(
             result.outcome,
             CaseOutcome::Rows {
                 schema: vec![SchemaField {
-                    name: "f".to_string(),
-                    logical_type: "float64".to_string(),
+                    name: "u".to_string(),
+                    logical_type: "uint64".to_string(),
                     nullable: false,
                 }],
-                rows: vec![
-                    vec![json!("NaN")],
-                    vec![json!("1.0")],
-                    vec![json!("-Infinity")],
-                    vec![json!("Infinity")],
-                    vec![json!("0.0")],
-                    vec![json!("-0.0")],
-                ],
-                row_count: 6,
+                rows: vec![vec![json!("0")], vec![json!("7")], vec![json!("42")]],
+                row_count: 3,
             }
-        );
-        assert_eq!(
-            result.comparison_mode,
-            COMPARISON_MODE_FLOAT64_MULTISET_CANONICAL
         );
     }
 
     #[test]
     fn execute_normalizes_missing_column_errors() {
-        let request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let request = TiflashFirstUnsignedArithmeticSliceAdapter::canonical_requests()
             .into_iter()
-            .find(|request| request.case_id == "float64-missing-column-error")
+            .find(|request| request.case_id == "uint64-missing-column-error")
             .unwrap();
         let runner = StubRunner::error(EngineExecutionError::EngineFailure {
             code: Some("1054".to_string()),
-            message: "Unknown column '__missing_column_1' in 'where clause'".to_string(),
+            message: "Unknown column '__missing_column_2' in 'field list'".to_string(),
         });
 
-        let result = TiflashFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
+        let result =
+            TiflashFirstUnsignedArithmeticSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(
             result.outcome,
@@ -654,57 +599,57 @@ mod tests {
                 error_class: ErrorClass::MissingColumn,
                 engine_code: Some("1054".to_string()),
                 engine_message: Some(
-                    "Unknown column '__missing_column_1' in 'where clause'".to_string()
+                    "Unknown column '__missing_column_2' in 'field list'".to_string()
                 ),
             }
         );
     }
 
     #[test]
-    fn execute_normalizes_unsupported_floating_type_errors() {
-        let request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
+    fn execute_normalizes_adapter_unavailable_without_extra_code() {
+        let request = TiflashFirstUnsignedArithmeticSliceAdapter::canonical_requests()
             .into_iter()
-            .find(|request| request.case_id == "unsupported-floating-type-error")
+            .find(|request| request.case_id == "uint64-add-basic")
             .unwrap();
-        let runner = StubRunner::error(EngineExecutionError::EngineFailure {
-            code: Some("1105".to_string()),
-            message:
-                "unsupported floating type: float32 input is out of scope for first-float64-ordering-slice"
-                    .to_string(),
+        let runner = StubRunner::error(EngineExecutionError::AdapterUnavailable {
+            message: Some("TiFlash DSN is not configured".to_string()),
         });
 
-        let result = TiflashFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
+        let result =
+            TiflashFirstUnsignedArithmeticSliceAdapter::execute(&request, &runner).unwrap();
+        let serialized = serde_json::to_value(&result).unwrap();
 
         assert_eq!(
             result.outcome,
             CaseOutcome::Error {
-                error_class: ErrorClass::UnsupportedFloatingType,
-                engine_code: Some("1105".to_string()),
-                engine_message: Some(
-                    "unsupported floating type: float32 input is out of scope for first-float64-ordering-slice"
-                        .to_string()
-                ),
+                error_class: ErrorClass::AdapterUnavailable,
+                engine_code: None,
+                engine_message: Some("TiFlash DSN is not configured".to_string()),
             }
         );
+        assert_eq!(serialized["outcome"]["kind"], "error");
+        assert_eq!(serialized["outcome"]["error_class"], "adapter_unavailable");
+        assert!(serialized["outcome"].get("engine_code").is_none());
     }
 
     #[test]
     fn lowering_rejects_requests_with_mismatched_operation_refs() {
-        let mut request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let mut request = TiflashFirstUnsignedArithmeticSliceAdapter::canonical_requests()
             .into_iter()
-            .find(|request| request.case_id == "float64-column-passthrough")
+            .find(|request| request.case_id == "uint64-column-passthrough")
             .unwrap();
         request.projection_ref = None;
         request.filter_ref = Some("is-not-null-column-0".to_string());
 
-        let error = TiflashFirstFloat64OrderingSliceAdapter::lower_request(&request).unwrap_err();
+        let error =
+            TiflashFirstUnsignedArithmeticSliceAdapter::lower_request(&request).unwrap_err();
 
         assert_eq!(
             error,
             AdapterRequestValidationError::MismatchedCaseDefinition {
-                case_id: "float64-column-passthrough".to_string(),
-                expected_input_ref: "first-float64-basic",
-                actual_input_ref: "first-float64-basic".to_string(),
+                case_id: "uint64-column-passthrough".to_string(),
+                expected_input_ref: "first-uint64-basic",
+                actual_input_ref: "first-uint64-basic".to_string(),
                 expected_comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED,
                 actual_comparison_mode: COMPARISON_MODE_ROW_ORDER_PRESERVED.to_string(),
                 expected_projection_ref: Some("column-0"),
