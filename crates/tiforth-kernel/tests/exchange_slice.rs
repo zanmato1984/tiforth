@@ -214,7 +214,7 @@ fn exchange_cancellation_teardown_releases_buffered_source_claims() {
         .try_reserve(12)
         .expect("source reserve should succeed");
     let source_claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![source_claim]])],
     ));
@@ -273,8 +273,7 @@ fn run_pipeline(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
 }
@@ -351,9 +350,8 @@ impl Awaiter for RecordedAwaiter {
 }
 
 fn test_task_context(runtime_context: ProjectionRuntimeContext) -> TaskContext<TiforthTypes> {
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
     TaskContext::new(
-        Some(context),
+        runtime_context,
         Arc::new(|| Ok(Arc::new(TestResumer::default()) as SharedResumer)),
         Arc::new(|resumers| Ok(Arc::new(RecordedAwaiter::new(resumers)) as SharedAwaiter)),
     )

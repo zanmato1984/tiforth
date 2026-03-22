@@ -11,7 +11,6 @@ Related issues:
 - #31 `design: define milestone-1 local cancellation coverage boundary`
 - #33 `conformance: add explicit local cancellation driver for milestone-1 fixtures`
 - #41 `conformance: add untracked handoff ownership-violation checkpoint`
-- #45 `conformance: add claimed-source runtime-context ownership-violation checkpoint`
 - #47 `conformance: add direct literal<int32> projection checkpoints`
 - #52 `conformance: add non-null literal local execution fixture checkpoints`
 - #54 `conformance: add missing-column projection checkpoint`
@@ -39,7 +38,6 @@ Use lower-case kebab-case file names that combine the scenario and checkpoint, f
 - `projection-mixed-claims-cancelled.json`
 - `projection-missing-column.json`
 - `projection-unsupported-arithmetic-type.json`
-- `projection-claimed-source-runtime-context-ownership-violation.json`
 - `projection-non-null-literal-before-terminal.json`
 - `projection-non-null-literal-finished.json`
 - `projection-null-literal-before-terminal.json`
@@ -104,7 +102,6 @@ The initial checked-in files cover the current milestone-1 projection slice only
 - passthrough claim forwarding after final release and terminal completion
 - passthrough forwarded-claim release ownership violation after sink handoff and clean teardown
 - passthrough forwarded-claim shrink ownership violation after sink handoff and clean teardown
-- claimed source ownership violation when `ProjectionRuntimeContext` is missing before source emit
 - untracked source-to-projection handoff ownership violation before sink collection
 
 The duplicate-forwarded-claim checkpoints intentionally share the same local event shape as simple passthrough. `LocalExecutionFixture` freezes unique claim-count transitions, not per-column claim reuse multiplicity, so the corresponding Rust test separately asserts the duplicated output columns and field names.

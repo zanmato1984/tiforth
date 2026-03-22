@@ -154,18 +154,6 @@ impl GovernedBatch {
         })
     }
 
-    pub(crate) fn ungoverned(batch: ArrowBatch) -> Self {
-        Self {
-            inner: Arc::new(GovernedBatchInner {
-                batch: Arc::clone(&batch),
-                batch_id: 0,
-                origin: BatchOrigin::local("ungoverned"),
-                column_claims: empty_column_claims(batch.num_columns()),
-                events: RuntimeEventRecorder::default(),
-            }),
-        }
-    }
-
     pub fn batch(&self) -> &ArrowBatch {
         &self.inner.batch
     }

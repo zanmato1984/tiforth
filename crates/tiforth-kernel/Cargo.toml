@@ -8,8 +8,8 @@ publish = false
 arrow-array = "50.0.0"
 arrow-schema = "50.0.0"
 arrow-select = "50.0.0"
-broken-pipeline = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "e821ee769aedf2f7a2aab1c5cce2811b83e5af1b" }
-broken-pipeline-schedule = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "e821ee769aedf2f7a2aab1c5cce2811b83e5af1b" }
+broken-pipeline = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "caf70aacc384e62630ee0ae71e88c513a81b16dd" }
+broken-pipeline-schedule = { git = "https://github.com/zanmato1984/broken-pipeline-rs.git", rev = "caf70aacc384e62630ee0ae71e88c513a81b16dd" }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]

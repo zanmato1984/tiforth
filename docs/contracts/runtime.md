@@ -1,8 +1,8 @@
 # Runtime Contract
 
-Direction: `tiforth` adopts and exposes the Arrow-bound runtime contract from `broken-pipeline-rs` as its primary shared runtime contract.
+Direction: `tiforth` adopts and exposes the Arrow-backed runtime contract from `broken-pipeline-rs` as its primary shared runtime contract.
 
-`tiforth` does not define an independent runtime protocol for milestone 1. The shared execution vocabulary comes from the upstream `broken-pipeline` crate specialized to `broken_pipeline::traits::arrow::ArrowTypes`. `tiforth`'s role is to provide operators, expressions, host admission hooks, and higher-level composition on top of that adopted contract.
+`tiforth` does not define an independent runtime protocol for milestone 1. The shared execution vocabulary comes from the upstream `broken-pipeline` crate specialized to `tiforth_kernel::TiforthTypes`, where the runtime batch is `GovernedBatch`, the error surface remains `ArrowError`, and the task context is typed with `ProjectionRuntimeContext`. `tiforth`'s role is to provide operators, expressions, host admission hooks, and higher-level composition on top of that adopted contract.
 
 `broken-pipeline-schedule` sits outside the shared contract. Within `tiforth`, it is reserved for local testing and harness work only, and this is not expected to change. `broken-pipeline-c` also sits outside the milestone-1 runtime contract and matters only if a later coarse interop issue explicitly calls for it.
 
@@ -18,14 +18,15 @@ The original C++ Broken Pipeline repository remains relevant only as provenance 
 - scheduler-agnostic correctness, so runtime semantics do not depend on one particular executor implementation
 - host memory admission before operator-owned growth or output materialization
 
-## Adopted Arrow-Bound Reference Surface
+## Adopted Runtime Reference Surface
 
-As inspected from the public `broken-pipeline-rs` repo on 2026-03-16, the Arrow-bound shared contract currently centers on:
+As inspected from the public `broken-pipeline-rs` repo on 2026-03-21, the shared contract currently centers on:
 
-- `broken_pipeline::traits::arrow::{ArrowTypes, Batch, Error, Result}`
+- `broken_pipeline::PipelineTypes`
 - `broken_pipeline::{SourceOperator, PipeOperator, SinkOperator}`
-- `broken_pipeline::OpOutput<Batch>`
+- `broken_pipeline::OpOutput<TiforthTypes::Batch>`
 - `broken_pipeline::{TaskContext, TaskStatus, Awaiter, Resumer, SharedAwaiter, SharedResumer, Task, TaskGroup, TaskHint, TaskHintType}`
+- `tiforth_kernel::{TiforthTypes, GovernedBatch, ProjectionRuntimeContext}`
 
 These names refer to the Rust upstream surface from `broken-pipeline-rs`, not to the original C++ repository.
 
@@ -36,9 +37,9 @@ The runtime state names that `tiforth` adopts by name and meaning are currently:
 
 ## Boundary Policy
 
-- public `tiforth` operator and expression interfaces should use the adopted upstream Arrow-bound types directly when they need runtime-facing signatures
-- the current `tiforth-kernel` crate-root re-export of `ArrowTypes` and `Batch` is the only milestone-1 convenience layer needed for the adopted Arrow-bound specialization
-- `tiforth` may add narrow convenience aliases or re-exports for the adopted Arrow-bound specialization, but it should not add a dedicated runtime facade, mirror the entire upstream crate, or rename runtime states unless a later multi-crate or adapter-visible boundary proves that necessary
+- public `tiforth` operator and expression interfaces should use the adopted upstream runtime traits directly when they need runtime-facing signatures
+- the current `tiforth-kernel` crate-root re-export of Arrow `Batch` is only a data convenience; runtime typing lives in `TiforthTypes`
+- `tiforth` may add narrow convenience aliases or re-exports for Arrow data payloads, but it should not add a dedicated runtime facade, mirror the entire upstream crate, or rename runtime states unless a later multi-crate or adapter-visible boundary proves that necessary
 - `tiforth` adds project-specific value around operator libraries, expression libraries, host admission hooks, adapter composition, and harness observability
 - scheduler helpers, ready-made schedulers, and schedule-layer awaiter or resumer helpers stay outside the shared contract
 
@@ -46,10 +47,10 @@ The runtime state names that `tiforth` adopts by name and meaning are currently:
 
 For milestone 1, the operator and expression attachment pattern is fixed by `docs/design/operator-expression-runtime-attachment.md`.
 
-- runtime-entered `tiforth` kernels implement the upstream `SourceOperator<ArrowTypes>`, `PipeOperator<ArrowTypes>`, and `SinkOperator<ArrowTypes>` traits directly
-- runtime-visible results stay `OpOutput<Batch>`, and upstream task-state names stay adopted by name and meaning
+- runtime-entered `tiforth` kernels implement the upstream `SourceOperator<TiforthTypes>`, `PipeOperator<TiforthTypes>`, and `SinkOperator<TiforthTypes>` traits directly
+- runtime-visible results stay `OpOutput<GovernedBatch>`, and upstream task-state names stay adopted by name and meaning
 - expression nodes such as `Expr` and `ProjectionExpr` stay operator-internal evaluators and schema helpers instead of runtime participants
-- `ProjectionRuntimeContext`, `GovernedBatch`, `BatchClaim`, and `LocalExecutionSnapshot` may add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
+- `ProjectionRuntimeContext`, `GovernedBatch`, `BatchClaim`, and `LocalExecutionSnapshot` add admission, ownership, and observability support around the adopted runtime payload, but they do not replace the shared runtime protocol
 
 ## Shared Contract Surface
 
@@ -97,8 +98,8 @@ For milestone 1:
 
 The current milestone-1 implementation pin is the git revision already recorded in `crates/tiforth-kernel/Cargo.toml`:
 
-- `broken-pipeline = 174e6cd07c41210158ae1d805b568968cf71f898`
-- `broken-pipeline-schedule = 174e6cd07c41210158ae1d805b568968cf71f898`
+- `broken-pipeline = caf70aacc384e62630ee0ae71e88c513a81b16dd`
+- `broken-pipeline-schedule = caf70aacc384e62630ee0ae71e88c513a81b16dd`
 
 That revision is the current reproducible upstream contract snapshot for milestone 1. If `tiforth` later bumps that revision or vendors an upstream snapshot, that change should be handled as its own issue because it changes the verified runtime baseline.
 

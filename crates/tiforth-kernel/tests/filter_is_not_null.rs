@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::sync::Arc;
 
 use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
@@ -187,8 +186,7 @@ fn run_pipeline(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
 }

@@ -41,6 +41,7 @@ pub struct TiforthTypes;
 impl PipelineTypes for TiforthTypes {
     type Batch = GovernedBatch;
     type Error = ArrowError;
+    type Context = ProjectionRuntimeContext;
 }
 
 impl ScheduleTypes for TiforthTypes {

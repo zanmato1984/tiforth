@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::sync::Arc;
 
 use arrow_array::{Array, ArrayRef, BooleanArray, Int32Array, RecordBatch};
@@ -74,9 +73,6 @@ const PROJECTION_PASSTHROUGH_OWNERSHIP_VIOLATION: &str = include_str!(
 );
 const PROJECTION_PASSTHROUGH_SHRINK_OWNERSHIP_VIOLATION: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-passthrough-shrink-ownership-violation.json",
-);
-const PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION: &str = include_str!(
-    "../../../tests/conformance/fixtures/local-execution/projection-claimed-source-runtime-context-ownership-violation.json",
 );
 const PROJECTION_MIXED_CLAIMS_BEFORE_TERMINAL: &str = include_str!(
     "../../../tests/conformance/fixtures/local-execution/projection-mixed-claims-before-terminal.json",
@@ -642,7 +638,7 @@ fn direct_projection_forwards_source_claim_without_new_projection_consumer() {
     ));
     source_consumer.try_reserve(12).unwrap();
     let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     ));
@@ -697,7 +693,7 @@ fn duplicate_direct_projection_keeps_one_forwarded_claim_identity() {
     ));
     source_consumer.try_reserve(12).unwrap();
     let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     ));
@@ -762,7 +758,7 @@ fn passthrough_consumer_release_violation_is_reported_after_sink_handoff() {
     ));
     source_consumer.try_reserve(12).unwrap();
     let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     ));
@@ -816,7 +812,7 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
     ));
     source_consumer.try_reserve(12).unwrap();
     let claim = runtime_context.new_claim(Arc::clone(&source_consumer));
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     ));
@@ -857,45 +853,6 @@ fn passthrough_consumer_shrink_violation_is_reported_after_sink_handoff() {
 }
 
 #[test]
-fn claimed_source_requires_projection_runtime_context_before_source_emit() {
-    let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
-    let admission = Arc::new(RecordingAdmissionController::unbounded());
-    let runtime_admission: Arc<dyn AdmissionController> = admission.clone();
-    let runtime_context = ProjectionRuntimeContext::new(runtime_admission);
-    let source_consumer = admission.open(tiforth_kernel::ConsumerSpec::new(
-        "ClaimedSource:a",
-        ConsumerKind::SourceInput,
-        false,
-    ));
-    source_consumer.try_reserve(12).unwrap();
-    let claim = runtime_context.new_claim(source_consumer);
-    let source = StaticRecordBatchSource::new_claimed(
-        "ClaimedSource",
-        vec![(Arc::clone(&input), vec![vec![claim]])],
-    );
-    let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let task_context = scheduler.make_task_context(None);
-
-    let error = source
-        .source(&task_context, 0)
-        .err()
-        .expect("claimed source should require ProjectionRuntimeContext");
-
-    assert!(error
-        .to_string()
-        .contains("requires ProjectionRuntimeContext"));
-    runtime_context.record_terminal_error(error.to_string());
-
-    assert_fixture_json(
-        "projection-claimed-source-runtime-context-ownership-violation",
-        runtime_context
-            .local_snapshot(admission.as_ref())
-            .to_fixture(),
-        PROJECTION_CLAIMED_SOURCE_RUNTIME_CONTEXT_OWNERSHIP_VIOLATION,
-    );
-}
-
-#[test]
 fn projection_output_can_carry_forwarded_and_computed_claims_together() {
     let input = make_batch(vec![Some(1), Some(2), Some(3)], false);
     let admission = Arc::new(RecordingAdmissionController::unbounded());
@@ -909,7 +866,7 @@ fn projection_output_can_carry_forwarded_and_computed_claims_together() {
     ));
     source_consumer.try_reserve(12).unwrap();
     let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     ));
@@ -973,7 +930,7 @@ fn projection_cancellation_can_capture_mixed_claim_teardown_after_sink_handoff()
     ));
     source_consumer.try_reserve(12).unwrap();
     let claim = runtime_context.new_claim(source_consumer);
-    let source = Arc::new(StaticRecordBatchSource::new_claimed(
+    let source = Arc::new(StaticRecordBatchSource::with_claims(
         "Source",
         vec![(Arc::clone(&input), vec![vec![claim]])],
     ));
@@ -1037,8 +994,7 @@ fn run_pipeline(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
     let handle = scheduler.schedule_task_group(pipe_runtime.task_group(), task_context);
     scheduler.wait_task_group(handle)
 }
@@ -1059,8 +1015,7 @@ fn drive_pipeline_until_sink_handoff(
 
     let pipe_runtime = compile(&pipeline, 1).pipelinexes()[0].pipe_exec();
     let scheduler = SequentialCoroScheduler::<TiforthTypes>::default();
-    let context: Arc<dyn Any + Send + Sync> = Arc::new(runtime_context);
-    let task_context = scheduler.make_task_context(Some(context));
+    let task_context = scheduler.make_task_context(runtime_context);
 
     loop {
         if !sink.batches().is_empty() {
