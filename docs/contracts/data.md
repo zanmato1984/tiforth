@@ -60,6 +60,7 @@ Detailed first union-aware handoff slice rationale lives in `docs/design/first-u
 Detailed first temporal semantic slice rationale lives in `docs/design/first-temporal-semantic-slice.md`.
 Detailed first timestamp-timezone temporal slice rationale lives in `docs/design/first-temporal-timestamp-tz-slice.md`.
 Detailed first decimal semantic slice rationale lives in `docs/design/first-decimal-semantic-slice.md`.
+Detailed numeric add-family decimal result-derivation rationale lives in `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`.
 Detailed TiDB-to-Arrow native-versus-extension mapping rationale lives in `docs/design/first-tidb-arrow-type-mapping-boundary.md`.
 Detailed adapter-visible batch-envelope claim-carrier rationale lives in `docs/design/adapter-visible-batch-envelope-claim-carrier.md`.
 
@@ -208,6 +209,10 @@ narrow:
   across passthrough and first-slice filter outputs
 - shared differential comparison for this slice is over canonical decimal
   string values plus nullability, without implicit rescaling
+- the numeric `add/plus` family may reuse that same shared `decimal128` handoff
+  for exact decimal add only when the derived result precision stays `<= 38`;
+  derived precision `> 38` remains deferred until a `decimal256` handoff
+  checkpoint exists
 - other decimal logical families remain out of scope until a follow-on issue
 
 ## Milestone-1 Canonical Batch Envelope
@@ -318,7 +323,9 @@ For this first Go-host boundary:
 
 - TODO: extend nested-family shared slices beyond the first `list<int32>`, first `struct<a:int32, b:int32?>`, first `map<int32, int32?>`, and first `dense_union<i:int32, n:int32?>` passthrough checkpoints, including nested compute semantics
 - TODO: extend temporal support beyond the first `date32` and `timestamp_tz(us)` checkpoints to broader unit and timezone-sensitive families
-- TODO: extend decimal support beyond the first `decimal128` checkpoint, including arithmetic, cast or rescale policy, and decimal-family expansion
+- TODO: extend decimal support beyond the first `decimal128` checkpoint and
+  admitted exact decimal add boundary, including `decimal256` carriers,
+  broader arithmetic families, and cast or rescale policy
 - TODO: extend off-heap ownership beyond the first checkpoint in `docs/design/first-off-heap-state-ownership-boundary.md` and the first Go host interop checkpoint in `docs/design/first-go-host-off-heap-interop-boundary.md`, including adapter-visible carrier policy when a later slice requires it
 - TODO: decide whether any later milestone needs direct host-allocator-backed Arrow buffers or imported immutable buffer bridges beyond the reserve-first, claim-carrying milestone-1 contract
 

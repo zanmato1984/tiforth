@@ -2,7 +2,7 @@
 
 Status: issue #189 design checkpoint
 
-Verified: 2026-03-19
+Verified: 2026-03-22
 
 Related issues:
 
@@ -10,6 +10,7 @@ Related issues:
 - #127 `design: define milestone-1 nested and decimal/temporal metadata boundary`
 - #139 `spec: define first filter semantic slice for is_not_null(column(index))`
 - #189 `design: define first decimal semantic slice boundary`
+- #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 
 ## Question
 
@@ -24,6 +25,7 @@ too early?
 - `docs/contracts/runtime.md`
 - `docs/design/milestone-1-nested-decimal-temporal-boundary.md`
 - `docs/spec/first-filter-is-not-null.md`
+- `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 - `tests/conformance/first-filter-is-not-null-slice.md`
 - `tests/differential/first-filter-is-not-null-slice.md`
 - `tests/conformance/first-decimal128-slice.md`
@@ -41,8 +43,10 @@ The first decimal semantic slice is a narrow `decimal128` checkpoint:
   `decimal128` input columns
 - admitted predicate family for this slice:
   `is_not_null(column(index))` with `decimal128` input
-- no decimal arithmetic, casts, rescaling, or rounding policy in this
-  checkpoint
+- this checkpoint itself does not add decimal arithmetic, casts, rescaling, or
+  rounding policy; exact decimal add for the numeric `add/plus` family is a
+  separate follow-on boundary in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 
 This keeps the first decimal step aligned with existing expression and
 predicate families while preserving current runtime and ownership contracts.
@@ -74,6 +78,8 @@ The shared data handoff boundary for this first decimal slice is:
 - adapters may normalize engine-native decimal renderings, but shared
   differential comparison for this slice is over canonical decimal string
   values plus nullability
+- the later exact decimal add checkpoint reuses the same Arrow-native
+  `decimal128` carrier only when the derived result precision stays `<= 38`
 - reserve-before-allocate admission and claim-carrying handoff behavior remain
   unchanged from `docs/contracts/data.md`
 
@@ -95,7 +101,9 @@ issues should preserve these anchors or replace them explicitly.
 
 ## Out Of Scope For This Checkpoint
 
-- decimal arithmetic (`add`, `sub`, `mul`, `div`, aggregate math)
+- decimal arithmetic under this slice (`add`, `sub`, `mul`, `div`, aggregate
+  math); exact `add<decimal128>` result derivation now lives separately in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 - decimal cast or coercion rules
 - decimal rounding and rescale policy
 - decimal logical families beyond `decimal128`
@@ -105,7 +113,9 @@ issues should preserve these anchors or replace them explicitly.
 
 The first decimal checkpoint is now explicit and narrow: `decimal128`
 column-passthrough plus `is_not_null` predicate semantics, with existing
-runtime and ownership contracts unchanged and broader decimal policy deferred
-to follow-on issues. Coverage anchors are fixed under
+runtime and ownership contracts unchanged. Issue #423 separately fixes the
+first exact decimal add result-derivation boundary for the numeric add family
+without widening this slice beyond passthrough and predicate behavior. Coverage
+anchors are fixed under
 `tests/conformance/`, `tests/differential/`, and `adapters/`, and local
 executable conformance now exists under `crates/tiforth-kernel/tests/`.

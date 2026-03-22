@@ -16,6 +16,7 @@ Related issues:
 - #418 `design: fix TiDB-to-Arrow mapping for the numeric add/plus family`
 - #420 `design: map the numeric add/plus family to tipb/kvproto enums`
 - #422 `spec: complete the numeric add/plus family boundary`
+- #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 
 ## Question
 
@@ -117,8 +118,8 @@ In scope for follow-on completion work:
 - exact signed integer add overloads
 - exact unsigned integer add overloads
 - exact floating-point add overloads
-- exact decimal add overloads once decimal typing, overflow, and rescale policy
-  are named explicitly
+- exact decimal add overloads inside the admitted `decimal128` boundary fixed
+  in `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 
 Still deferred even after the family is fixed:
 
@@ -139,7 +140,8 @@ That mapping keeps the current family Arrow-native by default:
   result types even when engine-local arithmetic surfaces wider metadata
 - exact floating-point overloads stay Arrow-native by width
 - decimal add remains Arrow-native through Arrow decimal types with explicit
-  precision/scale policy rather than a custom numeric carrier
+  precision/scale result derivation; derived precision `> 38` stays deferred to
+  a `decimal256` follow-on rather than a custom numeric carrier now
 
 ## Enum-Reuse Boundary
 
@@ -154,6 +156,20 @@ That boundary reuses the existing upstream arithmetic IDs directly:
   variants for exact integer add overloads
 - no separate numeric-add function enum from `kvproto`; `kvproto` remains the
   transport boundary for `tipb` payloads
+
+## Decimal Result-Derivation Boundary
+
+Issue #423 now fixes the family-specific decimal add result-derivation boundary
+in `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`.
+
+That boundary now makes all of these explicit for exact decimal add:
+
+- `result.scale = max(s1, s2)`
+- `result.precision = max(p1 - s1, p2 - s2) + max(s1, s2) + 1`
+- mixed-scale decimal add is admitted only through exact zero-extension of the
+  smaller-scale operand
+- derived precision `> 38` is deferred to a same-family `decimal256`
+  follow-on instead of being narrowed back into `decimal128`
 
 ## Completion Boundary
 
