@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const FIRST_FILTER_IS_NOT_NULL_SLICE_ID: &str = "first-filter-is-not-null-slice";
-pub const TIFLASH_ENGINE: &str = "tiflash";
-pub const TIFLASH_ADAPTER: &str = "tiflash-sql";
+use crate::engine::{is_missing_column, SqlExecutionPlan};
+pub use crate::engine::{
+    EngineColumn, EngineExecutionError, EngineExecutionResult, ADAPTER as TIFLASH_ADAPTER,
+    ENGINE as TIFLASH_ENGINE,
+};
 
+pub const FIRST_FILTER_IS_NOT_NULL_SLICE_ID: &str = "first-filter-is-not-null-slice";
 const FIRST_FILTER_IS_NOT_NULL_SLICE_SPEC_REFS: [&str; 4] = [
     "docs/spec/first-filter-is-not-null.md",
     "docs/spec/type-system.md",
@@ -55,11 +58,7 @@ pub struct AdapterRequest {
     pub filter_ref: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TiflashExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TiflashExecutionPlan = SqlExecutionPlan<AdapterRequest>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -107,30 +106,6 @@ pub enum ErrorClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdapterRequestValidationError {
     UnsupportedSliceId(String),
     UnknownCaseId(String),
@@ -172,10 +147,7 @@ impl TiflashFirstFilterIsNotNullSliceAdapter {
     ) -> Result<TiflashExecutionPlan, AdapterRequestValidationError> {
         let case = validate_request(request)?;
 
-        Ok(TiflashExecutionPlan {
-            request: request.clone(),
-            sql: case.render_sql(),
-        })
+        Ok(SqlExecutionPlan::new(request.clone(), case.render_sql()))
     }
 
     pub fn execute<R: TiflashRunner>(
@@ -361,14 +333,6 @@ fn normalize_error(error: EngineExecutionError) -> CaseOutcome {
             }
         }
     }
-}
-
-fn is_missing_column(engine_code: Option<&str>, engine_message: &str) -> bool {
-    let normalized_message = engine_message.to_ascii_lowercase();
-
-    engine_code == Some("1054")
-        || normalized_message.contains("unknown column")
-        || normalized_message.contains("no such column")
 }
 
 fn is_unsupported_predicate_type(engine_code: Option<&str>, engine_message: &str) -> bool {

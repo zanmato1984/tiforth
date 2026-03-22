@@ -1,10 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const FIRST_EXPRESSION_SLICE_ID: &str = "first-expression-slice";
-pub const TIDB_ENGINE: &str = "tidb";
-pub const TIDB_ADAPTER: &str = "tidb-sql";
+use crate::engine::SqlExecutionPlan;
+pub use crate::engine::{
+    EngineColumn, EngineExecutionError, EngineExecutionResult, ADAPTER as TIFLASH_ADAPTER,
+    ENGINE as TIFLASH_ENGINE,
+};
 
+pub const FIRST_EXPRESSION_SLICE_ID: &str = "first-expression-slice";
 const FIRST_EXPRESSION_SLICE_SPEC_REFS: [&str; 4] = [
     "docs/spec/milestone-1-expression-projection.md",
     "docs/spec/type-system.md",
@@ -32,8 +35,13 @@ const INT32_OVERFLOW_INPUT_SQL: &str = "SELECT CAST(2147483647 AS SIGNED) AS a";
 
 const COLUMN_A_SQL: &str = "SELECT input_rows.a AS a FROM ({input_sql}) AS input_rows";
 const LITERAL_SEVEN_SQL: &str = "SELECT CAST(7 AS SIGNED) AS lit FROM ({input_sql}) AS input_rows";
-const LITERAL_NULL_SQL: &str =
-    "SELECT CAST(NULL AS SIGNED) AS lit FROM ({input_sql}) AS input_rows";
+const LITERAL_NULL_SQL: &str = concat!(
+    "SELECT CASE ",
+    "WHEN input_rows.a IS NULL THEN CAST(NULL AS SIGNED) ",
+    "ELSE CAST(NULL AS SIGNED) ",
+    "END AS lit ",
+    "FROM ({input_sql}) AS input_rows"
+);
 const ADD_A_PLUS_ONE_SQL: &str = concat!(
     "SELECT CAST(input_rows.a + CAST(1 AS SIGNED) AS SIGNED) AS a_plus_one ",
     "FROM ({input_sql}) AS input_rows"
@@ -48,11 +56,7 @@ pub struct AdapterRequest {
     pub projection_ref: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TidbExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TiflashExecutionPlan = SqlExecutionPlan<AdapterRequest>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -99,30 +103,6 @@ pub enum ErrorClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdapterRequestValidationError {
     UnsupportedSliceId(String),
     UnknownCaseId(String),
@@ -140,14 +120,17 @@ pub enum AdapterRequestValidationError {
     },
 }
 
-pub trait TidbRunner {
-    fn run(&self, plan: &TidbExecutionPlan) -> Result<EngineExecutionResult, EngineExecutionError>;
+pub trait TiflashRunner {
+    fn run(
+        &self,
+        plan: &TiflashExecutionPlan,
+    ) -> Result<EngineExecutionResult, EngineExecutionError>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct TidbFirstExpressionSliceAdapter;
+pub struct TiflashFirstExpressionSliceAdapter;
 
-impl TidbFirstExpressionSliceAdapter {
+impl TiflashFirstExpressionSliceAdapter {
     pub fn canonical_requests() -> Vec<AdapterRequest> {
         CASE_DEFINITIONS
             .iter()
@@ -158,16 +141,13 @@ impl TidbFirstExpressionSliceAdapter {
 
     pub fn lower_request(
         request: &AdapterRequest,
-    ) -> Result<TidbExecutionPlan, AdapterRequestValidationError> {
+    ) -> Result<TiflashExecutionPlan, AdapterRequestValidationError> {
         let case = validate_request(request)?;
 
-        Ok(TidbExecutionPlan {
-            request: request.clone(),
-            sql: case.render_sql(),
-        })
+        Ok(SqlExecutionPlan::new(request.clone(), case.render_sql()))
     }
 
-    pub fn execute<R: TidbRunner>(
+    pub fn execute<R: TiflashRunner>(
         request: &AdapterRequest,
         runner: &R,
     ) -> Result<CaseResult, AdapterRequestValidationError> {
@@ -196,8 +176,8 @@ impl TidbFirstExpressionSliceAdapter {
 
         Ok(CaseResult {
             slice_id: request.slice_id.clone(),
-            engine: TIDB_ENGINE.to_string(),
-            adapter: TIDB_ADAPTER.to_string(),
+            engine: TIFLASH_ENGINE.to_string(),
+            adapter: TIFLASH_ADAPTER.to_string(),
             case_id: request.case_id.clone(),
             spec_refs: request.spec_refs.clone(),
             input_ref: request.input_ref.clone(),
@@ -396,7 +376,7 @@ mod tests {
 
     #[test]
     fn canonical_requests_cover_all_documented_cases() {
-        let requests = TidbFirstExpressionSliceAdapter::canonical_requests();
+        let requests = TiflashFirstExpressionSliceAdapter::canonical_requests();
         let case_ids: Vec<&str> = requests
             .iter()
             .map(|request| request.case_id.as_str())
@@ -435,12 +415,12 @@ mod tests {
     }
 
     #[test]
-    fn lowering_renders_tidb_sql_for_each_documented_case() {
-        let requests = TidbFirstExpressionSliceAdapter::canonical_requests();
+    fn lowering_renders_tiflash_sql_for_each_documented_case() {
+        let requests = TiflashFirstExpressionSliceAdapter::canonical_requests();
         let plans: Vec<(String, String)> = requests
             .iter()
             .map(|request| {
-                let plan = TidbFirstExpressionSliceAdapter::lower_request(request).unwrap();
+                let plan = TiflashFirstExpressionSliceAdapter::lower_request(request).unwrap();
                 (plan.request.case_id, plan.sql)
             })
             .collect();
@@ -458,7 +438,7 @@ mod tests {
                 ),
                 (
                     "literal-int32-null".to_string(),
-                    "SELECT CAST(NULL AS SIGNED) AS lit FROM (SELECT CAST(1 AS SIGNED) AS a UNION ALL SELECT CAST(2 AS SIGNED) AS a UNION ALL SELECT CAST(3 AS SIGNED) AS a) AS input_rows".to_string(),
+                    "SELECT CASE WHEN input_rows.a IS NULL THEN CAST(NULL AS SIGNED) ELSE CAST(NULL AS SIGNED) END AS lit FROM (SELECT CAST(1 AS SIGNED) AS a UNION ALL SELECT CAST(2 AS SIGNED) AS a UNION ALL SELECT CAST(3 AS SIGNED) AS a) AS input_rows".to_string(),
                 ),
                 (
                     "add-int32-literal".to_string(),
@@ -478,7 +458,7 @@ mod tests {
 
     #[test]
     fn execute_rows_normalizes_schema_and_row_count() {
-        let request = TidbFirstExpressionSliceAdapter::canonical_requests()
+        let request = TiflashFirstExpressionSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "column-passthrough")
             .unwrap();
@@ -491,11 +471,11 @@ mod tests {
             vec![vec![json!(1)], vec![json!(2)], vec![json!(3)]],
         );
 
-        let result = TidbFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(runner.sqls(), vec!["SELECT input_rows.a AS a FROM (SELECT CAST(1 AS SIGNED) AS a UNION ALL SELECT CAST(2 AS SIGNED) AS a UNION ALL SELECT CAST(3 AS SIGNED) AS a) AS input_rows"]);
-        assert_eq!(result.engine, TIDB_ENGINE);
-        assert_eq!(result.adapter, TIDB_ADAPTER);
+        assert_eq!(result.engine, TIFLASH_ENGINE);
+        assert_eq!(result.adapter, TIFLASH_ADAPTER);
         assert_eq!(
             result.outcome,
             CaseOutcome::Rows {
@@ -512,7 +492,7 @@ mod tests {
 
     #[test]
     fn execute_narrows_literal_bigint_metadata_to_int32() {
-        let request = TidbFirstExpressionSliceAdapter::canonical_requests()
+        let request = TiflashFirstExpressionSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "literal-int32-seven")
             .unwrap();
@@ -525,7 +505,7 @@ mod tests {
             vec![vec![json!(7)], vec![json!(7)], vec![json!(7)]],
         );
 
-        let result = TidbFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(
             result.outcome,
@@ -543,7 +523,7 @@ mod tests {
 
     #[test]
     fn execute_keeps_non_literal_bigint_metadata_as_int64() {
-        let request = TidbFirstExpressionSliceAdapter::canonical_requests()
+        let request = TiflashFirstExpressionSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "add-int32-literal")
             .unwrap();
@@ -556,7 +536,7 @@ mod tests {
             vec![vec![json!(2)], vec![json!(3)], vec![json!(4)]],
         );
 
-        let result = TidbFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(
             result.outcome,
@@ -573,8 +553,8 @@ mod tests {
     }
 
     #[test]
-    fn execute_normalizes_tidb_overflow_errors() {
-        let request = TidbFirstExpressionSliceAdapter::canonical_requests()
+    fn execute_normalizes_tiflash_overflow_errors() {
+        let request = TiflashFirstExpressionSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "add-int32-overflow-error")
             .unwrap();
@@ -583,7 +563,7 @@ mod tests {
             message: "Error 1690 (22003): value is out of range".to_string(),
         });
 
-        let result = TidbFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(
             result.outcome,
@@ -597,15 +577,15 @@ mod tests {
 
     #[test]
     fn execute_normalizes_adapter_unavailable_without_extra_code() {
-        let request = TidbFirstExpressionSliceAdapter::canonical_requests()
+        let request = TiflashFirstExpressionSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "add-int32-overflow-error")
             .unwrap();
         let runner = StubRunner::error(EngineExecutionError::AdapterUnavailable {
-            message: Some("TiDB DSN is not configured".to_string()),
+            message: Some("TiFlash DSN is not configured".to_string()),
         });
 
-        let result = TidbFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstExpressionSliceAdapter::execute(&request, &runner).unwrap();
         let serialized = serde_json::to_value(&result).unwrap();
 
         assert_eq!(
@@ -613,7 +593,7 @@ mod tests {
             CaseOutcome::Error {
                 error_class: ErrorClass::AdapterUnavailable,
                 engine_code: None,
-                engine_message: Some("TiDB DSN is not configured".to_string()),
+                engine_message: Some("TiFlash DSN is not configured".to_string()),
             }
         );
         assert_eq!(serialized["outcome"]["kind"], "error");
@@ -623,13 +603,13 @@ mod tests {
 
     #[test]
     fn lowering_rejects_requests_with_mismatched_spec_refs() {
-        let mut request = TidbFirstExpressionSliceAdapter::canonical_requests()
+        let mut request = TiflashFirstExpressionSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "column-passthrough")
             .unwrap();
         request.spec_refs.pop();
 
-        let error = TidbFirstExpressionSliceAdapter::lower_request(&request).unwrap_err();
+        let error = TiflashFirstExpressionSliceAdapter::lower_request(&request).unwrap_err();
 
         assert_eq!(
             error,
@@ -675,10 +655,10 @@ mod tests {
         }
     }
 
-    impl TidbRunner for StubRunner {
+    impl TiflashRunner for StubRunner {
         fn run(
             &self,
-            plan: &TidbExecutionPlan,
+            plan: &TiflashExecutionPlan,
         ) -> Result<EngineExecutionResult, EngineExecutionError> {
             self.seen_sql.borrow_mut().push(plan.sql.clone());
             self.result.clone()

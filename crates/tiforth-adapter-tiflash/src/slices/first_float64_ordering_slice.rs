@@ -1,9 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::engine::{is_missing_column, SqlExecutionPlan};
+pub use crate::engine::{
+    EngineColumn, EngineExecutionError, EngineExecutionResult, ADAPTER as TIFLASH_ADAPTER,
+    ENGINE as TIFLASH_ENGINE,
+};
+
 pub const FIRST_FLOAT64_ORDERING_SLICE_ID: &str = "first-float64-ordering-slice";
-pub const TIDB_ENGINE: &str = "tidb";
-pub const TIDB_ADAPTER: &str = "tidb-sql";
 pub const COMPARISON_MODE_ROW_ORDER_PRESERVED: &str = "row-order-preserved";
 pub const COMPARISON_MODE_FLOAT64_MULTISET_CANONICAL: &str = "float64-multiset-canonical";
 
@@ -81,11 +85,7 @@ pub struct AdapterRequest {
     pub filter_ref: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TidbExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TiflashExecutionPlan = SqlExecutionPlan<AdapterRequest>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -137,30 +137,6 @@ pub enum ErrorClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdapterRequestValidationError {
     UnsupportedSliceId(String),
     UnknownCaseId(String),
@@ -182,14 +158,17 @@ pub enum AdapterRequestValidationError {
     },
 }
 
-pub trait TidbRunner {
-    fn run(&self, plan: &TidbExecutionPlan) -> Result<EngineExecutionResult, EngineExecutionError>;
+pub trait TiflashRunner {
+    fn run(
+        &self,
+        plan: &TiflashExecutionPlan,
+    ) -> Result<EngineExecutionResult, EngineExecutionError>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct TidbFirstFloat64OrderingSliceAdapter;
+pub struct TiflashFirstFloat64OrderingSliceAdapter;
 
-impl TidbFirstFloat64OrderingSliceAdapter {
+impl TiflashFirstFloat64OrderingSliceAdapter {
     pub fn canonical_requests() -> Vec<AdapterRequest> {
         CASE_DEFINITIONS
             .iter()
@@ -200,16 +179,13 @@ impl TidbFirstFloat64OrderingSliceAdapter {
 
     pub fn lower_request(
         request: &AdapterRequest,
-    ) -> Result<TidbExecutionPlan, AdapterRequestValidationError> {
+    ) -> Result<TiflashExecutionPlan, AdapterRequestValidationError> {
         let case = validate_request(request)?;
 
-        Ok(TidbExecutionPlan {
-            request: request.clone(),
-            sql: case.render_sql(),
-        })
+        Ok(SqlExecutionPlan::new(request.clone(), case.render_sql()))
     }
 
-    pub fn execute<R: TidbRunner>(
+    pub fn execute<R: TiflashRunner>(
         request: &AdapterRequest,
         runner: &R,
     ) -> Result<CaseResult, AdapterRequestValidationError> {
@@ -234,8 +210,8 @@ impl TidbFirstFloat64OrderingSliceAdapter {
 
         Ok(CaseResult {
             slice_id: request.slice_id.clone(),
-            engine: TIDB_ENGINE.to_string(),
-            adapter: TIDB_ADAPTER.to_string(),
+            engine: TIFLASH_ENGINE.to_string(),
+            adapter: TIFLASH_ADAPTER.to_string(),
             case_id: request.case_id.clone(),
             spec_refs: request.spec_refs.clone(),
             input_ref: request.input_ref.clone(),
@@ -453,14 +429,6 @@ fn normalize_error(error: EngineExecutionError) -> CaseOutcome {
     }
 }
 
-fn is_missing_column(engine_code: Option<&str>, engine_message: &str) -> bool {
-    let normalized_message = engine_message.to_ascii_lowercase();
-
-    engine_code == Some("1054")
-        || normalized_message.contains("unknown column")
-        || normalized_message.contains("no such column")
-}
-
 fn is_unsupported_floating_type(engine_code: Option<&str>, engine_message: &str) -> bool {
     let normalized_message = engine_message.to_ascii_lowercase();
 
@@ -489,7 +457,7 @@ mod tests {
 
     #[test]
     fn canonical_requests_cover_all_documented_cases() {
-        let requests = TidbFirstFloat64OrderingSliceAdapter::canonical_requests();
+        let requests = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests();
         let case_ids: Vec<&str> = requests
             .iter()
             .map(|request| request.case_id.as_str())
@@ -536,12 +504,12 @@ mod tests {
     }
 
     #[test]
-    fn lowering_renders_tidb_sql_for_each_documented_case() {
-        let requests = TidbFirstFloat64OrderingSliceAdapter::canonical_requests();
+    fn lowering_renders_tiflash_sql_for_each_documented_case() {
+        let requests = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests();
         let plans: Vec<(String, String)> = requests
             .iter()
             .map(|request| {
-                let plan = TidbFirstFloat64OrderingSliceAdapter::lower_request(request).unwrap();
+                let plan = TiflashFirstFloat64OrderingSliceAdapter::lower_request(request).unwrap();
                 (plan.request.case_id, plan.sql)
             })
             .collect();
@@ -583,7 +551,7 @@ mod tests {
 
     #[test]
     fn execute_rows_normalizes_schema_and_row_count() {
-        let request = TidbFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "float64-canonical-ordering-normalization")
             .unwrap();
@@ -603,10 +571,10 @@ mod tests {
             ],
         );
 
-        let result = TidbFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
 
-        assert_eq!(result.engine, TIDB_ENGINE);
-        assert_eq!(result.adapter, TIDB_ADAPTER);
+        assert_eq!(result.engine, TIFLASH_ENGINE);
+        assert_eq!(result.adapter, TIFLASH_ADAPTER);
         assert_eq!(
             result.outcome,
             CaseOutcome::Rows {
@@ -634,7 +602,7 @@ mod tests {
 
     #[test]
     fn execute_normalizes_missing_column_errors() {
-        let request = TidbFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "float64-missing-column-error")
             .unwrap();
@@ -643,7 +611,7 @@ mod tests {
             message: "Unknown column '__missing_column_1' in 'where clause'".to_string(),
         });
 
-        let result = TidbFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(
             result.outcome,
@@ -659,7 +627,7 @@ mod tests {
 
     #[test]
     fn execute_normalizes_unsupported_floating_type_errors() {
-        let request = TidbFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "unsupported-floating-type-error")
             .unwrap();
@@ -670,7 +638,7 @@ mod tests {
                     .to_string(),
         });
 
-        let result = TidbFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
+        let result = TiflashFirstFloat64OrderingSliceAdapter::execute(&request, &runner).unwrap();
 
         assert_eq!(
             result.outcome,
@@ -687,14 +655,14 @@ mod tests {
 
     #[test]
     fn lowering_rejects_requests_with_mismatched_operation_refs() {
-        let mut request = TidbFirstFloat64OrderingSliceAdapter::canonical_requests()
+        let mut request = TiflashFirstFloat64OrderingSliceAdapter::canonical_requests()
             .into_iter()
             .find(|request| request.case_id == "float64-column-passthrough")
             .unwrap();
         request.projection_ref = None;
         request.filter_ref = Some("is-not-null-column-0".to_string());
 
-        let error = TidbFirstFloat64OrderingSliceAdapter::lower_request(&request).unwrap_err();
+        let error = TiflashFirstFloat64OrderingSliceAdapter::lower_request(&request).unwrap_err();
 
         assert_eq!(
             error,
@@ -728,10 +696,10 @@ mod tests {
         }
     }
 
-    impl TidbRunner for StubRunner {
+    impl TiflashRunner for StubRunner {
         fn run(
             &self,
-            _plan: &TidbExecutionPlan,
+            _plan: &TiflashExecutionPlan,
         ) -> Result<EngineExecutionResult, EngineExecutionError> {
             self.result.clone()
         }

@@ -1,9 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::engine::SqlExecutionPlan;
+pub use crate::engine::{
+    EngineColumn, EngineExecutionError, EngineExecutionResult, ADAPTER as TIDB_ADAPTER,
+    ENGINE as TIDB_ENGINE,
+};
+
 pub const FIRST_UNSIGNED_ARITHMETIC_SLICE_ID: &str = "first-unsigned-arithmetic-slice";
-pub const TIDB_ENGINE: &str = "tidb";
-pub const TIDB_ADAPTER: &str = "tidb-sql";
 pub const COMPARISON_MODE_ROW_ORDER_PRESERVED: &str = "row-order-preserved";
 
 const FIRST_UNSIGNED_ARITHMETIC_SLICE_SPEC_REFS: [&str; 4] = [
@@ -76,11 +80,7 @@ pub struct AdapterRequest {
     pub filter_ref: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TidbExecutionPlan {
-    pub request: AdapterRequest,
-    pub sql: String,
-}
+pub type TidbExecutionPlan = SqlExecutionPlan<AdapterRequest>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CaseResult {
@@ -134,30 +134,6 @@ pub enum ErrorClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineExecutionResult {
-    pub columns: Vec<EngineColumn>,
-    pub rows: Vec<Vec<Value>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EngineColumn {
-    pub name: String,
-    pub engine_type: String,
-    pub nullable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EngineExecutionError {
-    AdapterUnavailable {
-        message: Option<String>,
-    },
-    EngineFailure {
-        code: Option<String>,
-        message: String,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AdapterRequestValidationError {
     UnsupportedSliceId(String),
     UnknownCaseId(String),
@@ -200,10 +176,7 @@ impl TidbFirstUnsignedArithmeticSliceAdapter {
     ) -> Result<TidbExecutionPlan, AdapterRequestValidationError> {
         let case = validate_request(request)?;
 
-        Ok(TidbExecutionPlan {
-            request: request.clone(),
-            sql: case.render_sql(),
-        })
+        Ok(SqlExecutionPlan::new(request.clone(), case.render_sql()))
     }
 
     pub fn execute<R: TidbRunner>(
