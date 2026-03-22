@@ -30,6 +30,33 @@ Conformance, differential, and performance harnesses that exercise the stack and
 
 The first documented differential checkpoint is the TiDB-versus-TiFlash expression slice in `tests/differential/first-expression-slice.md`.
 
+## Formal Repository Shape
+
+Issue #396 now fixes the project's formal top-level organization in
+`docs/design/formal-project-layout-and-top-level-shared-surfaces.md`.
+
+That checkpoint formalizes the current repository shape as one top-level
+directory per durable concern:
+
+- `docs/`
+- `tests/`
+- `inventory/`
+- `adapters/`
+- `crates/`
+- `scripts/`
+
+It also formalizes the current long-lived workspace-crate categories as:
+
+- `tiforth-kernel` for shared kernel data, runtime, admission, ownership, and
+  executable-slice surfaces
+- `tiforth-adapter-<engine>` for engine-local execution and translation
+- `tiforth-harness-<kind>` for harness execution, comparison, and artifact
+  rendering
+
+This means future growth should prefer adding modules under those existing
+categories instead of adding one new top-level directory or one new crate per
+slice.
+
 ## Current Repository Bias
 
 This reboot started in layers 1, 2, 4, 5, and 6. Layer 3 now enters only through minimal milestone-1 slices that are justified by docs and local tests.
