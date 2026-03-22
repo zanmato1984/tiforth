@@ -241,7 +241,6 @@ in `adapters/first-widening-add-float64-slice.md`.
 
 Later issues may extend this slice to cover:
 
-- executable local kernel coverage for this checkpoint
 - executable TiDB/TiFlash adapter and harness coverage plus checked-in
   `inventory/` artifacts
 - explicit near-`2^53` precision-loss probes for admitted widening cases

@@ -14,6 +14,8 @@ pub mod first_float64_ordering_slice;
 pub mod first_json_slice;
 #[path = "../first_map_slice.rs"]
 pub mod first_map_slice;
+#[path = "../first_signed_widening_add_int64_slice.rs"]
+pub mod first_signed_widening_add_int64_slice;
 #[path = "../first_struct_slice.rs"]
 pub mod first_struct_slice;
 #[path = "../first_temporal_date32_slice.rs"]

@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
-use arrow_array::builder::{Int32Builder, Int64Builder, UInt64Builder};
-use arrow_array::{Array, ArrayRef, Int32Array, Int64Array, RecordBatch, UInt64Array};
+use arrow_array::builder::{Float64Builder, Int32Builder, Int64Builder, UInt64Builder};
+use arrow_array::{
+    Array, ArrayRef, Float64Array, Int32Array, Int64Array, RecordBatch, UInt64Array,
+};
 use arrow_schema::Schema;
 
 use crate::admission::{AdmissionController, ConsumerKind, ConsumerSpec};
@@ -167,6 +169,31 @@ fn evaluate_governed_projection(
                 claim_factory,
             )
         }
+        Expr::AddFloat64(lhs, rhs) => {
+            let lhs = evaluate_value(
+                lhs,
+                input.batch().as_ref(),
+                controller,
+                operator_name,
+                &projection.name,
+            )?;
+            let rhs = evaluate_value(
+                rhs,
+                input.batch().as_ref(),
+                controller,
+                operator_name,
+                &projection.name,
+            )?;
+            materialize_float64_add_with_claim(
+                &lhs,
+                &rhs,
+                input.batch().num_rows(),
+                controller,
+                operator_name,
+                &projection.name,
+                claim_factory,
+            )
+        }
         Expr::AddUInt64(lhs, rhs) => {
             let lhs = evaluate_value(
                 lhs,
@@ -227,6 +254,18 @@ fn evaluate_value(
             let lhs = evaluate_value(lhs, batch, controller, operator_name, output_name)?;
             let rhs = evaluate_value(rhs, batch, controller, operator_name, output_name)?;
             Ok(EvalValue::Array(materialize_int64_add(
+                &lhs,
+                &rhs,
+                batch.num_rows(),
+                controller,
+                operator_name,
+                output_name,
+            )?))
+        }
+        Expr::AddFloat64(lhs, rhs) => {
+            let lhs = evaluate_value(lhs, batch, controller, operator_name, output_name)?;
+            let rhs = evaluate_value(rhs, batch, controller, operator_name, output_name)?;
+            Ok(EvalValue::Array(materialize_float64_add(
                 &lhs,
                 &rhs,
                 batch.num_rows(),
@@ -352,6 +391,52 @@ fn materialize_int64_add_with_claim(
                             ))
                         })?)
                     }
+                    _ => builder.append_null(),
+                }
+            }
+            Ok(())
+        },
+    )
+}
+
+fn materialize_float64_add(
+    lhs: &EvalValue,
+    rhs: &EvalValue,
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+) -> Result<ArrayRef, TiforthError> {
+    with_admitted_float64_array(rows, controller, operator_name, output_name, |builder| {
+        for row in 0..rows {
+            match (float64_value(lhs, row)?, float64_value(rhs, row)?) {
+                (Some(lhs), Some(rhs)) => builder.append_value(lhs + rhs),
+                _ => builder.append_null(),
+            }
+        }
+        Ok(())
+    })
+}
+
+fn materialize_float64_add_with_claim(
+    lhs: &EvalValue,
+    rhs: &EvalValue,
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError> {
+    with_claimed_float64_array(
+        rows,
+        controller,
+        operator_name,
+        output_name,
+        claim_factory,
+        |builder| {
+            for row in 0..rows {
+                match (float64_value(lhs, row)?, float64_value(rhs, row)?) {
+                    (Some(lhs), Some(rhs)) => builder.append_value(lhs + rhs),
                     _ => builder.append_null(),
                 }
             }
@@ -544,6 +629,74 @@ where
     Ok((Arc::new(array), vec![claim]))
 }
 
+fn with_admitted_float64_array<F>(
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    build: F,
+) -> Result<ArrayRef, TiforthError>
+where
+    F: FnOnce(&mut Float64Builder) -> Result<(), TiforthError>,
+{
+    let consumer = controller.open(ConsumerSpec::new(
+        format!("{operator_name}:{output_name}"),
+        ConsumerKind::ProjectionOutput,
+        false,
+    ));
+    let estimated = estimate_float64_array_bytes(rows);
+    consumer.try_reserve(estimated)?;
+
+    let mut builder = Float64Builder::with_capacity(rows);
+    if let Err(error) = build(&mut builder) {
+        consumer.release()?;
+        return Err(error);
+    }
+
+    let array = builder.finish();
+    let actual = actual_float64_array_bytes(&array);
+    if estimated > actual {
+        consumer.shrink(estimated - actual)?;
+    }
+    consumer.release()?;
+    Ok(Arc::new(array))
+}
+
+fn with_claimed_float64_array<F>(
+    rows: usize,
+    controller: &dyn AdmissionController,
+    operator_name: &str,
+    output_name: &str,
+    claim_factory: &dyn Fn(Arc<dyn crate::admission::AdmissionConsumer>) -> OwnershipToken,
+    build: F,
+) -> Result<(ArrayRef, Vec<OwnershipToken>), TiforthError>
+where
+    F: FnOnce(&mut Float64Builder) -> Result<(), TiforthError>,
+{
+    let consumer = controller.open(ConsumerSpec::new(
+        format!("{operator_name}:{output_name}"),
+        ConsumerKind::ProjectionOutput,
+        false,
+    ));
+    let estimated = estimate_float64_array_bytes(rows);
+    consumer.try_reserve(estimated)?;
+
+    let mut builder = Float64Builder::with_capacity(rows);
+    if let Err(error) = build(&mut builder) {
+        consumer.release()?;
+        return Err(error);
+    }
+
+    let array = builder.finish();
+    let actual = actual_float64_array_bytes(&array);
+    if estimated > actual {
+        consumer.shrink(estimated - actual)?;
+    }
+
+    let claim = claim_factory(consumer);
+    Ok((Arc::new(array), vec![claim]))
+}
+
 fn with_admitted_uint64_array<F>(
     rows: usize,
     controller: &dyn AdmissionController,
@@ -705,6 +858,48 @@ fn int32_value(value: &EvalValue, row: usize) -> Result<Option<i32>, TiforthErro
     }
 }
 
+fn float64_value(value: &EvalValue, row: usize) -> Result<Option<f64>, TiforthError> {
+    match value {
+        EvalValue::Array(array) => {
+            if let Some(float64) = array.as_any().downcast_ref::<Float64Array>() {
+                if float64.is_null(row) {
+                    Ok(None)
+                } else {
+                    Ok(Some(float64.value(row)))
+                }
+            } else if let Some(int64) = array.as_any().downcast_ref::<Int64Array>() {
+                if int64.is_null(row) {
+                    Ok(None)
+                } else {
+                    Ok(Some(int64.value(row) as f64))
+                }
+            } else if let Some(int32) = array.as_any().downcast_ref::<Int32Array>() {
+                if int32.is_null(row) {
+                    Ok(None)
+                } else {
+                    Ok(Some(f64::from(int32.value(row))))
+                }
+            } else {
+                Err(TiforthError::UnsupportedDataType {
+                    detail: format!(
+                        "expected Int32, Int64, or Float64 expression input, got {:?}",
+                        array.data_type()
+                    ),
+                })
+            }
+        }
+        EvalValue::Int32Scalar(_) => Err(TiforthError::UnsupportedDataType {
+            detail:
+                "first widening add<float64> slice keeps operand support column-backed; literal<int32> is unsupported"
+                    .to_string(),
+        }),
+        EvalValue::UInt64Scalar(_) => Err(TiforthError::UnsupportedDataType {
+            detail: "mixed signed and unsigned arithmetic is unsupported in the current checkpoint"
+                .to_string(),
+        }),
+    }
+}
+
 fn uint64_value(value: &EvalValue, row: usize) -> Result<Option<u64>, TiforthError> {
     match value {
         EvalValue::UInt64Scalar(value) => Ok(*value),
@@ -773,6 +968,18 @@ fn estimate_int32_array_bytes(rows: usize) -> usize {
 
 fn actual_int32_array_bytes(array: &Int32Array) -> usize {
     let mut bytes = array.len() * std::mem::size_of::<i32>();
+    if array.null_count() > 0 {
+        bytes += array.len().div_ceil(8);
+    }
+    bytes
+}
+
+fn estimate_float64_array_bytes(rows: usize) -> usize {
+    rows * std::mem::size_of::<f64>() + rows.div_ceil(8)
+}
+
+fn actual_float64_array_bytes(array: &Float64Array) -> usize {
+    let mut bytes = array.len() * std::mem::size_of::<f64>();
     if array.null_count() > 0 {
         bytes += array.len().div_ceil(8);
     }

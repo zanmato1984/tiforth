@@ -1,6 +1,6 @@
 # First Differential Signed-Widening `add<int64>` Adapter Boundary
 
-Status: issue #426 design checkpoint
+Status: issue #426 design checkpoint, issue #434 executable checkpoint
 
 Related issues:
 
@@ -8,6 +8,7 @@ Related issues:
 - #409 `epic: complete function-family program`
 - #422 `spec: complete the numeric add/plus family boundary`
 - #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
+- #434 `milestone-1: implement first executable signed-widening add/int64 TiDB/TiFlash differential slice`
 
 ## Purpose
 
@@ -157,16 +158,25 @@ that paired case as `unsupported`.
 - `input_ref` and `projection_ref` should remain stable identifiers, not
   rendered SQL
 
+## Executable Checkpoint
+
+Issue #434 now executes this boundary through:
+
+- `crates/tiforth-adapter-tidb/src/slices/first_signed_widening_add_int64_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/slices/first_signed_widening_add_int64_slice.rs`
+- `crates/tiforth-harness-differential/src/first_signed_widening_add_int64_slice.rs`
+- `inventory/first-signed-widening-add-int64-slice-tidb-case-results.json`
+- `inventory/first-signed-widening-add-int64-slice-tiflash-case-results.json`
+- `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.md`
+- `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.json`
+
 ## Follow-On Boundary
 
 Later issues may extend this boundary to cover:
 
-- executable TiDB/TiFlash adapter and harness coverage plus checked-in
-  `inventory/` artifacts for this slice
 - broader signed error normalization
 - reusable session profiles or adapter capability advertisement
 - TiKV single-engine and pairwise checkpoints for signed add
 
-Until then, this note fixes only the minimum request-and-response contract for
-first-slice signed-widening differential comparison for the add-family
-follow-on.
+This note now fixes the minimum request-and-response contract exercised by the
+first executable TiDB-versus-TiFlash signed-widening differential checkpoint.

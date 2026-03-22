@@ -1,6 +1,6 @@
 # First Signed-Widening `add<int64>` Slice
 
-Status: issue #426 design checkpoint, issue #429 local executable kernel checkpoint
+Status: issue #426 design checkpoint, issue #429 local executable kernel checkpoint, issue #434 differential harness checkpoint
 
 Verified: 2026-03-22
 
@@ -14,6 +14,7 @@ Related issues:
 - #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 - #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
 - #429 `milestone-1: implement first executable signed-widening add/int64 slice in local kernel`
+- #434 `milestone-1: implement first executable signed-widening add/int64 TiDB/TiFlash differential slice`
 
 ## Question
 
@@ -126,27 +127,28 @@ Issue #426 fixes the docs-first anchor set for this slice:
   `adapters/first-signed-widening-add-int64-slice.md`
 
 Those docs fix stable `slice_id`, `input_ref`, `projection_ref`, `case_id`,
-normalized error classes, and planned evidence filenames before executable work
-lands.
+normalized error classes, and checked-in evidence filenames for executable work.
 
 Issue #429 adds the first executable local shared-kernel coverage for this
 checkpoint in:
 
 - `crates/tiforth-kernel/tests/signed_widening_add_int64_slice.rs`
 
+Issue #434 adds the first executable TiDB/TiFlash adapter and differential
+harness coverage for this checkpoint in:
+
+- `crates/tiforth-adapter-tidb/src/slices/first_signed_widening_add_int64_slice.rs`
+- `crates/tiforth-adapter-tiflash/src/slices/first_signed_widening_add_int64_slice.rs`
+- `crates/tiforth-harness-differential/src/first_signed_widening_add_int64_slice.rs`
+
 ## Evidence Boundary
 
-Checked-in differential and `inventory/` evidence remain follow-on scope for
-this slice.
-
-The planned checked-in artifact names for later executable coverage are:
+Issue #434 checks in the first signed-widening TiDB/TiFlash artifact set for
+this slice:
 
 - `inventory/first-signed-widening-add-int64-slice-tidb-case-results.json`
 - `inventory/first-signed-widening-add-int64-slice-tiflash-case-results.json`
 - `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.md`
 - `inventory/first-signed-widening-add-int64-slice-tidb-vs-tiflash-drift-report.json`
-
-Executable TiDB/TiFlash adapter, harness, and `inventory/` claims remain
-separate follow-on checkpoints.
 
 ## Out Of Scope For This Checkpoint

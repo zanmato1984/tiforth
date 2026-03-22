@@ -22,7 +22,7 @@ Issue #300 adds the first unsigned arithmetic conformance checkpoint in `tests/c
 
 Issue #426 adds the first signed-widening `add<int64>` conformance checkpoint in `tests/conformance/first-signed-widening-add-int64-slice.md`. Issue #429 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/signed_widening_add_int64_slice.rs`.
 
-Issue #427 adds the first widening `add<float64>` conformance checkpoint in `tests/conformance/first-widening-add-float64-slice.md`. Executable local kernel coverage for that checkpoint remains follow-on scope.
+Issue #427 adds the first widening `add<float64>` conformance checkpoint in `tests/conformance/first-widening-add-float64-slice.md`. Issue #432 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/widening_add_float64_slice.rs`.
 
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
 

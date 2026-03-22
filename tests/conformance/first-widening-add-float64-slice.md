@@ -1,6 +1,6 @@
 # First Widening `add<float64>` Slice Cases
 
-Status: issue #427 docs checkpoint
+Status: issue #427 docs checkpoint, issue #432 local executable kernel checkpoint
 
 Spec source: `docs/design/first-widening-add-float64-slice.md`
 
@@ -34,8 +34,10 @@ Cross-engine comparison for these cases is defined in:
 
 ## Executable Harness Boundary
 
-This checkpoint is docs-first only.
+Issue #432 adds the first executable local kernel conformance coverage for this
+checkpoint in:
 
-Executable local kernel coverage, executable TiDB/TiFlash differential harness
-coverage, and checked-in `inventory/` artifacts remain follow-on scope for the
-same active epic.
+- `crates/tiforth-kernel/tests/widening_add_float64_slice.rs`
+
+Executable TiDB/TiFlash differential harness coverage and checked-in
+`inventory/` artifacts remain follow-on scope for the same active epic.
