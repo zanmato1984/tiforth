@@ -100,6 +100,24 @@ For this checkpoint, representative mixed requests such as `int32` with
 `uint32`, or `int64` with `uint64`, are execution errors unless a follow-on
 spec issue defines explicit interaction semantics.
 
+## First Complete Function-Family Direction
+
+Issue #414 now fixes the first complete function-family target in
+`docs/spec/functions/numeric-add-family.md`.
+
+For current shared planning:
+
+- the first complete function family is scalar numeric `add`, with `plus` and
+  SQL `+` treated as accepted external spellings for the same family when donor,
+  engine, or protocol surfaces are discussed
+- current repo evidence for that choice is the existing `add<int32>`
+  milestone-1 checkpoint plus the first `add<uint64>` unsigned checkpoint
+- follow-on type-system work should therefore stay focused on overload
+  selection, result typing, nullability, overflow, and coercion questions for
+  numeric add before reopening unrelated families
+- unary plus, temporal add, interval add, aggregate `sum`, string `+`, and
+  other non-numeric or non-scalar families remain separate follow-on boundaries
+
 ## Current Milestone-1 Boundary
 
 The current executable slices fix the type behavior for the milestone-1 expression-projection path plus the first executable post-gate filter path.
