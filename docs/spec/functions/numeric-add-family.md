@@ -13,6 +13,7 @@ Related issues:
 - #412 `sub-epic: reuse tipb/kvproto function enums for the active family`
 - #413 `sub-epic: TiDB-to-Arrow mapping for the active function family`
 - #414 `spec: pin the first complete function family as numeric add/plus`
+- #418 `design: fix TiDB-to-Arrow mapping for the numeric add/plus family`
 
 ## Question
 
@@ -125,16 +126,28 @@ Still deferred even after the family is fixed:
 - non-numeric overloads or operator aliases that do not share numeric-add
   semantics cleanly
 
-## Required Follow-On Boundaries
+## Mapping Boundary
 
-Before the family can be completed coherently, the active epic must settle:
+Issue #418 now fixes the family-specific TiDB-to-Arrow mapping boundary in
+`docs/design/first-tidb-arrow-type-mapping-boundary.md`.
 
-1. `#413` for the TiDB-to-Arrow mapping required by admitted numeric add
-   overloads
-2. `#412` for `tipb` and `kvproto` enum reuse or explicit `tiforth`-only ID
+That mapping keeps the current family Arrow-native by default:
+
+- exact signed and unsigned integer overloads preserve their exact Arrow integer
+  result types even when engine-local arithmetic surfaces wider metadata
+- exact floating-point overloads stay Arrow-native by width
+- decimal add remains Arrow-native through Arrow decimal types with explicit
+  precision/scale policy rather than a custom numeric carrier
+
+## Remaining Follow-On Boundary
+
+Before the family can be completed coherently, the active epic still must
+settle:
+
+1. `#412` for `tipb` and `kvproto` enum reuse or explicit `tiforth`-only ID
    fallback for the same family
 
-Only after those boundaries land should a later issue claim full family
+Only after that boundary lands should a later issue claim full family
 completion through generic-first overload reuse.
 
 ## Result

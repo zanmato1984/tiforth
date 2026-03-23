@@ -32,10 +32,10 @@ Current first-wave priority:
 
 ## Planned Follow-On Checkpoints
 
-- the next follow-on should settle the TiDB-to-Arrow mapping required by the
-  numeric add/plus family before broader family completion starts
-- the next follow-on after that should settle `tipb` and `kvproto` enum reuse
-  for the same family before `tiforth` invents new function IDs
+- the TiDB-to-Arrow mapping required by the numeric add/plus family is now
+  fixed in `docs/design/first-tidb-arrow-type-mapping-boundary.md`
+- the next follow-on should settle `tipb` and `kvproto` enum reuse for the same
+  family before `tiforth` invents new function IDs
 - later completion work should update `docs/spec/type-system.md` for signature
   matching, coercion, and result-type derivation across the admitted numeric
   add overload groups before implementation claims the full family
