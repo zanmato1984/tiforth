@@ -16,6 +16,7 @@ Repo docs are for stable knowledge, not for day-to-day execution tracking.
 - do not create repo-local plan or status files for execution tracking
 - if a PR fully resolves its primary issue, use `Closes #...`
 - if a PR is partial, stacked, exploratory, or only related, use `Refs #...`
+- stacked or non-`main` merges are intermediate only; they do not satisfy issue closure or epic exit unless GitHub explicitly records retirement or supersession
 
 ## Issue Rules
 
@@ -66,6 +67,9 @@ Use `Refs #...` when the PR is:
 - only part of the issue
 - a stacked/intermediate checkpoint
 - a supporting PR that should not close the issue by itself
+
+If the PR targets another issue branch instead of `main`, it is still partial
+even after merge and must not be treated as final issue resolution.
 
 ### 2. Prefer one primary issue per PR
 
@@ -132,6 +136,21 @@ When an issue is fully resolved by a merged PR:
 
 - prefer automatic closure via `Closes #...`
 - if an issue is closed manually, leave a short summary comment pointing to the merged PR
+
+Do not close an issue merely because a stacked PR merged into another non-`main`
+branch. For closure and epic-exit accounting, the work must either land on
+`main` or be explicitly retired or superseded in GitHub with a short note.
+
+## Epic Exit And Stacked PRs
+
+An epic stays active while any child issue required for its exit criteria is:
+
+- still open
+- resolved only in an open stacked PR
+- merged only into another non-`main` branch
+
+Epic promotion is allowed only after those child issues are merged to `main` or
+explicitly retired or superseded with a blocker note.
 
 ## Post-Merge Local Cleanup
 
