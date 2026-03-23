@@ -14,6 +14,8 @@ Related issues:
 - #413 `sub-epic: TiDB-to-Arrow mapping for the active function family`
 - #414 `spec: pin the first complete function family as numeric add/plus`
 - #418 `design: fix TiDB-to-Arrow mapping for the numeric add/plus family`
+- #420 `design: map the numeric add/plus family to tipb/kvproto enums`
+- #422 `spec: complete the numeric add/plus family boundary`
 
 ## Question
 
@@ -153,13 +155,21 @@ That boundary reuses the existing upstream arithmetic IDs directly:
 - no separate numeric-add function enum from `kvproto`; `kvproto` remains the
   transport boundary for `tipb` payloads
 
-## Remaining Follow-On Boundary
+## Completion Boundary
 
-The active epic may now advance to complete-family generic-first overload reuse
-for the numeric `add/plus` family.
+Issue #422 now fixes the family-completion boundary in
+`docs/spec/functions/numeric-add-family-completion.md`.
+
+That doc is the canonical shared entry for:
+
+- generic-first overload reuse across the admitted numeric add overload groups
+- add-family type-system and result-derivation consequences
+- required adapter, harness, and checked-in evidence expectations before the
+  family can be claimed complete
 
 ## Result
 
 `tiforth` now has one exact first complete function-family target: the scalar
 numeric `add/plus` family. Future family work should stay inside that family
-until its mapping, protocol identity, and completion boundaries are resolved.
+until its mapping, protocol identity, and completion boundaries are resolved
+through the linked shared docs.
