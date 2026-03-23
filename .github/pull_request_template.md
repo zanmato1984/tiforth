@@ -44,8 +44,9 @@ Do not rely on repo-local plan or status docs.
 <!--
 Use exactly one primary issue whenever possible.
 
-- Use `Closes #...` when this PR fully resolves the issue and should auto-close it when merged to `main`.
+- Use `Closes #...` only when this PR fully resolves the issue and should auto-close it when merged to `main`.
 - Use `Refs #...` when this PR is partial, stacked, exploratory, or otherwise should not close the issue yet.
+- A stacked merge into another issue branch does not close the issue or satisfy epic exit by itself.
 -->
 
 Closes #

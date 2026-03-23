@@ -54,6 +54,7 @@ that direction.
 - Use `docs/process/focus-driven-execution.md` plus the GitHub `program:` meta issue as the startup control layer for choosing current work.
 - Keep exactly one active top-level epic and one current concrete issue at a time.
 - If the current issue is blocked by a missing accepted boundary, open the blocking docs-first or bootstrap issue inside the same active epic instead of jumping to another epic.
+- Do not treat open stacked PRs or child issues whose work exists only on a non-`main` branch as completed for issue closure or epic promotion; they remain blocking until merged to `main` or explicitly retired in GitHub.
 - If a PR changes semantics, boundaries, top-level structure, or contributor workflow, update the corresponding docs or explain `Docs-Impact: none - <reason>` in the PR body.
 - When a PR adds, renames, regenerates, or intentionally skips in-scope `inventory/` evidence, follow `docs/process/inventory-refresh.md` and declare `Inventory-Impact: ...` in the PR body.
 - Do not add concrete operators or functions until their specs and harness coverage exist.

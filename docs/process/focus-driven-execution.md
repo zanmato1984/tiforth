@@ -145,6 +145,26 @@ Top-level epic promotion is allowed only when both are true:
 Without that explicit meta-issue update, the repository remains in the current
 epic even if other docs contain attractive next steps.
 
+### Exit Criteria Must Be Mainline-Visible
+
+Treat the current epic as unresolved while any issue required for its exit
+criteria is still in one of these states:
+
+- open as a child issue
+- landed only in an open stacked PR chain
+- merged into another non-`main` branch but not yet merged to `main`
+
+For epic-promotion purposes, a stacked `Refs #...` PR is always intermediate.
+It may move work between issue branches, but it does not by itself close the
+linked issue, satisfy the parent epic exit criteria, or authorize switching to
+another top-level epic.
+
+Before promotion, either:
+
+1. merge the required child work to `main`, or
+2. explicitly retire, supersede, or abandon the child issue and stacked PR in
+   GitHub with a short note explaining why it no longer blocks the epic
+
 ## Recommended Body Skeletons
 
 ### `program:` Meta Issue
@@ -162,7 +182,9 @@ Current issue: #
 ## Promotion rule
 
 Promote to the next epic only after the current epic exit criteria are met and
-this issue is updated explicitly.
+this issue is updated explicitly. Open stacked PRs or non-`main` merges for
+required child issues still block promotion until they are merged to `main` or
+explicitly retired.
 
 ## Epic queue
 
