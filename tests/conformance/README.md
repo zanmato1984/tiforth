@@ -22,6 +22,8 @@ Issue #300 adds the first unsigned arithmetic conformance checkpoint in `tests/c
 
 Issue #426 adds the first signed-widening `add<int64>` conformance checkpoint in `tests/conformance/first-signed-widening-add-int64-slice.md`. Executable local kernel coverage for that checkpoint remains follow-on scope.
 
+Issue #427 adds the first widening `add<float64>` conformance checkpoint in `tests/conformance/first-widening-add-float64-slice.md`. Executable local kernel coverage for that checkpoint remains follow-on scope.
+
 Issue #176 adds the first temporal `date32` conformance checkpoint in `tests/conformance/first-temporal-date32-slice.md`.
 
 Issue #280 adds the first timezone-aware timestamp `timestamp_tz(us)` conformance checkpoint in `tests/conformance/first-temporal-timestamp-tz-slice.md`. Issue #288 adds first executable local conformance coverage for that checkpoint in `crates/tiforth-kernel/tests/temporal_timestamp_tz_slice.rs`.
