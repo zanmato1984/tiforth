@@ -10,6 +10,7 @@ Related issues:
 - #413 `sub-epic: TiDB-to-Arrow mapping for the active function family`
 - #414 `spec: pin the first complete function family as numeric add/plus`
 - #418 `design: fix TiDB-to-Arrow mapping for the numeric add/plus family`
+- #423 `spec: fix decimal add result derivation for the numeric add/plus family`
 
 ## Question
 
@@ -26,6 +27,7 @@ contract?
 - `docs/design/first-temporal-semantic-slice.md`
 - `docs/design/first-temporal-timestamp-tz-slice.md`
 - `docs/design/first-decimal-semantic-slice.md`
+- `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 - `docs/design/first-json-semantic-slice.md`
 - `docs/design/first-collation-string-slice.md`
 
@@ -123,11 +125,13 @@ For the current active family:
 - exact floating-point add overloads map to Arrow-native `float32` or `float64`
   of matching width; current active-family completion should prioritize
   `float64` before reopening `float32`
-- exact decimal add overloads with precision that fits Arrow `decimal128` map to
-  Arrow-native `decimal128(precision, scale)` with explicit precision/scale
-  preservation
-- exact decimal add overloads that would require `decimal256` remain directionally
-  Arrow-native, but stay deferred until a shared `decimal256` checkpoint exists
+- exact decimal add overloads whose derived result precision fits Arrow
+  `decimal128` map to Arrow-native `decimal128(result.precision, result.scale)`
+  under the accepted result-derivation rule in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
+- exact decimal add overloads whose derived result precision would require
+  `decimal256` remain directionally Arrow-native, but stay deferred until a
+  shared `decimal256` checkpoint exists
 - values beyond Arrow decimal range stay deferred for this family; `tiforth`
   does not introduce a numeric-add-specific extension type or custom carrier now
 
@@ -136,7 +140,8 @@ This resolves the first active-family mapping stance:
 - exact Arrow-native mapping bucket: signed integers, unsigned integers,
   `float64`, and later `float32` when that overload is admitted
 - Arrow-native-with-explicit-policy bucket: decimal add through Arrow decimal
-  types with preserved precision and scale plus explicit overflow/rescale follow-ons
+  types with accepted precision/scale result derivation, while `decimal256`
+  and broader decimal rescale policy remain follow-on scope
 - extension-type-or-custom-carrier bucket: none for the current numeric
   add/plus family
 

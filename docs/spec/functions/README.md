@@ -22,6 +22,9 @@ Current first-wave priority:
   `docs/spec/functions/numeric-add-family.md`
 - the canonical shared completion entry for that same family now lives in
   `docs/spec/functions/numeric-add-family-completion.md`
+- the admitted decimal add result-derivation boundary for that same family now
+  lives in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 - shared docs use `add` as the family name, while `plus` and SQL `+` remain
   accepted external spellings for the same numeric family when donor, engine,
   or protocol sources need to be discussed
@@ -30,7 +33,8 @@ Current first-wave priority:
   `add<uint64>(lhs, rhs)` checkpoint from
   `docs/design/first-unsigned-arithmetic-slice.md`
 - family-specific TiDB-to-Arrow mapping, `tipb`/`kvproto` enum reuse, and the
-  generic-first completion checklist are now fixed in shared docs; executable
+  generic-first completion checklist are now fixed in shared docs, and decimal
+  add now has an accepted `decimal128` result-derivation boundary; executable
   follow-ons still need to satisfy the admitted overload and evidence
   expectations named there before the family can be claimed complete
 
@@ -42,6 +46,9 @@ Current first-wave priority:
   `docs/design/first-add-family-tipb-kvproto-enum-reuse.md`
 - the generic-first family-completion boundary is now fixed in
   `docs/spec/functions/numeric-add-family-completion.md`
+- the exact decimal add result-derivation boundary for the same family is now
+  fixed in
+  `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
 - the next same-epic follow-ons should land the remaining admitted overload
   checkpoints and their slice-level docs, harness coverage, and checked-in
   evidence without reopening unrelated families
