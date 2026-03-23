@@ -25,6 +25,8 @@ Current first-wave priority:
 - the admitted decimal add result-derivation boundary for that same family now
   lives in
   `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
+- the first signed-widening `add<int64>` slice boundary for that same family
+  now lives in `docs/design/first-signed-widening-add-int64-slice.md`
 - shared docs use `add` as the family name, while `plus` and SQL `+` remain
   accepted external spellings for the same numeric family when donor, engine,
   or protocol sources need to be discussed
@@ -49,8 +51,11 @@ Current first-wave priority:
 - the exact decimal add result-derivation boundary for the same family is now
   fixed in
   `docs/spec/functions/numeric-add-family-decimal-result-derivation.md`
+- the first signed-widening `add<int64>` slice boundary for the same family is
+  now fixed in `docs/design/first-signed-widening-add-int64-slice.md`
 - the next same-epic follow-ons should land the remaining admitted overload
-  checkpoints and their slice-level docs, harness coverage, and checked-in
-  evidence without reopening unrelated families
+  checkpoints for `add<float64>` and admitted exact decimal add plus their
+  executable harness coverage and checked-in evidence without reopening
+  unrelated families
 
 Do not place implementation code here.

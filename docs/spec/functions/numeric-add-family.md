@@ -17,6 +17,7 @@ Related issues:
 - #420 `design: map the numeric add/plus family to tipb/kvproto enums`
 - #422 `spec: complete the numeric add/plus family boundary`
 - #423 `spec: fix decimal add result derivation for the numeric add/plus family`
+- #426 `design: define first signed-widening add/int64 slice for the numeric add/plus family`
 
 ## Question
 
@@ -170,6 +171,20 @@ That boundary now makes all of these explicit for exact decimal add:
   smaller-scale operand
 - derived precision `> 38` is deferred to a same-family `decimal256`
   follow-on instead of being narrowed back into `decimal128`
+
+## Signed Slice Boundary
+
+Issue #426 now fixes the first signed-widening `add<int64>` slice boundary in
+`docs/design/first-signed-widening-add-int64-slice.md`.
+
+That boundary makes the first admitted signed follow-on concrete:
+
+- exact `int64 + int64`, `int32 + int64`, and `int64 + int32` are the first
+  slice-level cases that select `add<int64>`
+- signed overflow-as-error applies to all of those selected `add<int64>` cases
+- `literal<int64>`, `is_not_null(column(index))` over `int64`, broader signed
+  widths, `float64`, and decimal executable follow-ons remain separate
+  same-epic checkpoints
 
 ## Completion Boundary
 
